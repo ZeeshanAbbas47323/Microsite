@@ -275,6 +275,17 @@ describe('InMemoryGetorioClient: fault injection', () => {
   });
 });
 
+describe('catalogForNewTenants', () => {
+  it('seeds tenants on first use only', async () => {
+    const c = new InMemoryGetorioClient({
+      catalogForNewTenants: () => createSampleCatalog().slice(0, 2),
+    });
+    expect((await c.listProducts('fresh', { page: 1, pageSize: 10 })).total).toBe(2);
+    await c.setProductMicrostoreFlags('fresh', 'p-1001', { visible: false, featured: false });
+    expect((await c.getProduct('fresh', 'p-1001'))?.microstore.visible).toBe(false);
+  });
+});
+
 describe('createGetorioClient', () => {
   it('defaults to a seeded mock outside production', async () => {
     const c = createGetorioClient({});

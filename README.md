@@ -94,7 +94,13 @@ In dev (`RUN_WORKER_IN_PROCESS=true`) the order-sync worker runs inside the API;
 pnpm --filter @microstore/api start:worker
 ```
 
-Start the web app (storefronts and, later, the dashboard):
+Sign in to the dashboard locally (prints a one-time link valid for 60 s, like Getorio's redirect):
+
+```bash
+pnpm --filter @microstore/api dev:sso-link tenant-demo demo-owner owner
+```
+
+Start the web app (dashboard on `localhost`, storefronts on subdomains):
 
 ```bash
 pnpm --filter @microstore/web dev
@@ -133,8 +139,8 @@ API tests are integration tests: they need MySQL from docker-compose and use `DA
 - [x] `packages/layouts`: registry with 2 layouts (metadata + defaults)
 - [x] `apps/api`: Prisma schema (all §7 tables), SSO (JWT) + Redis sessions + CSRF, store onboarding, draft config (PUT/PATCH), publish/unpublish, versions/restore, settings + subdomain change, tenant isolation tests
 - [x] `apps/api`: merchant products, public storefront API (host-based tenant resolution, catalog cache with stale fallback, draft preview), COD checkout (idempotent, server-side pricing), BullMQ order sync with retries + sweeper, merchant orders + retry, Getorio webhooks
-- [ ] `apps/api`: image uploads (S3/MinIO), storefront revalidation hook, confirmation email/SMS adapters
+- [ ] `apps/api`: image uploads (S3/MinIO), confirmation email/SMS adapters
 - [x] `packages/layouts`: React components for the 2 layouts (all section types, navbar/footer styles, product card/detail)
 - [x] `apps/web` storefront: host-based routing (`proxy.ts`), ISR + on-demand revalidation, draft preview, home/products (search, filter, sort, pagination)/product/content pages, cart, COD checkout, confirmation, SEO (metadata, OG, canonical, JSON-LD, sitemap, robots)
-- [ ] `apps/web` dashboard: SSO landing, onboarding form, design settings + preview, products, orders, settings, publish
+- [x] `apps/web` dashboard: SSO landing, 6-step onboarding with autosave and live subdomain check, overview, design editor with live draft preview (layout, theme, header/footer, pages & sections, SEO, history/restore), publish/unpublish, products, orders with retry, settings
 - [ ] Seeds, E2E, Lighthouse

@@ -199,6 +199,108 @@ function seo(title: string, storeName: string, description: string): Page['seo']
   };
 }
 
+/** What the default copy of an optional page is derived from. */
+export interface PageStoreInfo {
+  name: string;
+  description: string;
+  category: BusinessCategory;
+  city: string;
+  hasWhatsapp: boolean;
+}
+
+export type OptionalPageTemplate = 'about' | 'contact' | 'custom';
+
+/**
+ * Default content for an optional page (FR-6.3: the merchant can add pages later). Used by the
+ * generator and by the dashboard's "Add page" action. The custom page needs a title and slug.
+ */
+export function createOptionalPage(
+  template: OptionalPageTemplate,
+  store: PageStoreInfo,
+  custom?: { title: string; slug: string },
+): Page {
+  const { name } = store;
+  const copy = CATEGORY_COPY[store.category];
+  if (template === 'about') {
+    return {
+      slug: 'about',
+      template: 'about',
+      title: 'About us',
+      seo: seo('About us', name, store.description || copy.about),
+      sections: [
+        {
+          id: 'about-story',
+          type: 'richText',
+          visible: true,
+          props: {
+            title: clip(`About ${name}`, L.sectionTitle),
+            paragraphs: [clip(store.description || copy.about, L.body, true)],
+          },
+        },
+      ],
+    };
+  }
+  if (template === 'contact') {
+    return {
+      slug: 'contact',
+      template: 'contact',
+      title: 'Contact',
+      seo: seo(
+        'Contact',
+        name,
+        `Get in touch with ${name}${store.city ? ` in ${store.city}` : ''}.`,
+      ),
+      sections: [
+        {
+          id: 'contact-info',
+          type: 'contactInfo',
+          visible: true,
+          props: {
+            title: 'Get in touch',
+            subtitle: 'We are happy to help with orders and questions.',
+            showWhatsapp: store.hasWhatsapp,
+            showSocial: true,
+          },
+        },
+        {
+          id: 'contact-faq',
+          type: 'faq',
+          visible: true,
+          props: {
+            title: 'Frequently asked questions',
+            items: [
+              {
+                question: 'How do I pay?',
+                answer: 'We accept cash on delivery. You pay when your order arrives.',
+              },
+              {
+                question: 'How will I know my order is confirmed?',
+                answer: 'You will see a confirmation with your order number right after checkout.',
+              },
+            ],
+          },
+        },
+      ],
+    };
+  }
+  if (!custom) throw new Error('A custom page needs a title and slug');
+  const title = clip(custom.title, L.pageTitle);
+  return {
+    slug: custom.slug,
+    template: 'custom',
+    title,
+    seo: seo(title, name, `${title} - ${name}`),
+    sections: [
+      {
+        id: 'custom-content',
+        type: 'richText',
+        visible: true,
+        props: { title: clip(title, L.sectionTitle), paragraphs: ['Add your content here.'] },
+      },
+    ],
+  };
+}
+
 export interface GenerateOptions {
   /** Used for the footer year; defaults to now. */
   now?: Date;
@@ -292,87 +394,16 @@ export function generateSiteConfig(
     },
   ];
 
-  if (data.pages.about) {
-    pages.push({
-      slug: 'about',
-      template: 'about',
-      title: 'About us',
-      seo: seo('About us', name, business.description || copy.about),
-      sections: [
-        {
-          id: 'about-story',
-          type: 'richText',
-          visible: true,
-          props: {
-            title: clip(`About ${name}`, L.sectionTitle),
-            paragraphs: [clip(business.description || copy.about, L.body, true)],
-          },
-        },
-      ],
-    });
-  }
-
-  if (data.pages.contact) {
-    pages.push({
-      slug: 'contact',
-      template: 'contact',
-      title: 'Contact',
-      seo: seo(
-        'Contact',
-        name,
-        `Get in touch with ${name}${contact.city ? ` in ${contact.city}` : ''}.`,
-      ),
-      sections: [
-        {
-          id: 'contact-info',
-          type: 'contactInfo',
-          visible: true,
-          props: {
-            title: 'Get in touch',
-            subtitle: 'We are happy to help with orders and questions.',
-            showWhatsapp: contact.whatsapp !== '',
-            showSocial: true,
-          },
-        },
-        {
-          id: 'contact-faq',
-          type: 'faq',
-          visible: true,
-          props: {
-            title: 'Frequently asked questions',
-            items: [
-              {
-                question: 'How do I pay?',
-                answer: 'We accept cash on delivery. You pay when your order arrives.',
-              },
-              {
-                question: 'How will I know my order is confirmed?',
-                answer: 'You will see a confirmation with your order number right after checkout.',
-              },
-            ],
-          },
-        },
-      ],
-    });
-  }
-
-  if (data.pages.custom) {
-    const { title, slug } = data.pages.custom;
-    pages.push({
-      slug,
-      template: 'custom',
-      title,
-      seo: seo(title, name, `${title} - ${name}`),
-      sections: [
-        {
-          id: 'custom-content',
-          type: 'richText',
-          visible: true,
-          props: { title, paragraphs: ['Add your content here.'] },
-        },
-      ],
-    });
-  }
+  const pageStore: PageStoreInfo = {
+    name,
+    description: business.description,
+    category: business.category,
+    city: contact.city,
+    hasWhatsapp: contact.whatsapp !== '',
+  };
+  if (data.pages.about) pages.push(createOptionalPage('about', pageStore));
+  if (data.pages.contact) pages.push(createOptionalPage('contact', pageStore));
+  if (data.pages.custom) pages.push(createOptionalPage('custom', pageStore, data.pages.custom));
 
   const config: SiteConfig = {
     version: CURRENT_SCHEMA_VERSION,

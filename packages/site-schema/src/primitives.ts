@@ -48,7 +48,9 @@ export function plainText(maxLength: number, { multiline = false, min = 0 } = {}
   return z
     .string()
     .trim()
-    .refine((v) => Array.from(v).length >= min, { error: `Must be at least ${min} characters` })
+    .refine((v) => Array.from(v).length >= min, {
+      error: min === 1 ? 'This field is required' : `Must be at least ${min} characters`,
+    })
     .refine((v) => Array.from(v).length <= maxLength, {
       error: `Must be at most ${maxLength} characters`,
     })

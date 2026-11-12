@@ -1,4 +1,4 @@
 {
   "extends": "@microstore/config/tsconfig.library.json",
-  "include": ["src", "test", "tsup.config.ts", "vitest.config.ts", "prisma.config.ts"]
+  "include": ["src", "test", "scripts", "tsup.config.ts", "vitest.config.ts", "prisma.config.ts"]
 }

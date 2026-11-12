@@ -33,6 +33,8 @@ export interface InMemoryGetorioClientOptions {
   /** Artificial delay per call, to make loading states visible in local dev. */
   latencyMs?: number;
   now?: () => Date;
+  /** Dev convenience: every tenant seen for the first time gets this catalog. */
+  catalogForNewTenants?: () => GetorioProduct[];
 }
 
 export interface MockCall {
@@ -59,6 +61,7 @@ export class InMemoryGetorioClient implements GetorioClient {
   private readonly tenants = new Map<string, TenantData>();
   private readonly latencyMs: number;
   private readonly now: () => Date;
+  private readonly catalogForNewTenants: (() => GetorioProduct[]) | undefined;
   private available = true;
   private pendingFailures: GetorioErrorKind[] = [];
   private orderSeq = 100000;
@@ -69,9 +72,11 @@ export class InMemoryGetorioClient implements GetorioClient {
     catalog = {},
     latencyMs = 0,
     now = () => new Date(),
+    catalogForNewTenants,
   }: InMemoryGetorioClientOptions = {}) {
     this.latencyMs = latencyMs;
     this.now = now;
+    this.catalogForNewTenants = catalogForNewTenants;
     for (const [tenantId, products] of Object.entries(catalog))
       this.seedProducts(tenantId, products);
   }
@@ -249,6 +254,8 @@ export class InMemoryGetorioClient implements GetorioClient {
     if (!data) {
       data = { products: new Map(), orders: new Map(), idempotency: new Map() };
       this.tenants.set(tenantId, data);
+      for (const p of this.catalogForNewTenants?.() ?? [])
+        data.products.set(p.id, structuredClone(p));
     }
     return data;
   }

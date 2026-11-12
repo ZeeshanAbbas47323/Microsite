@@ -164,3 +164,32 @@ describe('switchLayout (FR-3.4)', () => {
     expect(() => switchLayout(sampleConfig(), '<script>')).toThrow();
   });
 });
+
+describe('createOptionalPage (FR-6.3)', () => {
+  const store = {
+    name: 'Ali Mart',
+    description: '',
+    category: 'grocery' as const,
+    city: 'Karachi',
+    hasWhatsapp: false,
+  };
+
+  it('creates valid default pages that can be added to a config', async () => {
+    const { createOptionalPage } = await import('../src');
+    const base = generate({ pages: { about: false, contact: false, custom: null } });
+    const pages = [
+      createOptionalPage('about', store),
+      createOptionalPage('contact', store),
+      createOptionalPage('custom', store, { title: 'Shipping', slug: 'shipping' }),
+    ];
+    const next = { ...base, pages: [...base.pages, ...pages] };
+    expect(safeParseSiteConfig(next).success).toBe(true);
+    expect(pages[1]?.seo.description).toContain('Karachi');
+    expect(pages[1]?.sections[0]).toMatchObject({ props: { showWhatsapp: false } });
+  });
+
+  it('requires a title and slug for custom pages', async () => {
+    const { createOptionalPage } = await import('../src');
+    expect(() => createOptionalPage('custom', store)).toThrow();
+  });
+});

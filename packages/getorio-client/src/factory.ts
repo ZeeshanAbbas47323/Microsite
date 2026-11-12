@@ -12,14 +12,18 @@ export interface GetorioClientEnv {
 
 /**
  * Picks the implementation from env: `GETORIO_CLIENT=mock` (default outside production) or `http`.
- * The mock is pre-seeded with the sample catalog for `tenant-demo`.
+ * The mock gives every tenant the sample catalog (dev only).
  */
 export function createGetorioClient(env: GetorioClientEnv): GetorioClient {
   const kind = env.GETORIO_CLIENT ?? (env.NODE_ENV === 'production' ? 'http' : 'mock');
   if (kind === 'mock') {
     if (env.NODE_ENV === 'production')
       throw new Error('The Getorio mock client cannot be used in production');
-    return new InMemoryGetorioClient({ catalog: { [SAMPLE_TENANT_ID]: createSampleCatalog() } });
+    // Every tenant gets the sample catalog so any dev sign-in has products to sell.
+    return new InMemoryGetorioClient({
+      catalog: { [SAMPLE_TENANT_ID]: createSampleCatalog() },
+      catalogForNewTenants: () => createSampleCatalog(),
+    });
   }
   if (kind === 'http') {
     return new HttpGetorioClient({
