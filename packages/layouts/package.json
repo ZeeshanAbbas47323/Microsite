@@ -12,10 +12,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./react": {
+      "types": "./src/react/index.ts",
+      "default": "./src/react/index.ts"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src/react"
   ],
   "sideEffects": false,
   "scripts": {
@@ -32,6 +37,18 @@
     "@microstore/config": "workspace:*",
     "@vitest/coverage-v8": "^4.0.0",
     "tsup": "^8.5.0",
-    "vitest": "^4.0.0"
+    "vitest": "^4.0.0",
+    "@types/react": "^19.2.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "@types/react-dom": "^19.2.0"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }

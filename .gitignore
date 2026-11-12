@@ -10,3 +10,5 @@ coverage/
 .DS_Store
 *.log
 apps/api/src/generated/
+next-env.d.ts
+*.tsbuildinfo

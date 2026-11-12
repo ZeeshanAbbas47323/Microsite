@@ -143,9 +143,11 @@ export class OrderSyncService {
 /** BullMQ queue backed by Redis (production and local dev with docker-compose). */
 export class BullOrderSyncQueue implements OrderSyncQueue {
   readonly queue: Queue;
-  constructor(connection: ConnectionOptions) {
+  /** `prefix` namespaces the Redis keys, so environments sharing a Redis never steal each other's jobs. */
+  constructor(connection: ConnectionOptions, { prefix = 'microstore' }: { prefix?: string } = {}) {
     this.queue = new Queue(ORDER_SYNC_QUEUE, {
       connection,
+      prefix,
       defaultJobOptions: {
         attempts: ORDER_SYNC_ATTEMPTS,
         backoff: { type: 'exponential', delay: ORDER_SYNC_BACKOFF_MS },
@@ -180,7 +182,8 @@ export function startOrderSyncWorker(
     concurrency = 5,
     sweepEveryMs = 5 * 60 * 1000,
     queue,
-  }: { concurrency?: number; sweepEveryMs?: number; queue: OrderSyncQueue },
+    prefix = 'microstore',
+  }: { concurrency?: number; sweepEveryMs?: number; queue: OrderSyncQueue; prefix?: string },
 ) {
   const worker = new Worker<{ orderId: string }>(
     ORDER_SYNC_QUEUE,
@@ -188,7 +191,7 @@ export function startOrderSyncWorker(
       service.sync(job.data.orderId, {
         finalAttempt: job.attemptsMade + 1 >= (job.opts.attempts ?? ORDER_SYNC_ATTEMPTS),
       }),
-    { connection, concurrency },
+    { connection, concurrency, prefix },
   );
   const sweep = async () => {
     for (const id of await service.findStalePending())

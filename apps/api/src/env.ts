@@ -34,6 +34,16 @@ export const envSchema = z
     /** Link to an order inside Getorio, `{id}` = Getorio order id. */
     GETORIO_ORDER_URL_TEMPLATE: z.string().includes('{id}').optional(),
     /** Run the order-sync worker inside the API process (dev). In production run `worker.js` separately. */
+    /** apps/web revalidation endpoint, e.g. http://localhost:3000/api/revalidate */
+    WEB_REVALIDATE_URL: z.url().optional(),
+    REVALIDATE_SECRET: z.string().min(16).optional(),
+    /** Proxies whose X-Forwarded-For is trusted (comma-separated IPs/CIDRs, or "true"). */
+    TRUST_PROXY: z.string().optional(),
+    /** Redis key prefix for BullMQ queues (separate per environment when they share a Redis). */
+    QUEUE_PREFIX: z
+      .string()
+      .regex(/^[a-z0-9-]{1,40}$/)
+      .default('microstore'),
     RUN_WORKER_IN_PROCESS: z
       .enum(['true', 'false'])
       .default('false')

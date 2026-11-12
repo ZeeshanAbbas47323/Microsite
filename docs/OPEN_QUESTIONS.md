@@ -21,3 +21,5 @@ Questions for the product / Getorio PHP team. Each has a reversible default in p
 | Q-15 | Is exposing Getorio product ids in storefront URLs/cart acceptable, or should Microstore use its own slugs/ids?           | Getorio ids, no tenant ids.                                                    |
 | Q-16 | Should checkout reject when stock cannot be verified (Getorio down), instead of accepting with a `stock_unverified` flag? | Accept + flag (spec §9.3).                                                     |
 | Q-17 | Where should order-sync alerts go (email, Slack, pager)?                                                                  | Error log with `alert: true`.                                                  |
+| Q-18 | Should unavailable stores show a store-branded page (name/logo) instead of the generic 404?                               | Generic 404 page.                                                              |
+| Q-19 | Where will Getorio product images be hosted (to add to `IMAGE_HOSTS`)?                                                    | Placeholder host only.                                                         |

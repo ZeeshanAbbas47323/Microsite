@@ -23,12 +23,13 @@ const available = await redisAvailable();
 describe.skipIf(!available)('BullMQ order sync (real Redis)', () => {
   let ctx: Awaited<ReturnType<typeof createTestApp>>;
   const connection = { url: REDIS_URL, maxRetriesPerRequest: null };
+  const prefix = `ms-test-${process.pid}`;
   let queue: BullOrderSyncQueue;
 
   beforeAll(async () => {
     await resetDb();
     ctx = await createTestApp();
-    queue = new BullOrderSyncQueue(connection);
+    queue = new BullOrderSyncQueue(connection, { prefix });
     await queue.queue.obliterate({ force: true });
   });
 
@@ -53,7 +54,11 @@ describe.skipIf(!available)('BullMQ order sync (real Redis)', () => {
     expect(res.statusCode).toBe(201);
     const order = await testDb().order.findFirstOrThrow();
 
-    const worker = startOrderSyncWorker(connection, ctx.orderSync, { queue, sweepEveryMs: 60_000 });
+    const worker = startOrderSyncWorker(connection, ctx.orderSync, {
+      queue,
+      sweepEveryMs: 60_000,
+      prefix,
+    });
     await queue.enqueue(order.id);
     await queue.enqueue(order.id); // de-duplicated by job id
 

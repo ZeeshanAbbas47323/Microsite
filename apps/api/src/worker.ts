@@ -11,6 +11,7 @@ const container = createContainer(env, (message, meta) =>
 );
 const worker = startOrderSyncWorker(container.queueConnection, container.orderSync, {
   queue: container.queue,
+  prefix: container.queuePrefix,
 });
 
 worker.worker.on('failed', (job, err) =>

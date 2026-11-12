@@ -111,3 +111,43 @@ describe('RedisSessionStore', () => {
     expect(await store.consumeOnce(key, 5)).toBe(false);
   });
 });
+
+describe('HttpSiteRevalidator', () => {
+  it('posts hostnames with the secret and reports failures', async () => {
+    const { HttpSiteRevalidator } = await import('../src/stores/http-revalidator');
+    const calls: { url: string; init: RequestInit }[] = [];
+    const errors: unknown[] = [];
+    let status = 200;
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return new Response('{}', { status });
+    }) as unknown as typeof fetch;
+    const r = new HttpSiteRevalidator(
+      'http://web/api/revalidate',
+      'secret-0123456789abcdef',
+      (e) => errors.push(e),
+      fetchImpl,
+    );
+    await r.revalidateStore('s', []);
+    expect(calls).toHaveLength(0);
+    await r.revalidateStore('s', ['a.shops.test']);
+    expect(calls[0]?.url).toBe('http://web/api/revalidate');
+    expect((calls[0]?.init.headers as Record<string, string>)['x-revalidate-secret']).toBe(
+      'secret-0123456789abcdef',
+    );
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ hostnames: ['a.shops.test'] });
+    status = 500;
+    await r.revalidateStore('s', ['a.shops.test']);
+    expect(errors).toHaveLength(1);
+    const broken = new HttpSiteRevalidator(
+      'http://web',
+      'x'.repeat(16),
+      (e) => errors.push(e),
+      (async () => {
+        throw new Error('down');
+      }) as unknown as typeof fetch,
+    );
+    await broken.revalidateStore('s', ['a']);
+    expect(errors).toHaveLength(2);
+  });
+});

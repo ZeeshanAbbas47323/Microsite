@@ -134,6 +134,13 @@ variants: [{ id, name, options, price, inStock }] }`. Exact stock counts are nev
 | ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | POST   | `/webhooks/getorio` | HMAC-signed (see `docs/GETORIO_API_CONTRACT.md`). `204` on success, `401` on a bad signature/payload, `503` without `GETORIO_WEBHOOK_SECRET`. Repeated event ids are ignored. Product/stock events refresh the catalog cache and storefront |
 
+## Storefront cache revalidation
+
+When `WEB_REVALIDATE_URL` and `REVALIDATE_SECRET` are set, publish/unpublish, settings and product flag changes and
+Getorio product/stock webhooks call `POST {WEB_REVALIDATE_URL}` with header `x-revalidate-secret` and body
+`{ "hostnames": [...] }`; apps/web expires the `store:<host>` cache tag. Failures are logged; pages refresh within 60 s
+anyway.
+
 ## Order sync
 
 Checkout stores the order as `pending_sync` and enqueues a BullMQ job (`order-sync`, job id `order-<id>`).
@@ -144,7 +151,6 @@ alert log. Non-retryable Getorio errors fail at once. A sweeper re-enqueues orde
 ## Not implemented yet (Phase 1 remaining)
 
 - `POST /stores/:id/assets`, `DELETE /stores/:id/assets/:aid` (image uploads to S3/MinIO)
-- Storefront revalidation call to `apps/web` (currently a no-op `SiteRevalidator`)
 - Customer confirmation email / SMS adapters (FR-5.8)
 - Optional Cloudflare Turnstile on checkout (FR-5.9)
 - Admin routes (Phase 2/3), order tracking `GET /public/orders/lookup` (P1)

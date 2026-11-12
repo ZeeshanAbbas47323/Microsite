@@ -11,10 +11,15 @@ import { RedisCache } from './lib/cache';
 import { CheckoutService } from './orders/checkout-service';
 import { MerchantOrderService } from './orders/merchant-orders';
 import { BullOrderSyncQueue, OrderSyncService, type Alert } from './orders/order-sync';
+import { HttpSiteRevalidator } from './stores/http-revalidator';
 import { noopRevalidator, StoreService } from './stores/store-service';
 
 /** Wires production dependencies from the environment. Shared by the API server and the worker. */
-export function createContainer(env: Env, alert: Alert) {
+export function createContainer(
+  env: Env,
+  alert: Alert,
+  onRevalidateError: (error: unknown) => void = () => {},
+) {
   if (!env.REDIS_URL) {
     if (env.NODE_ENV === 'production') throw new Error('REDIS_URL is required in production');
     throw new Error(
@@ -26,14 +31,17 @@ export function createContainer(env: Env, alert: Alert) {
   const queueConnection = { url: env.REDIS_URL, maxRetriesPerRequest: null };
   const getorio: GetorioClient = createGetorioClient(env);
   const cache = new RedisCache(redis);
-  const revalidator = noopRevalidator;
+  const revalidator =
+    env.WEB_REVALIDATE_URL && env.REVALIDATE_SECRET
+      ? new HttpSiteRevalidator(env.WEB_REVALIDATE_URL, env.REVALIDATE_SECRET, onRevalidateError)
+      : noopRevalidator;
   const stores = new StoreService(db, {
     rootDomain: env.ROOT_DOMAIN,
     storefrontUrlTemplate: env.STOREFRONT_URL_TEMPLATE,
     revalidator,
   });
   const catalog = new CatalogService(getorio, cache);
-  const queue = new BullOrderSyncQueue(queueConnection);
+  const queue = new BullOrderSyncQueue(queueConnection, { prefix: env.QUEUE_PREFIX });
   const orderSync = new OrderSyncService(db, getorio, alert);
 
   const deps: AppDeps = {
@@ -70,6 +78,7 @@ export function createContainer(env: Env, alert: Alert) {
     deps,
     queue,
     queueConnection,
+    queuePrefix: env.QUEUE_PREFIX,
     orderSync,
     async close() {
       await queue.close();

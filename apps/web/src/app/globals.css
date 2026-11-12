@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+/* Layout components live in a workspace package; let Tailwind see their classes. */
+@source '../../../../packages/layouts/src';
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

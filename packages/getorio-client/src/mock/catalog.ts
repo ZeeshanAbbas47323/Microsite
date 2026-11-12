@@ -9,8 +9,18 @@ const CATEGORIES = {
   home: { id: 'cat-home', name: 'Home' },
 } as const;
 
-function image(sku: string, alt: string) {
-  return [{ url: `https://picsum.photos/seed/${sku.toLowerCase()}/800/800`, alt }];
+const CATEGORY_COLORS: Record<keyof typeof CATEGORIES, [string, string]> = {
+  bags: ['f3e8d8', '7c4a1e'],
+  accessories: ['e0ecf5', '1f4e79'],
+  footwear: ['ede4f6', '5b2a86'],
+  home: ['e3f1e6', '2d6a3e'],
+};
+
+/** Placeholder product photo (dev/test only). */
+function image(name: string, category: keyof typeof CATEGORIES) {
+  const [bg, fg] = CATEGORY_COLORS[category];
+  // No query string: next/image remote patterns reject image URLs with search params by default.
+  return [{ url: `https://placehold.co/800x800/${bg}/${fg}.png`, alt: name }];
 }
 
 interface ProductSeed {
@@ -190,7 +200,7 @@ export function createSampleCatalog(updatedAt = '2026-01-01T00:00:00.000Z'): Get
       price: s.price,
       compareAtPrice: s.compareAtPrice ?? null,
       currency: 'PKR',
-      images: image(s.sku, s.name),
+      images: image(s.name, s.category),
       category: { ...CATEGORIES[s.category] },
       variants: structuredClone(variants),
       stockQty,

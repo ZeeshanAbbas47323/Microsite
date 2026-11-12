@@ -43,10 +43,10 @@ flowchart LR
 ## Repository layout
 
 ```
-apps/web               Next.js: merchant dashboard + public storefront   (not started)
+apps/web               Next.js: merchant dashboard + public storefront   (storefront done, dashboard not started)
 apps/api               Fastify API + workers                              (in progress)
 packages/site-schema   Zod schemas, types, patch allowlist, migrations    (done)
-packages/layouts       Layout registry (done) + section components        (components not started)
+packages/layouts       Layout registry + React section components (2 layouts)
 packages/getorio-client Getorio adapter (interface, mock, HTTP)           (done)
 packages/config        Shared tsconfig
 docs/                  Assumptions, open questions, API docs
@@ -94,6 +94,16 @@ In dev (`RUN_WORKER_IN_PROCESS=true`) the order-sync worker runs inside the API;
 pnpm --filter @microstore/api start:worker
 ```
 
+Start the web app (storefronts and, later, the dashboard):
+
+```bash
+pnpm --filter @microstore/web dev
+```
+
+Storefronts are served by subdomain: after creating and publishing a store with subdomain `zara`, open
+`http://zara.microstore.localhost:3000` (browsers resolve `*.localhost` to your machine). Set `WEB_PORT` if 3000 is taken
+and update `STOREFRONT_URL_TEMPLATE`, `CORS_ORIGINS` and `WEB_REVALIDATE_URL` to match.
+
 The API listens on `http://localhost:4000` (`/health`, `/ready`, `/api/v1/...`). With `GETORIO_CLIENT=mock` it uses
 the in-memory Getorio with the sample catalog for tenant `tenant-demo`. See [docs/API.md](docs/API.md).
 
@@ -124,6 +134,7 @@ API tests are integration tests: they need MySQL from docker-compose and use `DA
 - [x] `apps/api`: Prisma schema (all §7 tables), SSO (JWT) + Redis sessions + CSRF, store onboarding, draft config (PUT/PATCH), publish/unpublish, versions/restore, settings + subdomain change, tenant isolation tests
 - [x] `apps/api`: merchant products, public storefront API (host-based tenant resolution, catalog cache with stale fallback, draft preview), COD checkout (idempotent, server-side pricing), BullMQ order sync with retries + sweeper, merchant orders + retry, Getorio webhooks
 - [ ] `apps/api`: image uploads (S3/MinIO), storefront revalidation hook, confirmation email/SMS adapters
-- [ ] `packages/layouts`: React section components for the 2 layouts
-- [ ] `apps/web`: onboarding, dashboard, storefront, tenant routing
+- [x] `packages/layouts`: React components for the 2 layouts (all section types, navbar/footer styles, product card/detail)
+- [x] `apps/web` storefront: host-based routing (`proxy.ts`), ISR + on-demand revalidation, draft preview, home/products (search, filter, sort, pagination)/product/content pages, cart, COD checkout, confirmation, SEO (metadata, OG, canonical, JSON-LD, sitemap, robots)
+- [ ] `apps/web` dashboard: SSO landing, onboarding form, design settings + preview, products, orders, settings, publish
 - [ ] Seeds, E2E, Lighthouse
