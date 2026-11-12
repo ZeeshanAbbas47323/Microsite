@@ -44,9 +44,9 @@ flowchart LR
 
 ```
 apps/web               Next.js: merchant dashboard + public storefront   (not started)
-apps/api               Fastify API + workers                              (not started)
+apps/api               Fastify API + workers                              (in progress)
 packages/site-schema   Zod schemas, types, patch allowlist, migrations    (done)
-packages/layouts       Layout definitions + section components            (not started)
+packages/layouts       Layout registry (done) + section components        (components not started)
 packages/getorio-client Getorio adapter (interface, mock, HTTP)           (done)
 packages/config        Shared tsconfig
 docs/                  Assumptions, open questions, API docs
@@ -72,7 +72,30 @@ cp .env.example .env
 docker compose up -d
 ```
 
-This starts MySQL 8 (`:3306`), Redis (`:6379`) and MinIO (`:9000`, console `:9001`) and creates the uploads bucket.
+This starts MySQL 8, Redis and MinIO (`:9000`, console `:9001`) and creates the uploads bucket.
+If port 3306 or 6379 is already taken on your machine, set `MYSQL_PORT` / `REDIS_PORT` in `.env` (and the matching
+ports in `DATABASE_URL`, `DATABASE_URL_TEST`, `REDIS_URL`).
+
+```bash
+pnpm build
+```
+
+```bash
+pnpm --filter @microstore/api db:deploy
+```
+
+```bash
+pnpm --filter @microstore/api dev
+```
+
+In dev (`RUN_WORKER_IN_PROCESS=true`) the order-sync worker runs inside the API; in production run it separately:
+
+```bash
+pnpm --filter @microstore/api start:worker
+```
+
+The API listens on `http://localhost:4000` (`/health`, `/ready`, `/api/v1/...`). With `GETORIO_CLIENT=mock` it uses
+the in-memory Getorio with the sample catalog for tenant `tenant-demo`. See [docs/API.md](docs/API.md).
 
 ## Scripts
 
@@ -87,6 +110,9 @@ This starts MySQL 8 (`:3306`), Redis (`:6379`) and MinIO (`:9000`, console `:900
 
 Run one package: `pnpm --filter @microstore/site-schema test`.
 
+API tests are integration tests: they need MySQL from docker-compose and use `DATABASE_URL_TEST`
+(a database ending in `_test`).
+
 ## Status
 
 ### Phase 1 (MVP) progress
@@ -94,7 +120,10 @@ Run one package: `pnpm --filter @microstore/site-schema test`.
 - [x] Monorepo scaffold, Docker Compose (MySQL, Redis, MinIO), `.env.example`, CI, Husky + lint-staged
 - [x] `packages/site-schema`: config/section schemas, patch allowlist validator (60+ adversarial tests), migrations, onboarding schema + generator, subdomain rules (100% line coverage)
 - [x] `packages/getorio-client`: interface, in-memory mock (fault injection), HTTP client (timeouts, retries, circuit breaker), webhook verification; PHP contract in [docs/GETORIO_API_CONTRACT.md](docs/GETORIO_API_CONTRACT.md)
-- [ ] `apps/api`: Prisma schema, SSO stub, stores/config/publish, checkout + order sync
-- [ ] `packages/layouts`: 2 layouts
+- [x] `packages/layouts`: registry with 2 layouts (metadata + defaults)
+- [x] `apps/api`: Prisma schema (all §7 tables), SSO (JWT) + Redis sessions + CSRF, store onboarding, draft config (PUT/PATCH), publish/unpublish, versions/restore, settings + subdomain change, tenant isolation tests
+- [x] `apps/api`: merchant products, public storefront API (host-based tenant resolution, catalog cache with stale fallback, draft preview), COD checkout (idempotent, server-side pricing), BullMQ order sync with retries + sweeper, merchant orders + retry, Getorio webhooks
+- [ ] `apps/api`: image uploads (S3/MinIO), storefront revalidation hook, confirmation email/SMS adapters
+- [ ] `packages/layouts`: React section components for the 2 layouts
 - [ ] `apps/web`: onboarding, dashboard, storefront, tenant routing
 - [ ] Seeds, E2E, Lighthouse
