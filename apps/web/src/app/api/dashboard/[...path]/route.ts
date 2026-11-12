@@ -32,7 +32,8 @@ async function forward(request: Request, { params }: { params: Promise<{ path: s
     res = await fetch(target, {
       method: request.method,
       headers,
-      body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.text(),
+      // Raw bytes, so multipart image uploads pass through untouched.
+      body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer(),
       cache: 'no-store',
       redirect: 'manual',
       signal: AbortSignal.timeout(20_000),

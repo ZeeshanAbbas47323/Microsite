@@ -148,9 +148,28 @@ The worker (`pnpm --filter @microstore/api start:worker`, or in-process with `RU
 Getorio with the order id as idempotency key: 8 attempts, exponential backoff from 30 s, then `sync_failed` plus an
 alert log. Non-retryable Getorio errors fail at once. A sweeper re-enqueues orders stuck in `pending_sync` > 10 min.
 
-## Not implemented yet (Phase 1 remaining)
+### Images (authenticated, FR-6.8)
 
-- `POST /stores/:id/assets`, `DELETE /stores/:id/assets/:aid` (image uploads to S3/MinIO)
-- Customer confirmation email / SMS adapters (FR-5.8)
-- Optional Cloudflare Turnstile on checkout (FR-5.9)
+| Method | Path                                     | Notes                                                                                                                                                                                                                                                                |
+| ------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/stores/:id/assets?purpose=logo\|image` | `multipart/form-data`, field `file`. JPG/PNG/WebP/GIF/AVIF/HEIC (SVG only for logos). Max 2 MB (logo) / 5 MB. Re-encoded to WebP (max 1600 px), metadata stripped. `201 { asset: { id, url, width, height, sizeBytes } }`; `409` when the 200 MB store quota is full |
+| GET    | `/stores/:id/assets`                     | `{ items, usedBytes, quotaBytes }`                                                                                                                                                                                                                                   |
+| DELETE | `/stores/:id/assets/:aid`                | `204`, frees quota                                                                                                                                                                                                                                                   |
+| GET    | `/public/media/<key>`                    | Public, immutable. apps/web serves it as `/media/<key>` on every host; asset `url`s are these relative paths                                                                                                                                                         |
+
+### Checkout extras
+
+- `captchaToken` in the checkout body is required when `TURNSTILE_SECRET` is set (`400 captcha_failed` otherwise).
+  Idempotent replays of an existing order do not need a new token.
+- After an order is created the customer gets an email (if given, and enabled in settings) and, when
+  `MESSAGE_WEBHOOK_URL` is set and enabled in settings, an SMS/WhatsApp message via the hook. Failures never affect the order.
+
+### Operations
+
+| Method | Path       | Notes                                                                                                                                                                                                                  |
+| ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/metrics` | Prometheus metrics (`http_request_duration_seconds`, `orders_placed_total`, `order_sync_total{outcome}`, `order_sync_queue_jobs{state}`, process metrics). Needs `Authorization: Bearer $METRICS_TOKEN`; 404 otherwise |
+
+## Not implemented yet (later phases)
+
 - Admin routes (Phase 2/3), order tracking `GET /public/orders/lookup` (P1)

@@ -56,13 +56,29 @@ export class OrderSyncService {
     private readonly getorio: GetorioClient,
     private readonly alert: Alert = () => {},
     private readonly now: () => Date = () => new Date(),
+    /** Called with each attempt's outcome ('synced', 'failed', 'retry', ...) for metrics. */
+    private readonly onOutcome: (outcome: string) => void = () => {},
   ) {}
 
   /**
    * Returns normally when the job is finished (synced, or failed for good). Throws when the
    * failure is temporary and the queue should retry.
    */
-  async sync(orderId: string, { finalAttempt }: { finalAttempt: boolean }): Promise<SyncOutcome> {
+  async sync(orderId: string, opts: { finalAttempt: boolean }): Promise<SyncOutcome> {
+    try {
+      const outcome = await this.attempt(orderId, opts);
+      this.onOutcome(outcome);
+      return outcome;
+    } catch (error) {
+      this.onOutcome('retry');
+      throw error;
+    }
+  }
+
+  private async attempt(
+    orderId: string,
+    { finalAttempt }: { finalAttempt: boolean },
+  ): Promise<SyncOutcome> {
     const order = await this.db.order.findUnique({
       where: { id: orderId },
       include: { items: true },

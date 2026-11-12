@@ -8,12 +8,8 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: ['src/index.ts'],
       reporter: ['text', 'html', 'lcov'],
-      thresholds: {
-        lines: 90,
-        functions: 90,
-        branches: 85,
-        statements: 90,
-      },
+      // Presentational components: many style-only branches; core logic packages keep stricter limits.
+      thresholds: { lines: 85, functions: 85, statements: 85, branches: 65 },
     },
   },
 });

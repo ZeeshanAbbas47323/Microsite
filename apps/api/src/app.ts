@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import type { GetorioClient } from '@microstore/getorio-client';
 import Fastify, { type FastifyServerOptions } from 'fastify';
@@ -8,12 +9,15 @@ import type { Redis } from 'ioredis';
 import { authPlugin } from './auth/plugin';
 import type { SessionManager } from './auth/sessions';
 import type { AuthProvider } from './auth/sso';
+import type { AssetService } from './assets/asset-service';
 import type { CatalogService } from './catalog/catalog-service';
 import type { MerchantProductService } from './catalog/merchant-products';
 import type { Db } from './db';
 import type { KeyValueCache } from './lib/cache';
 import { errorHandler } from './lib/errors';
+import { registerMetrics, type Metrics } from './lib/observability';
 import { randomToken } from './lib/ids';
+import { assetRoutes } from './routes/assets';
 import { authRoutes } from './routes/auth';
 import { healthRoutes } from './routes/health';
 import { merchantCommerceRoutes } from './routes/merchant-commerce';
@@ -37,12 +41,17 @@ export interface AppDeps {
   merchantOrders: MerchantOrderService;
   checkout: CheckoutService;
   revalidator: SiteRevalidator;
+  /** Image uploads; routes answer 503 when object storage is not configured. */
+  assets?: AssetService;
   /** Signs draft preview links. */
   previewSecret: string;
   /** GETORIO_WEBHOOK_SECRET; the webhook route answers 503 without it. */
   webhookSecret?: string;
   corsOrigins: string[];
   secureCookies: boolean;
+  metrics?: Metrics;
+  /** Bearer token for `/metrics`; the endpoint is hidden without it. */
+  metricsToken?: string;
 }
 
 export const API_PREFIX = '/api/v1';
@@ -77,12 +86,14 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
     allowedHeaders: ['content-type', 'x-csrf-token', 'idempotency-key'],
   });
   await app.register(cookie);
+  await app.register(multipart, { limits: { files: 1, fields: 5, parts: 6 } });
   await app.register(rateLimit, {
     global: false,
     ...(deps.redis ? { redis: deps.redis, nameSpace: 'ms:rl:' } : {}),
   });
   await app.register(authPlugin, { sessions: deps.sessions, secureCookies: deps.secureCookies });
 
+  if (deps.metrics) registerMetrics(app, deps.metrics, deps.metricsToken);
   await app.register(async (api) => healthRoutes(api, deps));
   await app.register(
     async (api) => {
@@ -91,6 +102,7 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
       await api.register(async (scope) => merchantCommerceRoutes(scope, deps));
       await api.register(async (scope) => publicRoutes(scope, deps));
       await api.register(async (scope) => webhookRoutes(scope, deps));
+      await api.register(async (scope) => assetRoutes(scope, deps));
     },
     { prefix: API_PREFIX },
   );

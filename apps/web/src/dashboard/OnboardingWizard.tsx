@@ -311,7 +311,7 @@ export function OnboardingWizard({ rootDomain }: { rootDomain: string }) {
             <Field
               label="Logo URL"
               optional
-              hint="An https link to your logo. Uploading files is coming soon."
+              hint="Optional https link. You can also upload a logo from Settings after the store is created."
               error={err('branding.logoUrl')}
             >
               {(p) => (

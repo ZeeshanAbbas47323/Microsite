@@ -74,3 +74,38 @@ export interface Store {
   hasUnpublishedChanges: boolean;
   publishedAt: string | null;
 }
+
+export interface Asset {
+  id: string;
+  url: string;
+  width: number | null;
+  height: number | null;
+  sizeBytes: number;
+}
+
+/** Multipart image upload through the BFF. */
+export async function uploadImage(
+  storeId: string,
+  file: File,
+  purpose: 'logo' | 'image',
+): Promise<Asset> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`/api/dashboard/stores/${storeId}/assets?purpose=${purpose}`, {
+    method: 'POST',
+    headers: { 'x-csrf-token': csrfToken },
+    body: form,
+  });
+  const data = (await res.json().catch(() => null)) as {
+    asset?: Asset;
+    error?: { code: string; message: string };
+  } | null;
+  if (!res.ok || !data?.asset) {
+    throw new ApiError(
+      res.status,
+      data?.error?.code ?? 'error',
+      data?.error?.message ?? 'Upload failed',
+    );
+  }
+  return data.asset;
+}

@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
+import { captureError } from './observability';
 
 export type ErrorCode =
   | 'bad_request'
@@ -14,6 +15,7 @@ export type ErrorCode =
   | 'store_not_found'
   | 'store_unavailable'
   | 'out_of_stock'
+  | 'captcha_failed'
   | 'service_unavailable'
   | 'internal_error';
 
@@ -68,6 +70,7 @@ export function errorHandler(
     return reply.status(status).send({ error: { code: 'bad_request', message: error.message } });
   }
   request.log.error({ err: error }, 'Unhandled error');
+  captureError(error, { route: request.routeOptions.url, requestId: request.id });
   return reply
     .status(500)
     .send({ error: { code: 'internal_error', message: 'Something went wrong' } });

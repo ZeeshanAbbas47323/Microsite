@@ -4,6 +4,8 @@ export const serverEnv = {
   rootDomain: process.env.ROOT_DOMAIN ?? 'microstore.localhost',
   storefrontUrlTemplate: process.env.STOREFRONT_URL_TEMPLATE ?? 'https://{host}',
   revalidateSecret: process.env.REVALIDATE_SECRET ?? '',
+  /** Cloudflare Turnstile site key; the checkout shows the widget when set. */
+  turnstileSiteKey: process.env.TURNSTILE_SITE_KEY ?? '',
 };
 
 /** Hostnames (without port) that serve the merchant dashboard instead of a storefront. */

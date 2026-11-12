@@ -3,6 +3,7 @@
 import type { SiteConfig } from '@microstore/site-schema';
 import { useEffect, useState } from 'react';
 import { Button, Card, Field, Input, Notice, Textarea, Toggle } from '@/components/ui';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api, ApiError, type Store, type StoreSettings } from './api';
 import { useDashboard } from './session';
 
@@ -233,16 +234,13 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
                 />
               )}
             </Field>
-            <Field label="Logo URL" optional hint="https link to your logo.">
-              {(p) => (
-                <Input
-                  {...p}
-                  type="url"
-                  value={business.logoUrl}
-                  onChange={(e) => setB({ logoUrl: e.target.value })}
-                />
-              )}
-            </Field>
+            <ImageUpload
+              storeId={store.id}
+              purpose="logo"
+              label="Logo"
+              value={business.logoUrl}
+              onChange={(url) => setB({ logoUrl: url })}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Phone">
                 {(p) => (

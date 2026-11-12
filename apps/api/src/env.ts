@@ -34,6 +34,22 @@ export const envSchema = z
     /** Link to an order inside Getorio, `{id}` = Getorio order id. */
     GETORIO_ORDER_URL_TEMPLATE: z.string().includes('{id}').optional(),
     /** Run the order-sync worker inside the API process (dev). In production run `worker.js` separately. */
+    S3_ENDPOINT: z.url().optional(),
+    S3_BUCKET: z.string().optional(),
+    S3_ACCESS_KEY: z.string().optional(),
+    S3_SECRET_KEY: z.string().optional(),
+    S3_REGION: z.string().optional(),
+    /** Customer emails: SMTP URL (e.g. smtp://user:pass@host:587). Unset = log only. */
+    SMTP_URL: z.string().optional(),
+    MAIL_FROM: z.string().default('Microstore <no-reply@getorio.com>'),
+    /** Optional SMS/WhatsApp hook (FR-5.8), disabled when unset. */
+    MESSAGE_WEBHOOK_URL: z.url().optional(),
+    MESSAGE_WEBHOOK_TOKEN: z.string().optional(),
+    /** Cloudflare Turnstile on checkout; enabled when set (web needs TURNSTILE_SITE_KEY). */
+    TURNSTILE_SECRET: z.string().optional(),
+    SENTRY_DSN: z.string().optional(),
+    /** Enables GET /metrics (Prometheus) for requests with `Authorization: Bearer <token>`. */
+    METRICS_TOKEN: z.string().min(16).optional(),
     /** apps/web revalidation endpoint, e.g. http://localhost:3000/api/revalidate */
     WEB_REVALIDATE_URL: z.url().optional(),
     REVALIDATE_SECRET: z.string().min(16).optional(),

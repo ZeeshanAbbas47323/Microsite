@@ -1,10 +1,12 @@
 import pino from 'pino';
 import { createContainer } from './container';
 import { loadEnv } from './env';
+import { initSentry } from './lib/observability';
 import { startOrderSyncWorker } from './orders/order-sync';
 
 /** Standalone background worker: Getorio order sync (FR-5.7). */
 const env = loadEnv();
+initSentry(env.SENTRY_DSN, env.NODE_ENV, 'microstore-worker');
 const log = pino({ level: env.LOG_LEVEL, base: { service: 'microstore-worker' } });
 const container = createContainer(env, (message, meta) =>
   log.error({ alert: true, ...meta }, message),

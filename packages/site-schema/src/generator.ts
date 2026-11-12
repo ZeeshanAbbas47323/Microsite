@@ -361,7 +361,7 @@ export function generateSiteConfig(
         body: clip(business.description || copy.about, L.body, true),
         imageUrl: '',
         imagePosition: 'right',
-        ctaLabel: 'Learn more',
+        ctaLabel: 'Read our story',
         ctaLink: '/about',
       },
     });

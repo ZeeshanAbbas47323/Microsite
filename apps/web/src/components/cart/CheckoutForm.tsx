@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Script from 'next/script';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { CartLines, Summary, type ShippingRules } from './CartView';
@@ -40,12 +41,15 @@ export function CheckoutForm({
   currency,
   orderHref,
   cartHref,
+  turnstileSiteKey = '',
 }: {
   rules: ShippingRules;
   currency: string;
   /** e.g. "/order/{ref}" (with preview params if any) */
   orderHref: string;
   cartHref: string;
+  /** When set, a Cloudflare Turnstile check is shown and required (FR-5.9). */
+  turnstileSiteKey?: string;
 }) {
   const items = useCart();
   const router = useRouter();
@@ -79,6 +83,7 @@ export function CheckoutForm({
       items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, qty: i.qty })),
       paymentMethod: 'cod',
       website: text('website'),
+      ...(turnstileSiteKey ? { captchaToken: text('cf-turnstile-response') } : {}),
     };
     try {
       const res = await fetch('/api/storefront/checkout', {
@@ -116,6 +121,9 @@ export function CheckoutForm({
           map[d.path.split('.').pop() ?? d.path] = d.message;
         setFieldErrors(map);
         setError('Please check the highlighted fields.');
+      } else if (err?.code === 'captcha_failed') {
+        (window as unknown as { turnstile?: { reset: () => void } }).turnstile?.reset();
+        setError(err.message);
       } else if (res.status === 429) {
         setError('Too many attempts. Please wait a minute and try again.');
       } else if (res.status === 409) {
@@ -248,6 +256,15 @@ export function CheckoutForm({
           <label htmlFor="website">Website</label>
           <input id="website" name="website" tabIndex={-1} autoComplete="off" />
         </div>
+        {turnstileSiteKey ? (
+          <>
+            <Script
+              src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+              strategy="afterInteractive"
+            />
+            <div className="cf-turnstile" data-sitekey={turnstileSiteKey} />
+          </>
+        ) : null}
         <div className="rounded-[var(--ms-radius)] border border-[var(--ms-border)] p-4">
           <p className="font-semibold">Payment</p>
           <p className="text-sm text-[var(--ms-muted)]">

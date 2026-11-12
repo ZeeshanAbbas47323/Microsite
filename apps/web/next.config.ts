@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
 
 const imageHosts = (process.env.IMAGE_HOSTS ?? 'placehold.co')
@@ -7,6 +8,9 @@ const imageHosts = (process.env.IMAGE_HOSTS ?? 'placehold.co')
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@microstore/layouts'],
+  // Self-contained server for the Docker image (BUILD_STANDALONE=1); tracing starts at the repo root.
+  ...(process.env.BUILD_STANDALONE === '1' ? { output: 'standalone' as const } : {}),
+  outputFileTracingRoot: fileURLToPath(new URL('../..', import.meta.url)),
   poweredByHeader: false,
   allowedDevOrigins: ['*.microstore.localhost', 'microstore.localhost'],
   images: {

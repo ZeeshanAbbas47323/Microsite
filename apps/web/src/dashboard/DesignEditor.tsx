@@ -28,6 +28,7 @@ import {
   Textarea,
   Toggle,
 } from '@/components/ui';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api, ApiError } from './api';
 import { formatDate } from './Overview';
 import { useDashboard } from './session';
@@ -232,7 +233,9 @@ export function DesignEditor() {
           >
             {tab === 'theme' ? <ThemePanel config={config} update={update} /> : null}
             {tab === 'header' ? <HeaderFooterPanel config={config} update={update} /> : null}
-            {tab === 'pages' ? <PagesPanel config={config} update={update} /> : null}
+            {tab === 'pages' ? (
+              <PagesPanel config={config} update={update} storeId={store.id} />
+            ) : null}
             {tab === 'history' ? (
               <HistoryPanel
                 storeId={store.id}
@@ -479,7 +482,15 @@ function HeaderFooterPanel({ config, update }: { config: SiteConfig; update: Upd
   );
 }
 
-function PagesPanel({ config, update }: { config: SiteConfig; update: Update }) {
+function PagesPanel({
+  config,
+  update,
+  storeId,
+}: {
+  config: SiteConfig;
+  update: Update;
+  storeId: string;
+}) {
   const [selected, setSelected] = useState(0);
   const page = config.pages[selected] ?? config.pages[0];
   const pageIndex = config.pages.indexOf(page as Page);
@@ -586,6 +597,7 @@ function PagesPanel({ config, update }: { config: SiteConfig; update: Update }) 
         {page.sections.map((section, i) => (
           <SectionItem
             key={section.id}
+            storeId={storeId}
             section={section}
             first={i === 0}
             last={i === page.sections.length - 1}
@@ -640,12 +652,14 @@ function PagesPanel({ config, update }: { config: SiteConfig; update: Update }) 
 }
 
 function SectionItem({
+  storeId,
   section,
   first,
   last,
   onChange,
   onMove,
 }: {
+  storeId: string;
   section: Section;
   first: boolean;
   last: boolean;
@@ -748,7 +762,15 @@ function SectionItem({
               )}
             </Field>
           ) : null}
-          {text('imageUrl', 'Image URL (https)', 2048)}
+          {'imageUrl' in props ? (
+            <ImageUpload
+              storeId={storeId}
+              purpose="image"
+              label="Image"
+              value={String(props.imageUrl ?? '')}
+              onChange={(url) => setProp('imageUrl', url)}
+            />
+          ) : null}
           {text('ctaLabel', 'Button label', 40)}
           {text('ctaLink', 'Button link', 2048)}
           {section.type === 'productGrid' ? (

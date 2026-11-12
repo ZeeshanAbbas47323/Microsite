@@ -12,8 +12,8 @@ export function proxy(request: NextRequest) {
   const host = (request.headers.get('host') ?? '').toLowerCase().replace(/:\d+$/, '');
 
   if (!/^[a-z0-9.-]{1,253}$/.test(host)) return new NextResponse('Bad host', { status: 400 });
-  // Route handlers work out the store from the Host header themselves.
-  if (path.startsWith('/api/')) return NextResponse.next();
+  // Route handlers work out the store from the Host header themselves; media is host-agnostic.
+  if (path.startsWith('/api/') || path.startsWith('/media/')) return NextResponse.next();
 
   if (dashboardHosts.includes(host)) {
     // Internal storefront paths are never reachable directly.

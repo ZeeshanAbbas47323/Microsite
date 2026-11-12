@@ -13,6 +13,8 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: ['src/generated/**', 'src/server.ts', 'src/worker.ts'],
       reporter: ['text', 'html', 'lcov'],
+      // Spec §12: at least 80% on checkout, order sync and the rest of the core.
+      thresholds: { lines: 85, statements: 85, functions: 80, branches: 75 },
     },
   },
 });

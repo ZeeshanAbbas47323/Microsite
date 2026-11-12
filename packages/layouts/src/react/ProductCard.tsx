@@ -6,11 +6,15 @@ export function ProductCard({
   ctx,
   product,
   priority = false,
+  headingLevel = 3,
 }: {
   ctx: RenderContext;
   product: PublicProduct;
   priority?: boolean;
+  /** 2 when the list sits directly under the page title, 3 inside a titled section. */
+  headingLevel?: 2 | 3;
 }) {
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const v = variantFor(ctx.config.layoutId);
   const image = product.images[0];
   const onSale =
@@ -42,7 +46,9 @@ export function ProductCard({
         ) : null}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
-        <h3 className="line-clamp-2 text-sm font-semibold sm:text-base">{product.name}</h3>
+        <Heading className="line-clamp-2 text-sm font-semibold sm:text-base">
+          {product.name}
+        </Heading>
         <p className="mt-auto flex items-baseline gap-2 text-sm">
           <span className="font-bold">{formatMoney(product.price, product.currency)}</span>
           {onSale ? (
@@ -60,16 +66,23 @@ export function ProductList({
   ctx,
   products,
   priorityCount = 0,
+  headingLevel = 3,
 }: {
   ctx: RenderContext;
   products: PublicProduct[];
   priorityCount?: number;
+  headingLevel?: 2 | 3;
 }) {
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
       {products.map((p, i) => (
         <li key={p.id} className="flex [&>a]:w-full">
-          <ProductCard ctx={ctx} product={p} priority={i < priorityCount} />
+          <ProductCard
+            ctx={ctx}
+            product={p}
+            priority={i < priorityCount}
+            headingLevel={headingLevel}
+          />
         </li>
       ))}
     </ul>

@@ -15,7 +15,7 @@ import { AddToCart } from '@/components/cart/AddToCart';
 import { CartView } from '@/components/cart/CartView';
 import { CheckoutForm } from '@/components/cart/CheckoutForm';
 import { OrderConfirmation } from '@/components/cart/OrderConfirmation';
-import { storefrontUrl } from '@/lib/env';
+import { serverEnv, storefrontUrl } from '@/lib/env';
 import { fontFamilyFor } from '@/lib/fonts';
 import { getProduct, getProducts, type Mode, type StoreResponse } from './api';
 import { buildContext, findPage, hrefBuilder, loadStore, PreviewBanner } from './context';
@@ -321,7 +321,7 @@ export async function ProductsPage({ params, searchParams }: ProductsProps) {
               </p>
             ) : null}
             {products.items.length ? (
-              <ProductList ctx={ctx} products={products.items} priorityCount={4} />
+              <ProductList ctx={ctx} products={products.items} priorityCount={4} headingLevel={2} />
             ) : (
               <p className="py-16 text-center text-[var(--ms-muted)]">No products found.</p>
             )}
@@ -454,6 +454,7 @@ export async function CheckoutPage({ params }: Props) {
                 currency={data.store.currency}
                 orderHref={href('/order/{ref}')}
                 cartHref={href('/cart')}
+                turnstileSiteKey={serverEnv.turnstileSiteKey}
               />
             )}
           </div>

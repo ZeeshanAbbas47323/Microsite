@@ -37,41 +37,94 @@ services:
       timeout: 3s
       retries: 20
 
-  minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    command: ['server', '/data', '--console-address', ':9001']
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+  # S3-compatible object storage for uploaded images (local dev). SeaweedFS replaces MinIO, whose
+  # public images are no longer available. The app creates the bucket on first upload.
+  s3:
+    image: chrislusf/seaweedfs:4.53
+    command:
+      [
+        'server',
+        '-dir=/data',
+        '-s3',
+        '-s3.port=8333',
+        '-s3.config=/etc/seaweedfs/s3.json',
+        '-ip.bind=0.0.0.0',
+      ]
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '${S3_PORT:-9000}:8333'
     volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
-      interval: 5s
-      timeout: 5s
-      retries: 20
+      - s3-data:/data
+      - ./docker/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
 
-  # Creates the uploads bucket on first start.
-  minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $${S3_ACCESS_KEY:-minioadmin} $${S3_SECRET_KEY:-minioadmin} &&
-      mc mb --ignore-existing local/$${S3_BUCKET:-microstore-assets} &&
-      mc anonymous set download local/$${S3_BUCKET:-microstore-assets}
-      "
+  # ---------------------------------------------------------------------------------------------
+  # The application itself. Start everything with:  docker compose --profile app up --build
+  # Storefronts: http://<subdomain>.microstore.localhost:${WEB_PORT:-3000}
+  migrate:
+    profiles: ['app']
+    build: { context: ., dockerfile: docker/Dockerfile.api, target: migrate }
     environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-microstore}:${MYSQL_PASSWORD:-microstore}@mysql:3306/${MYSQL_DATABASE:-microstore}
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  api:
+    profiles: ['app']
+    build: { context: ., dockerfile: docker/Dockerfile.api, target: runtime }
+    image: microstore-api
+    environment: &api-env
+      NODE_ENV: ${APP_NODE_ENV:-development}
+      PORT: 4000
+      ROOT_DOMAIN: ${ROOT_DOMAIN:-microstore.localhost}
+      STOREFRONT_URL_TEMPLATE: http://{host}:${WEB_PORT:-3000}
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-3000}
+      DATABASE_URL: mysql://${MYSQL_USER:-microstore}:${MYSQL_PASSWORD:-microstore}@mysql:3306/${MYSQL_DATABASE:-microstore}
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: ${SESSION_SECRET:-docker-dev-session-secret-0123456789abcdef}
+      SSO_SHARED_SECRET: ${SSO_SHARED_SECRET:-docker-dev-sso-secret-0123456789abcdef}
+      SSO_JWT_PUBLIC_KEY: ${SSO_JWT_PUBLIC_KEY:-}
+      GETORIO_CLIENT: ${GETORIO_CLIENT:-mock}
+      GETORIO_API_BASE_URL: ${GETORIO_API_BASE_URL:-}
+      GETORIO_API_KEY: ${GETORIO_API_KEY:-}
+      GETORIO_WEBHOOK_SECRET: ${GETORIO_WEBHOOK_SECRET:-}
+      S3_ENDPOINT: http://s3:8333
+      S3_BUCKET: ${S3_BUCKET:-microstore-assets}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
-      S3_BUCKET: ${S3_BUCKET:-microstore-assets}
+      WEB_REVALIDATE_URL: http://web:3000/api/revalidate
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-docker-dev-revalidate-secret-0123}
+      TRUST_PROXY: 'true'
+      QUEUE_PREFIX: microstore-docker
+    ports:
+      - '${API_PORT:-4000}:4000'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    profiles: ['app']
+    image: microstore-api
+    command: ['node', 'dist/worker.js']
+    environment: *api-env
+    depends_on:
+      api: { condition: service_started }
+
+  web:
+    profiles: ['app']
+    build: { context: ., dockerfile: docker/Dockerfile.web }
+    environment:
+      API_URL: http://api:4000
+      ROOT_DOMAIN: ${ROOT_DOMAIN:-microstore.localhost}
+      STOREFRONT_URL_TEMPLATE: http://{host}:${WEB_PORT:-3000}
+      DASHBOARD_HOSTS: localhost,127.0.0.1,app.${ROOT_DOMAIN:-microstore.localhost}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-docker-dev-revalidate-secret-0123}
+      IMAGE_HOSTS: ${IMAGE_HOSTS:-placehold.co}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      api: { condition: service_started }
 
 volumes:
   mysql-data:
   redis-data:
-  minio-data:
+  s3-data:

@@ -69,11 +69,11 @@ cp .env.example .env
 ```
 
 ```bash
-docker compose up -d
+docker compose up -d mysql redis s3
 ```
 
-This starts MySQL 8, Redis and MinIO (`:9000`, console `:9001`) and creates the uploads bucket.
-If port 3306 or 6379 is already taken on your machine, set `MYSQL_PORT` / `REDIS_PORT` in `.env` (and the matching
+This starts MySQL 8, Redis and an S3-compatible store for uploads (SeaweedFS on `:9000`).
+If port 3306, 6379 or 9000 is already taken on your machine, set `MYSQL_PORT` / `REDIS_PORT` / `S3_PORT` in `.env` (and the matching
 ports in `DATABASE_URL`, `DATABASE_URL_TEST`, `REDIS_URL`).
 
 ```bash
@@ -82,6 +82,12 @@ pnpm build
 
 ```bash
 pnpm --filter @microstore/api db:deploy
+```
+
+Optional: a sample published store ("Demo Bazaar") to look around with:
+
+```bash
+pnpm --filter @microstore/api db:seed
 ```
 
 ```bash
@@ -131,16 +137,34 @@ API tests are integration tests: they need MySQL from docker-compose and use `DA
 
 ## Status
 
-### Phase 1 (MVP) progress
+### Phase 1 (MVP): done
 
-- [x] Monorepo scaffold, Docker Compose (MySQL, Redis, MinIO), `.env.example`, CI, Husky + lint-staged
-- [x] `packages/site-schema`: config/section schemas, patch allowlist validator (60+ adversarial tests), migrations, onboarding schema + generator, subdomain rules (100% line coverage)
-- [x] `packages/getorio-client`: interface, in-memory mock (fault injection), HTTP client (timeouts, retries, circuit breaker), webhook verification; PHP contract in [docs/GETORIO_API_CONTRACT.md](docs/GETORIO_API_CONTRACT.md)
-- [x] `packages/layouts`: registry with 2 layouts (metadata + defaults)
-- [x] `apps/api`: Prisma schema (all §7 tables), SSO (JWT) + Redis sessions + CSRF, store onboarding, draft config (PUT/PATCH), publish/unpublish, versions/restore, settings + subdomain change, tenant isolation tests
-- [x] `apps/api`: merchant products, public storefront API (host-based tenant resolution, catalog cache with stale fallback, draft preview), COD checkout (idempotent, server-side pricing), BullMQ order sync with retries + sweeper, merchant orders + retry, Getorio webhooks
-- [ ] `apps/api`: image uploads (S3/MinIO), confirmation email/SMS adapters
-- [x] `packages/layouts`: React components for the 2 layouts (all section types, navbar/footer styles, product card/detail)
-- [x] `apps/web` storefront: host-based routing (`proxy.ts`), ISR + on-demand revalidation, draft preview, home/products (search, filter, sort, pagination)/product/content pages, cart, COD checkout, confirmation, SEO (metadata, OG, canonical, JSON-LD, sitemap, robots)
-- [x] `apps/web` dashboard: SSO landing, 6-step onboarding with autosave and live subdomain check, overview, design editor with live draft preview (layout, theme, header/footer, pages & sections, SEO, history/restore), publish/unpublish, products, orders with retry, settings
-- [ ] Seeds, E2E, Lighthouse
+All Phase 1 acceptance criteria pass. See [docs/PHASE1_REPORT.md](docs/PHASE1_REPORT.md) for the results and what is
+left for later phases.
+
+## Testing
+
+| What                                                          | Command                                                                                    |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Unit + integration (needs MySQL/Redis/S3 from docker-compose) | `pnpm test` / `pnpm test:coverage`                                                         |
+| End-to-end (needs a running stack)                            | `pnpm --filter @microstore/e2e e2e:install` once, then `pnpm --filter @microstore/e2e e2e` |
+| E2E against Docker                                            | `E2E_BASE_URL=http://localhost:3000 pnpm --filter @microstore/e2e e2e`                     |
+| Load test (k6 in Docker)                                      | see the header of [load/storefront.js](load/storefront.js)                                 |
+
+## Running everything in Docker
+
+```bash
+docker compose --profile app up --build
+```
+
+Runs migrations, the API, the order-sync worker and the web app. Dashboard: `http://localhost:${WEB_PORT:-3000}`,
+storefronts: `http://<subdomain>.microstore.localhost:${WEB_PORT:-3000}`. Sign-in links:
+`SSO_SHARED_SECRET=<value used by the container> pnpm --filter @microstore/api dev:sso-link <tenant>`.
+
+## Operations
+
+- Health: `GET /health`, readiness: `GET /ready` (API).
+- Metrics: `GET /metrics` with `Authorization: Bearer $METRICS_TOKEN` (Prometheus format).
+- Errors: set `SENTRY_DSN` (API and worker).
+- Order emails: set `SMTP_URL` and `MAIL_FROM`; SMS/WhatsApp hook: `MESSAGE_WEBHOOK_URL` + `MESSAGE_WEBHOOK_TOKEN`.
+- Bot check on checkout: `TURNSTILE_SECRET` (API) + `TURNSTILE_SITE_KEY` (web).

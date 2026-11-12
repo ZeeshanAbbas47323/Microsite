@@ -5,9 +5,15 @@ import { RedisSessionStore, SessionManager } from './auth/sessions';
 import { JwtSsoProvider } from './auth/sso';
 import { CatalogService } from './catalog/catalog-service';
 import { MerchantProductService } from './catalog/merchant-products';
+import { AssetService } from './assets/asset-service';
+import { S3Storage } from './assets/storage';
 import { createDb } from './db';
+import { captureError, Metrics } from './lib/observability';
 import type { Env } from './env';
 import { RedisCache } from './lib/cache';
+import { OrderNotifier } from './notifications/order-notifier';
+import { ConsoleEmailSender, SmtpEmailSender, WebhookMessageSender } from './notifications/senders';
+import { TurnstileVerifier } from './orders/captcha';
 import { CheckoutService } from './orders/checkout-service';
 import { MerchantOrderService } from './orders/merchant-orders';
 import { BullOrderSyncQueue, OrderSyncService, type Alert } from './orders/order-sync';
@@ -15,10 +21,13 @@ import { HttpSiteRevalidator } from './stores/http-revalidator';
 import { noopRevalidator, StoreService } from './stores/store-service';
 
 /** Wires production dependencies from the environment. Shared by the API server and the worker. */
+export type Logger = (msg: string, meta?: Record<string, unknown>) => void;
+
 export function createContainer(
   env: Env,
   alert: Alert,
   onRevalidateError: (error: unknown) => void = () => {},
+  info: Logger = () => {},
 ) {
   if (!env.REDIS_URL) {
     if (env.NODE_ENV === 'production') throw new Error('REDIS_URL is required in production');
@@ -42,7 +51,38 @@ export function createContainer(
   });
   const catalog = new CatalogService(getorio, cache);
   const queue = new BullOrderSyncQueue(queueConnection, { prefix: env.QUEUE_PREFIX });
-  const orderSync = new OrderSyncService(db, getorio, alert);
+  const metrics = new Metrics(() =>
+    queue.queue.getJobCounts('waiting', 'active', 'delayed', 'failed'),
+  );
+  const alertAndReport: Alert = (message, meta) => {
+    alert(message, meta);
+    captureError(new Error(message), meta);
+  };
+  const orderSync = new OrderSyncService(db, getorio, alertAndReport, undefined, (outcome) =>
+    metrics.orderSync.inc({ outcome }),
+  );
+  const notifier = new OrderNotifier(
+    db,
+    env.SMTP_URL ? new SmtpEmailSender(env.SMTP_URL, env.MAIL_FROM) : new ConsoleEmailSender(info),
+    env.MESSAGE_WEBHOOK_URL
+      ? new WebhookMessageSender(env.MESSAGE_WEBHOOK_URL, env.MESSAGE_WEBHOOK_TOKEN ?? '')
+      : null,
+    info,
+  );
+  const assets =
+    env.S3_BUCKET && env.S3_ACCESS_KEY && env.S3_SECRET_KEY
+      ? new AssetService(
+          db,
+          new S3Storage({
+            endpoint: env.S3_ENDPOINT,
+            bucket: env.S3_BUCKET,
+            accessKeyId: env.S3_ACCESS_KEY,
+            secretAccessKey: env.S3_SECRET_KEY,
+            region: env.S3_REGION,
+          }),
+          stores,
+        )
+      : undefined;
 
   const deps: AppDeps = {
     db,
@@ -66,10 +106,17 @@ export function createContainer(
       queue,
       env.GETORIO_ORDER_URL_TEMPLATE,
     ),
-    checkout: new CheckoutService(db, catalog, queue),
+    checkout: new CheckoutService(db, catalog, queue, {
+      notifier,
+      onOrderPlaced: () => metrics.ordersPlaced.inc(),
+      ...(env.TURNSTILE_SECRET ? { captcha: new TurnstileVerifier(env.TURNSTILE_SECRET) } : {}),
+    }),
     revalidator,
+    assets,
     previewSecret: env.SESSION_SECRET,
     webhookSecret: env.GETORIO_WEBHOOK_SECRET,
+    metrics,
+    metricsToken: env.METRICS_TOKEN,
     corsOrigins: env.CORS_ORIGINS,
     secureCookies: env.NODE_ENV === 'production',
   };
@@ -80,6 +127,7 @@ export function createContainer(
     queueConnection,
     queuePrefix: env.QUEUE_PREFIX,
     orderSync,
+    metrics,
     async close() {
       await queue.close();
       await db.$disconnect();

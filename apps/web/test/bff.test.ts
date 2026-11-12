@@ -33,7 +33,7 @@ describe('dashboard BFF proxy', () => {
     expect(sent.get('cookie')).toBe('ms_session=old');
     expect(sent.get('x-csrf-token')).toBe('t');
     expect(sent.get('authorization')).toBeNull();
-    expect(init.body).toBe('{"a":1}');
+    expect(new TextDecoder().decode(init.body as ArrayBuffer)).toBe('{"a":1}');
   });
 
   it('refuses unknown paths and storefront hosts', async () => {

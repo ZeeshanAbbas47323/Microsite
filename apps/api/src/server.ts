@@ -1,14 +1,18 @@
 import { buildApp } from './app';
 import { createContainer } from './container';
 import { loadEnv } from './env';
+import { initSentry } from './lib/observability';
 import { startOrderSyncWorker } from './orders/order-sync';
 
 const env = loadEnv();
-let log: { error: (obj: object, msg: string) => void } = console;
+initSentry(env.SENTRY_DSN, env.NODE_ENV, 'microstore-api');
+let log: { error: (obj: object, msg: string) => void; info: (obj: object, msg: string) => void } =
+  console;
 const container = createContainer(
   env,
   (message, meta) => log.error({ alert: true, ...meta }, message),
   (error) => log.error({ err: error }, 'storefront revalidation failed'),
+  (msg, meta) => log.info(meta ?? {}, msg),
 );
 
 function trustProxy(value: string | undefined): boolean | string[] {

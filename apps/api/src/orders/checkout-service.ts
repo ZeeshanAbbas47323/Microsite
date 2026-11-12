@@ -8,6 +8,8 @@ import { Prisma, type Store } from '../generated/prisma/client';
 import { AppError, conflict } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { storeSettingsSchema } from '../stores/settings';
+import type { OrderNotifier } from '../notifications/order-notifier';
+import type { CaptchaVerifier } from './captcha';
 import type { OrderSyncQueue } from './order-sync';
 
 export const MAX_CART_LINES = 50;
@@ -45,6 +47,8 @@ export const checkoutBodySchema = z.strictObject({
   paymentMethod: z.literal('cod').default('cod'),
   /** Honeypot: hidden in the form, must stay empty (FR-5.9). */
   website: z.string().max(200).optional(),
+  /** Cloudflare Turnstile token, required only when CAPTCHA is enabled. */
+  captchaToken: z.string().max(2048).optional(),
 });
 export type CheckoutBody = z.input<typeof checkoutBodySchema>;
 
@@ -102,6 +106,11 @@ export class CheckoutService {
     private readonly db: Db,
     private readonly catalog: CatalogService,
     private readonly queue: OrderSyncQueue,
+    private readonly extras: {
+      notifier?: OrderNotifier;
+      captcha?: CaptchaVerifier;
+      onOrderPlaced?: () => void;
+    } = {},
   ) {}
 
   /**
@@ -112,6 +121,7 @@ export class CheckoutService {
     store: Store,
     rawBody: unknown,
     idempotencyKey: string,
+    remoteIp = '',
   ): Promise<{ order: OrderSummary; created: boolean }> {
     const body = checkoutBodySchema.parse(rawBody);
     if (body.website) throw new AppError(400, 'bad_request', 'Your order could not be placed');
@@ -122,6 +132,11 @@ export class CheckoutService {
       if (existing.requestHash !== requestHash)
         throw conflict('This checkout was already submitted with a different cart');
       return { order: toSummary(existing), created: false };
+    }
+
+    // Checked after the idempotent replay: a retried request cannot reuse a spent token.
+    if (this.extras.captcha && !(await this.extras.captcha.verify(body.captchaToken, remoteIp))) {
+      throw new AppError(400, 'captcha_failed', 'Please complete the security check and try again');
     }
 
     const { lines, unverified } = await this.priceLines(store, mergeLines(body.items));
@@ -185,6 +200,9 @@ export class CheckoutService {
 
     // If enqueueing fails the order stays pending_sync and the sweeper picks it up.
     await this.queue.enqueue(orderId).catch(() => undefined);
+    // Customer email / message: best effort, never blocks or fails the order.
+    void this.extras.notifier?.orderPlaced(orderId);
+    this.extras.onOrderPlaced?.();
     const order = await this.db.order.findUniqueOrThrow({
       where: { id: orderId },
       include: { items: true },

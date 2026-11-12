@@ -10,9 +10,12 @@ import { CSRF_HEADER, SESSION_COOKIE } from '../src/auth/plugin';
 import { MemorySessionStore, SessionManager } from '../src/auth/sessions';
 import { JwtSsoProvider, type Role } from '../src/auth/sso';
 import { createDb, type Db } from '../src/db';
+import { AssetService } from '../src/assets/asset-service';
+import { MemoryStorage } from '../src/assets/storage';
 import { CatalogService } from '../src/catalog/catalog-service';
 import { MerchantProductService } from '../src/catalog/merchant-products';
 import { MemoryCache } from '../src/lib/cache';
+import { Metrics } from '../src/lib/observability';
 import { CheckoutService } from '../src/orders/checkout-service';
 import { MerchantOrderService } from '../src/orders/merchant-orders';
 import { InlineOrderSyncQueue, OrderSyncService } from '../src/orders/order-sync';
@@ -48,10 +51,11 @@ export async function resetDb() {
 }
 
 export const PREVIEW_SECRET = 'preview-secret-0123456789abcdef0123456789';
+export const METRICS_TOKEN = 'metrics-token-0123456789abcdef';
 export const WEBHOOK_SECRET = 'whsec_test_0123456789abcdef';
 
 export async function createTestApp(
-  options: { now?: () => number; tenantCatalog?: string[] } = {},
+  options: { now?: () => number; tenantCatalog?: string[]; storageQuota?: number } = {},
 ) {
   const d = testDb();
   const revalidated: { storeId: string; hostnames: string[] }[] = [];
@@ -73,10 +77,17 @@ export async function createTestApp(
     revalidator,
   });
   const catalog = new CatalogService(getorio, cache, options.now);
-  const orderSync = new OrderSyncService(d, getorio, (message, meta) =>
-    alerts.push({ message, meta }),
+  const metrics = new Metrics();
+  const orderSync = new OrderSyncService(
+    d,
+    getorio,
+    (message, meta) => alerts.push({ message, meta }),
+    undefined,
+    (outcome) => metrics.orderSync.inc({ outcome }),
   );
   const queue = new InlineOrderSyncQueue(() => orderSync);
+  const storage = new MemoryStorage();
+  const assets = new AssetService(d, storage, stores, options.storageQuota);
   const app = await buildApp({
     db: d,
     sessions: new SessionManager(new MemorySessionStore(options.now), options.now),
@@ -93,14 +104,19 @@ export async function createTestApp(
       queue,
       'https://app.getorio.test/orders/{id}',
     ),
-    checkout: new CheckoutService(d, catalog, queue),
+    checkout: new CheckoutService(d, catalog, queue, {
+      onOrderPlaced: () => metrics.ordersPlaced.inc(),
+    }),
     revalidator,
+    assets,
     previewSecret: PREVIEW_SECRET,
     webhookSecret: WEBHOOK_SECRET,
     corsOrigins: ['http://localhost:3000'],
     secureCookies: false,
+    metrics,
+    metricsToken: METRICS_TOKEN,
   });
-  return { app, getorio, revalidated, queue, orderSync, catalog, alerts };
+  return { app, getorio, revalidated, queue, orderSync, catalog, alerts, storage, metrics };
 }
 
 export interface TokenClaims {

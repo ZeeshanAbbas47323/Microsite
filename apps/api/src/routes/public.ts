@@ -105,7 +105,12 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
     async (request, reply) => {
       const { store } = await viewable(request, { allowPreview: false });
       const key = idempotencyKeySchema.parse(request.headers['idempotency-key']);
-      const { order, created } = await deps.checkout.placeOrder(store, request.body, key);
+      const { order, created } = await deps.checkout.placeOrder(
+        store,
+        request.body,
+        key,
+        request.ip,
+      );
       return reply.status(created ? 201 : 200).send({ order });
     },
   );

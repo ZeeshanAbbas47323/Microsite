@@ -25,4 +25,9 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // k6 load-test scripts run in k6, not Node.
+    files: ['load/**/*.js'],
+    languageOptions: { globals: { __ENV: 'readonly', __VU: 'readonly', __ITER: 'readonly' } },
+  },
 );
