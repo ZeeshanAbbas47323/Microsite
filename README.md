@@ -47,7 +47,7 @@ apps/web               Next.js: merchant dashboard + public storefront   (not st
 apps/api               Fastify API + workers                              (not started)
 packages/site-schema   Zod schemas, types, patch allowlist, migrations    (done)
 packages/layouts       Layout definitions + section components            (not started)
-packages/getorio-client Getorio adapter (interface, mock, HTTP)           (not started)
+packages/getorio-client Getorio adapter (interface, mock, HTTP)           (done)
 packages/config        Shared tsconfig
 docs/                  Assumptions, open questions, API docs
 ```
@@ -93,7 +93,7 @@ Run one package: `pnpm --filter @microstore/site-schema test`.
 
 - [x] Monorepo scaffold, Docker Compose (MySQL, Redis, MinIO), `.env.example`, CI, Husky + lint-staged
 - [x] `packages/site-schema`: config/section schemas, patch allowlist validator (60+ adversarial tests), migrations, onboarding schema + generator, subdomain rules (100% line coverage)
-- [ ] `packages/getorio-client`: interface + mock
+- [x] `packages/getorio-client`: interface, in-memory mock (fault injection), HTTP client (timeouts, retries, circuit breaker), webhook verification; PHP contract in [docs/GETORIO_API_CONTRACT.md](docs/GETORIO_API_CONTRACT.md)
 - [ ] `apps/api`: Prisma schema, SSO stub, stores/config/publish, checkout + order sync
 - [ ] `packages/layouts`: 2 layouts
 - [ ] `apps/web`: onboarding, dashboard, storefront, tenant routing
