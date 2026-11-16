@@ -15,6 +15,8 @@ import { AddToCart } from '@/components/cart/AddToCart';
 import { CartView } from '@/components/cart/CartView';
 import { CheckoutForm } from '@/components/cart/CheckoutForm';
 import { OrderConfirmation } from '@/components/cart/OrderConfirmation';
+import { TrackOrderForm } from '@/components/cart/TrackOrderForm';
+import { VisitBeacon } from '@/components/VisitBeacon';
 import { serverEnv, storefrontUrl } from '@/lib/env';
 import { fontFamilyFor } from '@/lib/fonts';
 import { getProduct, getProducts, type Mode, type StoreResponse } from './api';
@@ -156,6 +158,7 @@ async function Shell({
       banner={<PreviewBanner mode={mode} />}
     >
       {children(ctx)}
+      {mode.preview ? null : <VisitBeacon />}
     </SiteShell>
   );
 }
@@ -468,6 +471,23 @@ export async function CheckoutPage({ params }: Props) {
   );
 }
 
+export async function TrackPage({ params }: Props) {
+  const mode = modeOf(await params);
+  const data = await loadStore(mode);
+  return (
+    <Shell mode={mode} data={data} currentPath="/track">
+      {(ctx) => (
+        <>
+          <PageHeader ctx={ctx} title="Track your order" />
+          <div className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
+            <TrackOrderForm />
+          </div>
+        </>
+      )}
+    </Shell>
+  );
+}
+
 export async function OrderPage({ params }: Props<{ ref: string }>) {
   const p = await params;
   const mode = modeOf(p);
@@ -478,7 +498,11 @@ export async function OrderPage({ params }: Props<{ ref: string }>) {
     <Shell mode={mode} data={data} currentPath="/order">
       {() => (
         <div className="px-4">
-          <OrderConfirmation orderRef={ref} homeHref={hrefBuilder(mode)('/')} />
+          <OrderConfirmation
+            orderRef={ref}
+            homeHref={hrefBuilder(mode)('/')}
+            trackHref={hrefBuilder(mode)(`/track?ref=${encodeURIComponent(ref)}`)}
+          />
         </div>
       )}
     </Shell>

@@ -56,6 +56,7 @@ export interface SessionInfo {
 export interface StoreSettings {
   shippingFlatFee: string;
   freeShippingThreshold: string | null;
+  cityShippingRates: { city: string; fee: string }[];
   notifications: { customerEmail: boolean; customerMessage: boolean };
   whatsappButton: boolean;
   rtl: boolean;

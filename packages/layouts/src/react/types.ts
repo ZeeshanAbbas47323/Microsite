@@ -32,6 +32,8 @@ export interface StoreInfo {
     rtl: boolean;
     shippingFlatFee: string;
     freeShippingThreshold: string | null;
+    /** Missing from stores cached before Phase 3. */
+    cityShippingRates?: { city: string; fee: string }[];
   };
 }
 

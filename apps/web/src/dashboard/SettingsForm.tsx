@@ -157,6 +157,11 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
               )}
             </Field>
           ) : null}
+          <CityRates
+            currency={store.currency}
+            rates={settings.cityShippingRates ?? []}
+            onChange={(cityShippingRates) => setSettings({ ...settings, cityShippingRates })}
+          />
           {note('shipping')}
           <Button
             variant="secondary"
@@ -167,6 +172,10 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
                 freeShippingThreshold: freeShipping
                   ? (settings.freeShippingThreshold ?? '').trim()
                   : null,
+                cityShippingRates: (settings.cityShippingRates ?? []).map((r) => ({
+                  city: r.city.trim(),
+                  fee: r.fee.trim(),
+                })),
               })
             }
           >
@@ -377,5 +386,59 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+/** Phase 3: delivery fee per city. A listed city replaces the flat fee at checkout. */
+function CityRates({
+  currency,
+  rates,
+  onChange,
+}: {
+  currency: string;
+  rates: { city: string; fee: string }[];
+  onChange: (rates: { city: string; fee: string }[]) => void;
+}) {
+  const t = useT();
+  const set = (i: number, patch: Partial<{ city: string; fee: string }>) =>
+    onChange(rates.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium text-neutral-800">{t('Delivery fee by city')}</legend>
+      <p className="text-sm text-neutral-600">
+        {t('Cities not listed here pay the flat fee. Free delivery still applies.')}
+      </p>
+      {rates.map((r, i) => (
+        <div key={i} className="flex gap-2">
+          <Input
+            aria-label={t('City {n}', { n: i + 1 })}
+            placeholder="Karachi"
+            maxLength={60}
+            value={r.city}
+            onChange={(e) => set(i, { city: e.target.value })}
+          />
+          <Input
+            aria-label={t('Fee for city {n} ({currency})', { n: i + 1, currency })}
+            inputMode="decimal"
+            placeholder="250"
+            className="w-32"
+            value={r.fee}
+            onChange={(e) => set(i, { fee: e.target.value })}
+          />
+          <Button
+            variant="secondary"
+            aria-label={t('Remove city {n}', { n: i + 1 })}
+            onClick={() => onChange(rates.filter((_, j) => j !== i))}
+          >
+            ✕
+          </Button>
+        </div>
+      ))}
+      {rates.length < 50 ? (
+        <Button variant="secondary" onClick={() => onChange([...rates, { city: '', fee: '' }])}>
+          {t('Add city')}
+        </Button>
+      ) : null}
+    </fieldset>
   );
 }

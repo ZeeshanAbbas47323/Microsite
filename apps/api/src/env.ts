@@ -52,8 +52,11 @@ export const envSchema = z
     ANTHROPIC_API_KEY: z.string().optional(),
     /** Model for the command box (FR-7.8). */
     ANTHROPIC_MODEL: z.string().default('claude-opus-5-5'),
-    /** `anthropic` (default) or `stub` (deterministic, for local demos without an API key). */
-    COMMAND_LLM: z.enum(['anthropic', 'stub']).default('anthropic'),
+    OPENROUTER_API_KEY: z.string().optional(),
+    /** OpenRouter model for the command box; must support structured outputs. */
+    OPENROUTER_MODEL: z.string().default('z-ai/glm-5.3-flash'),
+    /** `anthropic` (default), `openrouter`, or `stub` (deterministic, for demos without a key). */
+    COMMAND_LLM: z.enum(['anthropic', 'openrouter', 'stub']).default('anthropic'),
     COMMANDS_PER_STORE_PER_DAY: z.coerce.number().int().min(0).max(10_000).default(30),
     /** apps/web revalidation endpoint, e.g. http://localhost:3000/api/revalidate */
     WEB_REVALIDATE_URL: z.url().optional(),

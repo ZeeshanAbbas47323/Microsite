@@ -61,6 +61,7 @@ export const RESERVED_PAGE_SLUGS = [
   'checkout',
   'order',
   'orders',
+  'track',
   'search',
   'api',
   'sitemap.xml',

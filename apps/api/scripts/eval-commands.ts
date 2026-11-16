@@ -1,8 +1,9 @@
 /**
  * Opt-in eval of the command box against the real model (requirements §12 "LLM testing").
- * Spends API credits: ~20 short requests. Needs ANTHROPIC_API_KEY (and optionally ANTHROPIC_MODEL).
+ * Spends API credits: ~20 short requests. Uses the provider from COMMAND_LLM (`anthropic` needs
+ * ANTHROPIC_API_KEY, `openrouter` needs OPENROUTER_API_KEY). An optional argument overrides the model.
  *
- *   pnpm --filter @microstore/api eval:commands
+ *   pnpm --filter @microstore/api eval:commands [model]
  */
 import {
   DEFAULT_COMMAND_SCOPE,
@@ -11,13 +12,22 @@ import {
   onboardingInputSchema,
   validateCommandPatch,
 } from '@microstore/site-schema';
-import { AnthropicCommandLlm, commandOutputSchema } from '../src/commands/llm';
+import {
+  AnthropicCommandLlm,
+  commandOutputSchema,
+  OpenRouterCommandLlm,
+  type CommandLlm,
+} from '../src/commands/llm';
 import { COMMAND_FIXTURES } from './command-fixtures';
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error('Set ANTHROPIC_API_KEY to run the eval (it calls the real model).');
+const provider = process.env.COMMAND_LLM === 'openrouter' ? 'openrouter' : 'anthropic';
+const keyName = provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'ANTHROPIC_API_KEY';
+const apiKey = process.env[keyName];
+if (!apiKey) {
+  console.error(`Set ${keyName} to run the eval (it calls the real model).`);
   process.exit(1);
 }
+const modelArg = process.argv[2];
 
 const config = generateSiteConfig(
   onboardingInputSchema.parse({
@@ -48,7 +58,16 @@ const config = generateSiteConfig(
   { layoutId: 'bold-01', ...FALLBACK_LAYOUT_DEFAULTS },
 );
 
-const llm = new AnthropicCommandLlm({ model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5-5' });
+const llm: CommandLlm =
+  provider === 'openrouter'
+    ? new OpenRouterCommandLlm({
+        model: modelArg ?? process.env.OPENROUTER_MODEL ?? 'z-ai/glm-5.3-flash',
+        apiKey,
+      })
+    : new AnthropicCommandLlm({
+        model: modelArg ?? process.env.ANTHROPIC_MODEL ?? 'claude-opus-5-5',
+        apiKey,
+      });
 let passed = 0;
 let tokensIn = 0;
 let tokensOut = 0;

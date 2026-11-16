@@ -183,3 +183,109 @@ export class AnthropicCommandLlm implements CommandLlm {
     return { raw, ...usage };
   }
 }
+
+export interface OpenRouterCommandLlmOptions {
+  model: string;
+  apiKey: string;
+  /** FR-7.7: 20 s per call. */
+  timeoutMs?: number;
+  baseUrl?: string;
+  fetch?: typeof fetch;
+}
+
+interface OpenRouterResponse {
+  model?: string;
+  choices?: {
+    finish_reason?: string | null;
+    message?: { content?: string | null; refusal?: string | null };
+  }[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  error?: { message?: string; code?: number };
+}
+
+/**
+ * Any OpenRouter model with structured outputs (chat completions API). `require_parameters` makes
+ * OpenRouter route only to providers that enforce the JSON schema; the caller still validates.
+ */
+export class OpenRouterCommandLlm implements CommandLlm {
+  readonly model: string;
+  private readonly systemPrompts = new Map<string, string>();
+  private readonly fetchFn: typeof fetch;
+
+  constructor(private readonly options: OpenRouterCommandLlmOptions) {
+    this.model = options.model;
+    this.fetchFn = options.fetch ?? fetch;
+  }
+
+  async propose({ config, command, language, scope }: LlmRequest): Promise<LlmResult> {
+    const key = JSON.stringify(scope);
+    let system = this.systemPrompts.get(key);
+    if (!system) {
+      system = buildSystemPrompt(scope);
+      this.systemPrompts.set(key, system);
+    }
+
+    let res: Response;
+    try {
+      res = await this.fetchFn(
+        `${this.options.baseUrl ?? 'https://openrouter.ai/api/v1'}/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${this.options.apiKey}`,
+            'content-type': 'application/json',
+            'x-title': 'Getorio Microstore',
+          },
+          body: JSON.stringify({
+            model: this.model,
+            max_tokens: 4000,
+            temperature: 0,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: buildUserMessage(config, command, language) },
+            ],
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: 'command_patch',
+                strict: true,
+                schema: COMMAND_OUTPUT_JSON_SCHEMA,
+              },
+            },
+            provider: { require_parameters: true },
+          }),
+          signal: AbortSignal.timeout(this.options.timeoutMs ?? 20_000),
+        },
+      );
+    } catch (error) {
+      if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError'))
+        throw new LlmError('timeout', 'The AI took too long to answer');
+      throw new LlmError('unavailable', 'AI service unreachable');
+    }
+
+    const body = (await res.json().catch(() => null)) as OpenRouterResponse | null;
+    if (!res.ok || !body || body.error)
+      throw new LlmError('unavailable', `AI service error ${body?.error?.code ?? res.status}`);
+
+    const usage = {
+      model: body.model ?? this.model,
+      promptTokens: body.usage?.prompt_tokens ?? 0,
+      completionTokens: body.usage?.completion_tokens ?? 0,
+    };
+    const choice = body.choices?.[0];
+    if (choice?.message?.refusal || choice?.finish_reason === 'content_filter')
+      throw new LlmError('refused', 'The AI declined this request', usage);
+    if (choice?.finish_reason === 'length')
+      throw new LlmError('malformed', 'The AI answer was cut off', usage);
+    let raw: unknown;
+    try {
+      // Some models wrap JSON in a code fence despite the schema.
+      raw = JSON.parse(
+        (choice?.message?.content ?? '').replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, ''),
+      );
+    } catch {
+      throw new LlmError('malformed', 'The AI answer was not valid JSON', usage);
+    }
+    return { raw, ...usage };
+  }
+}

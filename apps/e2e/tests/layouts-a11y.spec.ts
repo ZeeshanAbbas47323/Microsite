@@ -7,7 +7,7 @@ import { ssoUrl, storeOrigin } from './helpers';
  * Accessibility gate for every layout (requirements §9: WCAG 2.1 AA). Each layout gets its own
  * tenant and published store; every storefront page is scanned with axe.
  */
-const PAGES = ['/', '/products', '/products/p-1004', '/cart', '/about', '/contact'];
+const PAGES = ['/', '/products', '/products/p-1004', '/cart', '/track', '/about', '/contact'];
 const run = Date.now().toString(36);
 
 async function dashboardApi(page: Page) {

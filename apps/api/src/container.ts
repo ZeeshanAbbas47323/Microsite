@@ -8,7 +8,7 @@ import { MerchantProductService } from './catalog/merchant-products';
 import { AssetService } from './assets/asset-service';
 import { S3Storage } from './assets/storage';
 import { CommandService } from './commands/command-service';
-import { AnthropicCommandLlm, type CommandLlm } from './commands/llm';
+import { AnthropicCommandLlm, OpenRouterCommandLlm, type CommandLlm } from './commands/llm';
 import { StubCommandLlm } from './commands/stub-llm';
 import { createDb } from './db';
 import { captureError, Metrics } from './lib/observability';
@@ -19,6 +19,8 @@ import { BullNotificationQueue } from './notifications/queue';
 import { ConsoleEmailSender, SmtpEmailSender, WebhookMessageSender } from './notifications/senders';
 import { TurnstileVerifier } from './orders/captcha';
 import { CheckoutService } from './orders/checkout-service';
+import { OrderTrackingService } from './orders/order-tracking';
+import { AnalyticsService } from './stores/analytics';
 import { MerchantOrderService } from './orders/merchant-orders';
 import { BullOrderSyncQueue, OrderSyncService, type Alert } from './orders/order-sync';
 import { HttpSiteRevalidator } from './stores/http-revalidator';
@@ -74,13 +76,20 @@ export function createContainer(
     info,
   );
   const notifications = new BullNotificationQueue(queueConnection, { prefix: env.QUEUE_PREFIX });
-  // The command box needs an Anthropic API key; without one it reports itself unavailable.
+  // The command box needs a key for the chosen provider; without one it reports itself unavailable.
   const commandLlm: CommandLlm | null =
     env.COMMAND_LLM === 'stub'
       ? new StubCommandLlm()
-      : env.ANTHROPIC_API_KEY
-        ? new AnthropicCommandLlm({ model: env.ANTHROPIC_MODEL, apiKey: env.ANTHROPIC_API_KEY })
-        : null;
+      : env.COMMAND_LLM === 'openrouter'
+        ? env.OPENROUTER_API_KEY
+          ? new OpenRouterCommandLlm({
+              model: env.OPENROUTER_MODEL,
+              apiKey: env.OPENROUTER_API_KEY,
+            })
+          : null
+        : env.ANTHROPIC_API_KEY
+          ? new AnthropicCommandLlm({ model: env.ANTHROPIC_MODEL, apiKey: env.ANTHROPIC_API_KEY })
+          : null;
   const commands = new CommandService(db, stores, commandLlm, {
     dailyLimit: env.COMMANDS_PER_STORE_PER_DAY,
   });
@@ -121,6 +130,8 @@ export function createContainer(
       queue,
       env.GETORIO_ORDER_URL_TEMPLATE,
     ),
+    tracking: new OrderTrackingService(db, getorio, cache),
+    analytics: new AnalyticsService(db, stores),
     checkout: new CheckoutService(db, catalog, queue, {
       notifications,
       onOrderPlaced: () => metrics.ordersPlaced.inc(),

@@ -21,6 +21,8 @@ import { StubCommandLlm } from '../src/commands/stub-llm';
 import { MemoryCache } from '../src/lib/cache';
 import { Metrics } from '../src/lib/observability';
 import { CheckoutService } from '../src/orders/checkout-service';
+import { OrderTrackingService } from '../src/orders/order-tracking';
+import { AnalyticsService } from '../src/stores/analytics';
 import { MerchantOrderService } from '../src/orders/merchant-orders';
 import { InlineOrderSyncQueue, OrderSyncService } from '../src/orders/order-sync';
 import { StoreService, type SiteRevalidator } from '../src/stores/store-service';
@@ -44,6 +46,7 @@ const TABLES = [
   'store_products',
   'assets',
   'site_versions',
+  'store_daily_stats',
   'domains',
   'stores',
   'merchants',
@@ -120,6 +123,8 @@ export async function createTestApp(
       queue,
       'https://app.getorio.test/orders/{id}',
     ),
+    tracking: new OrderTrackingService(d, getorio, cache),
+    analytics: new AnalyticsService(d, stores, () => new Date(options.now?.() ?? Date.now())),
     checkout: new CheckoutService(d, catalog, queue, {
       onOrderPlaced: () => metrics.ordersPlaced.inc(),
     }),

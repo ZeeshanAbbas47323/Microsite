@@ -108,4 +108,21 @@ test.describe.serial('merchant creates a store and a customer orders', () => {
     }).toPass({ timeout: 30_000 });
     await expect(row).toContainText('Rs 3,400');
   });
+
+  test('customer tracks the order (FR-5.10)', async ({ page, baseURL }) => {
+    const store = storeOrigin(baseURL as string, subdomain);
+    await page.goto(`${store}/track?ref=${orderRef}`);
+    await expect(page.getByLabel('Order number')).toHaveValue(orderRef);
+    await page.getByLabel('Phone').fill('0300 0000000');
+    await page.getByRole('button', { name: 'Track order' }).click();
+    await expect(
+      page.getByText('We could not find an order with that number and phone'),
+    ).toBeVisible();
+    await page.getByLabel('Phone').fill('0333 7654321');
+    await page.getByRole('button', { name: 'Track order' }).click();
+    const status = page.getByRole('region', { name: 'Order status' });
+    await expect(status).toContainText(`Order ${orderRef}`);
+    // Synced to (mock) Getorio, which reports new orders as pending
+    await expect(status).toContainText('Order received');
+  });
 });

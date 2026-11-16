@@ -1,6 +1,6 @@
 import { createHash, randomInt } from 'node:crypto';
 import { fromMinorUnits, toMinorUnits, type GetorioProduct } from '@microstore/getorio-client';
-import { emailSchema, pkPhoneSchema, plainText } from '@microstore/site-schema';
+import { baseShippingFee, emailSchema, pkPhoneSchema, plainText } from '@microstore/site-schema';
 import { z } from 'zod';
 import type { CatalogService } from '../catalog/catalog-service';
 import type { Db } from '../db';
@@ -145,7 +145,9 @@ export class CheckoutService {
     const threshold =
       settings.freeShippingThreshold === null ? null : toMinorUnits(settings.freeShippingThreshold);
     const shippingMinor =
-      threshold !== null && subtotalMinor >= threshold ? 0 : toMinorUnits(settings.shippingFlatFee);
+      threshold !== null && subtotalMinor >= threshold
+        ? 0
+        : toMinorUnits(baseShippingFee(settings, body.shipping.city));
 
     const orderId = newId();
     try {

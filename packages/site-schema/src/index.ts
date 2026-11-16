@@ -8,3 +8,4 @@ export * from './migrate';
 export * from './patch';
 export * from './generator';
 export * from './json-patch';
+export * from './shipping';

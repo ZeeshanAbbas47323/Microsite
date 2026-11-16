@@ -2,23 +2,24 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { baseShippingFee, type ShippingRules } from '@microstore/site-schema';
 import { formatMoney, fromMinor, toMinor } from '@/lib/money';
 import { cart, MAX_QTY, useCart, type CartItem } from './cart-store';
 
-export interface ShippingRules {
-  shippingFlatFee: string;
-  freeShippingThreshold: string | null;
-}
+export type { ShippingRules };
 
-export function shippingFor(subtotalMinor: number, rules: ShippingRules): number {
+/** Mirrors the API (checkout-service): city rate or flat fee, unless free shipping applies. */
+export function shippingFor(subtotalMinor: number, rules: ShippingRules, city?: string): number {
   const threshold =
     rules.freeShippingThreshold === null ? null : toMinor(rules.freeShippingThreshold);
-  return threshold !== null && subtotalMinor >= threshold ? 0 : toMinor(rules.shippingFlatFee);
+  return threshold !== null && subtotalMinor >= threshold
+    ? 0
+    : toMinor(baseShippingFee(rules, city));
 }
 
-export function totals(items: CartItem[], rules: ShippingRules) {
+export function totals(items: CartItem[], rules: ShippingRules, city?: string) {
   const subtotal = items.reduce((sum, i) => sum + toMinor(i.price) * i.qty, 0);
-  const shipping = items.length ? shippingFor(subtotal, rules) : 0;
+  const shipping = items.length ? shippingFor(subtotal, rules, city) : 0;
   return {
     subtotal: fromMinor(subtotal),
     shipping: fromMinor(shipping),
@@ -87,12 +88,18 @@ export function Summary({
   items,
   rules,
   currency,
+  city,
 }: {
   items: CartItem[];
   rules: ShippingRules;
   currency: string;
+  /** Delivery city typed at checkout; undefined in the cart. */
+  city?: string;
 }) {
-  const t = totals(items, rules);
+  const t = totals(items, rules, city);
+  // With city rates the fee is only known once the city is entered (free shipping aside).
+  const byCity =
+    Boolean(rules.cityShippingRates?.length) && !city?.trim() && Number(t.shipping) > 0;
   return (
     <dl className="space-y-2 text-sm">
       <div className="flex justify-between">
@@ -101,11 +108,20 @@ export function Summary({
       </div>
       <div className="flex justify-between">
         <dt>Shipping</dt>
-        <dd>{Number(t.shipping) === 0 ? 'Free' : formatMoney(t.shipping, currency)}</dd>
+        <dd>
+          {Number(t.shipping) === 0
+            ? 'Free'
+            : byCity
+              ? 'Depends on city'
+              : formatMoney(t.shipping, currency)}
+        </dd>
       </div>
       <div className="flex justify-between border-t border-[var(--ms-border)] pt-2 text-base font-bold">
         <dt>Total</dt>
-        <dd>{formatMoney(t.total, currency)}</dd>
+        <dd>
+          {formatMoney(byCity ? t.subtotal : t.total, currency)}
+          {byCity ? ' + delivery' : ''}
+        </dd>
       </div>
       <p className="pt-1 text-xs text-[var(--ms-muted)]">
         Prices are confirmed when you place the order. Pay cash on delivery.

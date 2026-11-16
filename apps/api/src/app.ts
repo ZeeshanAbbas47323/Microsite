@@ -29,6 +29,8 @@ import { publicRoutes } from './routes/public';
 import { storeRoutes } from './routes/stores';
 import { webhookRoutes } from './routes/webhooks';
 import type { CheckoutService } from './orders/checkout-service';
+import type { OrderTrackingService } from './orders/order-tracking';
+import type { AnalyticsService } from './stores/analytics';
 import type { MerchantOrderService } from './orders/merchant-orders';
 import type { SiteRevalidator, StoreService } from './stores/store-service';
 
@@ -44,6 +46,8 @@ export interface AppDeps {
   merchantProducts: MerchantProductService;
   merchantOrders: MerchantOrderService;
   checkout: CheckoutService;
+  tracking: OrderTrackingService;
+  analytics: AnalyticsService;
   commands: CommandService;
   revalidator: SiteRevalidator;
   /** Image uploads; routes answer 503 when object storage is not configured. */

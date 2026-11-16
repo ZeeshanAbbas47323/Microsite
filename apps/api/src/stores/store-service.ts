@@ -347,6 +347,89 @@ export class StoreService {
     return this.get(tenantId, storeId);
   }
 
+  // -- Platform admin (Phase 3) -----------------------------------------------------------
+
+  /** All stores across tenants, newest first. Only called from platform-admin routes. */
+  async adminList(query: {
+    search?: string;
+    status?: Store['status'];
+    page: number;
+    pageSize: number;
+  }) {
+    const where: Prisma.StoreWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search } },
+              { getorioTenantId: query.search },
+              { domains: { some: { hostname: { contains: query.search } } } },
+            ],
+          }
+        : {}),
+    };
+    const [total, stores] = await Promise.all([
+      this.db.store.count({ where }),
+      this.db.store.findMany({
+        where,
+        include: { domains: true, _count: { select: { orders: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+    ]);
+    return {
+      total,
+      items: stores.map((s) => ({
+        ...this.toDto(s),
+        getorioTenantId: s.getorioTenantId,
+        orderCount: s._count.orders,
+      })),
+    };
+  }
+
+  /**
+   * Suspending takes the storefront offline (503) and blocks publishing; unsuspending restores the
+   * status the store had before. Both are audited with the admin and the reason.
+   */
+  async setSuspended(admin: Session, storeId: string, suspended: boolean, reason: string) {
+    const store = await this.db.store.findUnique({
+      where: { id: storeId },
+      include: { domains: true },
+    });
+    if (!store) throw notFound('Store');
+    if ((store.status === 'suspended') === suspended) {
+      throw conflict(suspended ? 'Store is already suspended' : 'Store is not suspended');
+    }
+    let next: Store['status'] = 'suspended';
+    if (!suspended) {
+      const last = await this.db.auditLog.findFirst({
+        where: { storeId, action: 'store.suspended' },
+        orderBy: { createdAt: 'desc' },
+      });
+      const before = (last?.metadata as { previousStatus?: string } | null)?.previousStatus;
+      next = before === 'published' && store.publishedConfig !== null ? 'published' : 'draft';
+    }
+    await this.db.$transaction(async (tx) => {
+      await tx.store.update({ where: { id: storeId }, data: { status: next } });
+      await tx.auditLog.create({
+        data: {
+          id: newId(),
+          storeId,
+          getorioTenantId: store.getorioTenantId,
+          actor: `admin:${admin.merchantId}`,
+          action: suspended ? 'store.suspended' : 'store.unsuspended',
+          metadata: json({ reason, previousStatus: store.status }),
+        },
+      });
+    });
+    await this.revalidator.revalidateStore(
+      storeId,
+      store.domains.map((d) => d.hostname),
+    );
+    return this.get(store.getorioTenantId, storeId);
+  }
+
   // -- Internals -------------------------------------------------------------------------
 
   private hostnameFor(subdomain: string) {

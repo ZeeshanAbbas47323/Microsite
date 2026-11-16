@@ -2,6 +2,7 @@ import { LAYOUTS } from '@microstore/layouts';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authOf, requireAuth } from '../auth/plugin';
+import { ANALYTICS_RANGES } from '../stores/analytics';
 import { saveLivePreview } from '../stores/live-preview';
 import { storeSettingsPatchSchema } from '../stores/settings';
 import type { AppDeps } from '../app';
@@ -96,6 +97,19 @@ export async function storeRoutes(app: FastifyInstance, deps: AppDeps) {
     authed.post('/stores/:id/unpublish', async (request) => {
       const { id } = storeParams.parse(request.params);
       return { store: await stores.unpublish(authOf(request), id) };
+    });
+
+    authed.get('/stores/:id/analytics', async (request) => {
+      const { id } = storeParams.parse(request.params);
+      const { days } = z
+        .object({
+          days: z.coerce
+            .number()
+            .pipe(z.union(ANALYTICS_RANGES.map((n) => z.literal(n))))
+            .default(30),
+        })
+        .parse(request.query);
+      return deps.analytics.summary(authOf(request).getorioTenantId, id, days);
     });
 
     authed.get('/stores/:id/versions', async (request) => {

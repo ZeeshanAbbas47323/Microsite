@@ -1,4 +1,5 @@
 import { moneySchema } from '@microstore/getorio-client';
+import { cityShippingRatesSchema } from '@microstore/site-schema';
 import { z } from 'zod';
 
 /** Per-store settings kept in `stores.settings` (JSON). Values here are never filtered on in SQL. */
@@ -6,6 +7,8 @@ export const storeSettingsSchema = z.strictObject({
   shippingFlatFee: moneySchema,
   /** Orders at or above this subtotal ship free. Null disables free shipping. */
   freeShippingThreshold: moneySchema.nullable(),
+  /** City-specific delivery fees; a matching city replaces the flat fee (Phase 3). */
+  cityShippingRates: cityShippingRatesSchema.default([]),
   notifications: z.strictObject({
     /** Email the customer a confirmation when they gave an address. */
     customerEmail: z.boolean(),
@@ -20,6 +23,7 @@ export type StoreSettings = z.infer<typeof storeSettingsSchema>;
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   shippingFlatFee: '0.00',
   freeShippingThreshold: null,
+  cityShippingRates: [],
   notifications: { customerEmail: true, customerMessage: false },
   whatsappButton: true,
   rtl: false,
@@ -29,6 +33,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
 export const storeSettingsPatchSchema = z.strictObject({
   shippingFlatFee: moneySchema.optional(),
   freeShippingThreshold: moneySchema.nullable().optional(),
+  cityShippingRates: cityShippingRatesSchema.optional(),
   notifications: storeSettingsSchema.shape.notifications.partial().optional(),
   whatsappButton: z.boolean().optional(),
   rtl: z.boolean().optional(),

@@ -87,6 +87,7 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
           settings: {
             shippingFlatFee: settings.shippingFlatFee,
             freeShippingThreshold: settings.freeShippingThreshold,
+            cityShippingRates: settings.cityShippingRates,
             whatsappButton: settings.whatsappButton,
             rtl: settings.rtl,
           },
@@ -151,6 +152,35 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
         request.ip,
       );
       return reply.status(created ? 201 : 200).send({ order });
+    },
+  );
+
+  // Phase 3 analytics beacon: counts a page view (and a visit for a new session). Nothing about
+  // the visitor is stored; bots are ignored.
+  app.post(
+    '/public/visits',
+    { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { store } = await viewable(request, { allowPreview: false });
+      const { newVisit } = z
+        .object({ newVisit: z.boolean().default(false) })
+        .parse(request.body ?? {});
+      await deps.analytics.recordPageView(store, {
+        newVisit,
+        userAgent: request.headers['user-agent'],
+      });
+      return reply.status(204).send();
+    },
+  );
+
+  // FR-5.10: POST so the phone number never ends up in URLs or access logs.
+  app.post(
+    '/public/orders/track',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { store } = await viewable(request, { allowPreview: false });
+      reply.header('cache-control', 'no-store');
+      return deps.tracking.track(store, request.body);
     },
   );
 }

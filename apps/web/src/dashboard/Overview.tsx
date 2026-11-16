@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Badge, Button, Card, Notice } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
+import { AnalyticsCard } from './AnalyticsCard';
 import { api } from './api';
 import { StatusBadge } from './DashboardShell';
 import { useT } from './i18n';
@@ -129,6 +130,8 @@ export function Overview() {
           )}
         </div>
       </Card>
+
+      <AnalyticsCard storeId={store.id} currency={store.currency} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         {[

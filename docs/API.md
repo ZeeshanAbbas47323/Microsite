@@ -43,6 +43,8 @@ schemas once the route set settles.
 | PATCH  | `/stores/:id/settings`              | any of `shippingFlatFee`, `freeShippingThreshold`, `notifications`, `whatsappButton`, `rtl`, `subdomain` | `{ store }`. A new subdomain becomes primary; old ones redirect for 30 days                          |
 | GET    | `/stores/:id/config/draft`          |                                                                                                          | `{ config, updatedAt }`                                                                              |
 | PUT    | `/stores/:id/config/draft`          | `{ config }` (full site config)                                                                          | `{ config, updatedAt }`; creates a draft revision                                                    |
+| POST   | `/stores/:id/config/live-preview`   | `{ config }` (unsaved editor state)                                                                      | `{ draftId }`; validated like a draft, kept 30 min, shown via `?preview=…&draft=<id>`; never saved   |
+| GET    | `/stores/:id/analytics`             | `?days=7\|30\|90` (default 30)                                                                           | `{ from, to, totals: { visits, pageViews, orders, revenue, conversionRate }, days[] }` (PKT days)    |
 | PATCH  | `/stores/:id/config/draft`          | `{ patch: JsonPatchOperation[] }` (RFC 6902)                                                             | `{ config, updatedAt }`; whole result is schema-validated                                            |
 | POST   | `/stores/:id/publish`               |                                                                                                          | `{ store }`; immutable `published` version, cache revalidation. `403 store_suspended` when suspended |
 | POST   | `/stores/:id/unpublish`             |                                                                                                          | `{ store }` (status `draft`; published config kept)                                                  |
@@ -119,7 +121,8 @@ variants: [{ id, name, options, price, inStock }] }`. Exact stock counts are nev
 ```
 
 - Prices are never accepted from the client; every line is re-priced from Getorio (variant price when given).
-- Shipping: `shippingFlatFee`, free when subtotal ≥ `freeShippingThreshold`.
+- Shipping: the `cityShippingRates` fee for the delivery city (matched ignoring case and spacing), else
+  `shippingFlatFee`; free when subtotal ≥ `freeShippingThreshold`.
 - `201 { order }` for a new order, `200` with the same order for a repeated key, `409` when the key is reused with a
   different cart. `409 out_of_stock` lists each problem line with `reason`:
   `unavailable`, `variant_required`, `out_of_stock`, `insufficient_stock`.
@@ -127,6 +130,18 @@ variants: [{ id, name, options, price, inStock }] }`. Exact stock counts are nev
 - If Getorio is unreachable the cached catalog is used and the order is flagged `stockUnverified`; with no cache, `503`.
 
 `order`: `{ orderRef, status: "received", currency, subtotal, shippingFee, total, paymentMethod, items, createdAt }`.
+
+#### `POST /public/orders/track` (FR-5.10, 10/min per IP)
+
+Body `{ orderRef, phone }` (POST so the phone stays out of URLs and logs). Both must match one order of this store;
+otherwise `404` with the same message. Returns `{ order, tracking: { status, updatedAt } }` where `status` is
+`received` until Getorio has the order, then Getorio's status (`pending`…`returned`), cached 60 s. No customer
+details are returned.
+
+#### `POST /public/visits` (Phase 3 analytics, 120/min per IP)
+
+Body `{ newVisit: boolean }`; `204`. Counts a page view (and a visit when `newVisit`) for today in Pakistan time.
+Bots (by user agent) and previews are ignored; nothing about the visitor is stored.
 
 ### Webhooks
 
@@ -176,6 +191,9 @@ Admin: `GET /admin/command-usage` (per store, last 30 days: counts by status, pr
 | POST   | `/admin/queues/:queue/jobs/:jobId/retry` | Retry a failed job (`409` if not failed)                 |
 | GET    | `/admin/failed-syncs`                    | Orders in `sync_failed` across all stores                |
 | POST   | `/admin/orders/:oid/retry-sync`          | Retry an order sync for any store                        |
+| GET    | `/admin/stores`                          | All stores: `search`, `status`, `page`, `pageSize`       |
+| POST   | `/admin/stores/:id/suspend`              | Body `{ reason }`; storefront answers 503; audited       |
+| POST   | `/admin/stores/:id/unsuspend`            | Body `{ reason }`; restores the status before suspension |
 
 ### Images (authenticated, FR-6.8)
 
@@ -201,4 +219,4 @@ Admin: `GET /admin/command-usage` (per store, last 30 days: counts by status, pr
 
 ## Not implemented yet (later phases)
 
-- Admin routes (Phase 2/3), order tracking `GET /public/orders/lookup` (P1)
+- Online payments (Phase 3, waiting on the gateway choice, Q-8)

@@ -310,6 +310,7 @@ describe('settings (FR-6.6)', () => {
     expect(res.json().store.settings).toEqual({
       shippingFlatFee: '250.00',
       freeShippingThreshold: '5000',
+      cityShippingRates: [],
       notifications: { customerEmail: true, customerMessage: true },
       whatsappButton: false,
       rtl: false,

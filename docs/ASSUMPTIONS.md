@@ -181,3 +181,31 @@ Defaults chosen where the requirements left room. Each one is easy to change; th
   untranslated string stays in English. The choice is per browser (`localStorage`), not per account.
   Translations were written by us and should be reviewed by a native Urdu speaker before launch.
 - Storefront language/RTL is unchanged: it follows the store's `rtl` setting, not the dashboard locale.
+
+## Phase 3: commerce depth
+
+- **Order tracking** needs the order number _and_ the checkout phone; any mismatch returns the same 404 so order
+  numbers cannot be probed. Getorio statuses are cached 60 s; if Getorio is down the last local status is shown.
+  `track` is now a reserved page slug.
+- **City delivery fees** replace the flat fee for listed cities (max 50, matched case/space-insensitively). Free
+  delivery above the threshold still wins. The cart shows "Depends on city" until the city is typed at checkout;
+  the API always recalculates.
+- **Analytics** are counters only (`store_daily_stats`): a beacon per page view, a visit per browser session
+  (`sessionStorage`, no cookies), days in Pakistan time (UTC+5, no DST). Bots are filtered by user agent;
+  previews are not counted. Orders and sales come from the orders table (cancelled excluded). Conversion =
+  orders ÷ visits, capped at 100% (orders placed before counting started can outnumber visits).
+- **Suspend / unsuspend** is platform-admin only, needs a reason and is audited (`admin:<id>`). Unsuspending
+  restores the status from before the suspension (published only if a published config exists).
+- **Live preview** keeps unsaved editor configs in Redis for 30 minutes; they are validated like a saved draft and
+  only readable with a valid preview token.
+
+## Command box model (OpenRouter)
+
+- `COMMAND_LLM=openrouter` uses OpenRouter's chat completions API with a strict JSON schema
+  (`response_format: json_schema`, `provider.require_parameters: true`), temperature 0, 20 s timeout. The server
+  still validates every answer with the allowlist, exactly as with Claude.
+- Default model `z-ai/glm-5.3-flash`, chosen on 2026-11-16 as the cheapest structured-output model that passed all
+  20 command fixtures (twice, ~1.9 s average): about $0.04 / $0.078 per million input/output tokens, i.e. roughly
+  $0.0001 per command. Also tried: `deepseek/deepseek-v4-flash` 19/20, `qwen/qwen3.5-flash-02-23` 0/20 (schema not
+  followed), `anthropic/claude-haiku-5.5` unavailable with `require_parameters`. Re-run
+  `COMMAND_LLM=openrouter pnpm --filter @microstore/api eval:commands <model>` before switching models.

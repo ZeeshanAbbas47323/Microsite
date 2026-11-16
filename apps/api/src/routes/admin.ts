@@ -2,7 +2,7 @@ import type { Queue } from 'bullmq';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppDeps } from '../app';
-import { requireRole } from '../auth/plugin';
+import { authOf, requireRole } from '../auth/plugin';
 import { AppError, notFound } from '../lib/errors';
 
 /**
@@ -91,6 +91,30 @@ export async function adminRoutes(app: FastifyInstance, deps: AppDeps) {
     return {
       since: since.toISOString(),
       stores: [...byStore.values()].sort((a, b) => b.total - a.total),
+    };
+  });
+
+  app.get('/admin/stores', async (request) => {
+    const q = z
+      .object({
+        search: z.string().trim().max(100).optional(),
+        status: z.enum(['draft', 'published', 'suspended']).optional(),
+        page: z.coerce.number().int().min(1).max(1000).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(25),
+      })
+      .parse(request.query);
+    return deps.stores.adminList({ ...q, search: q.search || undefined });
+  });
+
+  app.post('/admin/stores/:id/:action', async (request) => {
+    const { id, action } = z
+      .object({ id: z.uuid(), action: z.enum(['suspend', 'unsuspend']) })
+      .parse(request.params);
+    const { reason } = z
+      .object({ reason: z.string().trim().min(3, 'Give a short reason').max(500) })
+      .parse(request.body ?? {});
+    return {
+      store: await deps.stores.setSuspended(authOf(request), id, action === 'suspend', reason),
     };
   });
 

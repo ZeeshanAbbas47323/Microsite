@@ -137,9 +137,20 @@ API tests are integration tests: they need MySQL from docker-compose and use `DA
 
 ## Status
 
+### Phase 3: in progress
+
+- [x] Order tracking page `/track` (order number + phone, live Getorio status cached 60 s); linked from every footer and the confirmation page
+- [x] Delivery fee by city (Settings → Delivery charges); same rule in cart, checkout and the API
+- [x] Analytics on the Overview: visits, orders, sales, conversion, daily chart + table (cookie-free beacon, bots ignored)
+- [x] Admin panel: all stores with search/filter, suspend / unsuspend with an audited reason
+- [x] Live preview shows unsaved design changes
+- [x] Notifications: email + SMS/WhatsApp webhook adapters (from Phase 1)
+- [x] Getorio webhooks: `product.updated` / `stock.updated` refresh the catalog cache (from Phase 1)
+- [ ] Online payment gateway: waiting on which provider comes first (Q-8)
+
 ### Phase 2: done
 
-- [x] Command box: Claude-backed suggestions → allowlist + schema validation → preview → Apply / Discard / Undo; logs, daily limits, admin usage; 20 sample commands (incl. Roman Urdu) and 30+ adversarial cases tested with a stub; opt-in real-model eval `pnpm --filter @microstore/api eval:commands` (needs `ANTHROPIC_API_KEY`)
+- [x] Command box: LLM-backed suggestions (Claude, or any OpenRouter model; default `z-ai/glm-5.3-flash`) → allowlist + schema validation → preview → Apply / Discard / Undo; logs, daily limits, admin usage; 20 sample commands (incl. Roman Urdu) and 30+ adversarial cases tested with a stub; opt-in real-model eval `pnpm --filter @microstore/api eval:commands` (needs `ANTHROPIC_API_KEY`)
 - [x] Section reorder/show/hide/edit, version history and restore (built in Phase 1)
 - [x] Layouts 3–5 (Minimal, Boutique, Market) with distinct hero/card styles; `apps/e2e/tests/layouts-a11y.spec.ts` scans all 5 layouts × 6 storefront pages with axe (WCAG 2.1 AA, 0 violations)
 - [x] Urdu dashboard UI: English/اردو switch in the sidebar, RTL, Noto Nastaliq Urdu; shell, overview, design editor header, assistant, orders/products/settings headings translated (detailed form labels fall back to English for now)

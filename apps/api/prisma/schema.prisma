@@ -94,7 +94,7 @@ model Store {
   createdAt          DateTime    @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt          DateTime    @updatedAt @map("updated_at") @db.DateTime(3)
 
-  owner         Merchant       @relation(fields: [ownerUserId], references: [id])
+  owner         Merchant         @relation(fields: [ownerUserId], references: [id])
   domains       Domain[]
   versions      SiteVersion[]
   commandLogs   CommandLog[]
@@ -102,6 +102,7 @@ model Store {
   orders        Order[]
   assets        Asset[]
   auditLogs     AuditLog[]
+  dailyStats    StoreDailyStat[]
 
   @@index([ownerUserId])
   @@map("stores")
@@ -282,4 +283,21 @@ model AuditLog {
 
   @@index([storeId, createdAt])
   @@map("audit_logs")
+}
+
+/// Phase 3 analytics: one row per store per day (Asia/Karachi date). Only counters, no visitor
+/// data (no IPs, cookies or user agents are stored).
+model StoreDailyStat {
+  storeId         String   @map("store_id") @db.Char(36)
+  getorioTenantId String   @map("getorio_tenant_id") @db.VarChar(64)
+  day             DateTime @db.Date
+  /// Browser sessions that viewed at least one page.
+  visits          Int      @default(0)
+  pageViews       Int      @default(0) @map("page_views")
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([storeId, day])
+  @@map("store_daily_stats")
 }

@@ -57,6 +57,50 @@ const setShipping = (payload: Record<string, unknown>) =>
   });
 
 describe('checkout (FR-5)', () => {
+  it('charges the city rate when the delivery city has one (Phase 3)', async () => {
+    const saved = await setShipping({
+      shippingFlatFee: '300.00',
+      freeShippingThreshold: '20000.00',
+      cityShippingRates: [
+        { city: 'Karachi', fee: '150.00' },
+        { city: 'Quetta', fee: '600.00' },
+      ],
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().store.settings.cityShippingRates).toHaveLength(2);
+
+    const karachi = await checkout(cart({ shipping: { address: 'House 1', city: ' karachi ' } }));
+    expect(karachi.json().order).toMatchObject({ shippingFee: '150.00', total: '12550.00' });
+    const lahore = await checkout(cart({ shipping: { address: 'House 1', city: 'Lahore' } }));
+    expect(lahore.json().order.shippingFee).toBe('300.00');
+    // Free shipping still wins over a city rate
+    const big = await checkout(
+      cart({
+        shipping: { address: 'House 1', city: 'Quetta' },
+        items: [{ productId: 'p-1001', qty: 5 }],
+      }),
+    );
+    expect(big.json().order.shippingFee).toBe('0.00');
+
+    const pub = await ctx.app.inject({
+      method: 'GET',
+      url: '/api/v1/public/store',
+      headers: { 'x-store-host': host },
+    });
+    expect(pub.json().store.settings.cityShippingRates).toEqual([
+      { city: 'Karachi', fee: '150.00' },
+      { city: 'Quetta', fee: '600.00' },
+    ]);
+
+    const dup = await setShipping({
+      cityShippingRates: [
+        { city: 'Karachi', fee: '1.00' },
+        { city: 'KARACHI', fee: '2.00' },
+      ],
+    });
+    expect(dup.statusCode).toBe(400);
+  });
+
   it('re-prices from Getorio, stores a pending order and syncs it', async () => {
     await setShipping({ shippingFlatFee: '250.00' });
     const res = await checkout({ ...cart(), items: [...cart().items] });

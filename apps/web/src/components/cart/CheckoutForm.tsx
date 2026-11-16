@@ -56,6 +56,7 @@ export function CheckoutForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [city, setCity] = useState('');
 
   if (!items.length) {
     return (
@@ -218,6 +219,8 @@ export function CheckoutForm({
             name="city"
             autoComplete="address-level2"
             required
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
             className={field}
             {...fe('city')}
           />
@@ -275,7 +278,7 @@ export function CheckoutForm({
       <aside className="h-fit space-y-5 rounded-[var(--ms-radius)] border border-[var(--ms-border)] p-5">
         <h2 className="text-lg font-bold">Your order</h2>
         <CartLines items={items} editable={false} />
-        <Summary items={items} rules={rules} currency={currency} />
+        <Summary items={items} rules={rules} currency={currency} city={city} />
         {error ? (
           <p role="alert" className="rounded-[var(--ms-radius)] bg-red-50 p-3 text-sm text-red-800">
             {error}

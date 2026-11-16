@@ -22,7 +22,15 @@ function readOrder(): string | null {
   }
 }
 
-export function OrderConfirmation({ orderRef, homeHref }: { orderRef: string; homeHref: string }) {
+export function OrderConfirmation({
+  orderRef,
+  homeHref,
+  trackHref,
+}: {
+  orderRef: string;
+  homeHref: string;
+  trackHref: string;
+}) {
   const raw = useSyncExternalStore(
     () => () => {},
     readOrder,
@@ -86,12 +94,20 @@ export function OrderConfirmation({ orderRef, homeHref }: { orderRef: string; ho
           </dl>
         </div>
       ) : null}
-      <Link
-        href={homeHref}
-        className="inline-flex rounded-[var(--ms-btn-radius)] bg-[var(--ms-primary)] px-6 py-3 font-semibold text-[var(--ms-on-primary)]"
-      >
-        Continue shopping
-      </Link>
+      <div className="flex flex-wrap justify-center gap-3">
+        <Link
+          href={homeHref}
+          className="inline-flex rounded-[var(--ms-btn-radius)] bg-[var(--ms-primary)] px-6 py-3 font-semibold text-[var(--ms-on-primary)]"
+        >
+          Continue shopping
+        </Link>
+        <Link
+          href={trackHref}
+          className="inline-flex rounded-[var(--ms-btn-radius)] px-6 py-3 font-semibold ring-1 ring-[var(--ms-border)]"
+        >
+          Track this order
+        </Link>
+      </div>
     </div>
   );
 }

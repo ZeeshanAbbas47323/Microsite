@@ -31,11 +31,18 @@ function SocialLinks({ ctx }: { ctx: RenderContext }) {
 export function Footer({ ctx }: { ctx: RenderContext }) {
   const { footer, business, pages } = ctx.config;
   const v = variantFor(ctx.config.layoutId);
+  // FR-5.10: every footer links to order tracking.
+  const track = (
+    <ctx.Link href={ctx.href('/track')} className="hover:underline">
+      Track your order
+    </ctx.Link>
+  );
 
   if (footer.style === 'minimal') {
     return (
       <footer className="border-t border-[var(--ms-border)] py-8 text-center text-sm text-[var(--ms-muted)]">
         <p>{footer.text}</p>
+        <p className="mt-2">{track}</p>
       </footer>
     );
   }
@@ -62,6 +69,7 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
                   </ctx.Link>
                 </li>
               ))}
+              <li>{track}</li>
             </ul>
           </nav>
           <address className="space-y-2 text-sm not-italic">
@@ -112,6 +120,7 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
         className={`${v.container} flex flex-col items-center justify-between gap-4 py-8 text-sm text-[var(--ms-muted)] sm:flex-row`}
       >
         <p>{footer.text}</p>
+        {track}
         <SocialLinks ctx={ctx} />
       </div>
     </footer>

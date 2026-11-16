@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Notice } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
+import { AdminStores } from './AdminStores';
 import { api } from './api';
 import { formatDate } from './Overview';
 import { useDashboard } from './session';
@@ -80,6 +81,8 @@ export function AdminPanel() {
         </Button>
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
+
+      <AdminStores />
 
       <Card title="Background queues">
         {!queues ? (
