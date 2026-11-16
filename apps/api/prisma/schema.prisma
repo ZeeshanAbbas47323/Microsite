@@ -152,6 +152,10 @@ model CommandLog {
   getorioTenantId  String        @map("getorio_tenant_id") @db.VarChar(64)
   userId           String        @map("user_id") @db.Char(36)
   commandText      String        @map("command_text") @db.VarChar(300)
+  /// UI language the summary was requested in (en | ur).
+  language         String        @default("en") @db.VarChar(5)
+  /// Model's short human-readable summary of the change (or the clarification question).
+  summary          String?       @db.VarChar(500)
   model            String        @db.VarChar(100)
   promptTokens     Int           @default(0) @map("prompt_tokens")
   completionTokens Int           @default(0) @map("completion_tokens")

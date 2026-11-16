@@ -11,7 +11,10 @@ import { storeSettingsSchema } from '../stores/settings';
 
 export const STORE_HOST_HEADER = 'x-store-host';
 
-const previewQuery = z.object({ preview: z.string().max(300).optional() });
+const previewQuery = z.object({
+  preview: z.string().max(300).optional(),
+  command: z.uuid().optional(),
+});
 
 /**
  * Public storefront API (unauthenticated, rate limited). The store comes from `X-Store-Host`
@@ -60,7 +63,14 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
     async (request, reply) => {
       const { store, primaryHostname, isPreview } = await viewable(request, { allowPreview: true });
       const settings = storeSettingsSchema.parse(store.settings);
-      const config = migrateSiteConfig(isPreview ? store.draftConfig : store.publishedConfig);
+      // In preview, a pending command-box suggestion can be shown before it is applied (FR-7.1).
+      const { command } = previewQuery.parse(request.query);
+      const proposed =
+        isPreview && command
+          ? await deps.commands.previewConfig(store.getorioTenantId, store.id, command)
+          : null;
+      const config =
+        proposed ?? migrateSiteConfig(isPreview ? store.draftConfig : store.publishedConfig);
       reply.header('cache-control', isPreview ? 'no-store' : 'public, max-age=30');
       return {
         store: {

@@ -148,6 +148,20 @@ The worker (`pnpm --filter @microstore/api start:worker`, or in-process with `RU
 Getorio with the order id as idempotency key: 8 attempts, exponential backoff from 30 s, then `sync_failed` plus an
 alert log. Non-retryable Getorio errors fail at once. A sweeper re-enqueues orders stuck in `pending_sync` > 10 min.
 
+### Command box (FR-7)
+
+| Method | Path                                | Body                                          | Response                                                                                                                                                                                                                                                                                                      |
+| ------ | ----------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/stores/:id/commands/usage`        |                                               | `{ used, limit, enabled, supported, allowed }` (rolling 24 h)                                                                                                                                                                                                                                                 |
+| POST   | `/stores/:id/commands`              | `{ command (≤ 300 chars), language: en\|ur }` | One of: `{ status: "ok", commandId, summary, patch, previewConfig, warnings }` · `{ status: "clarify", commandId, question }` · `{ status: "unsupported" \| "rejected", commandId, message, supported }`. `429` over the daily limit, `503` when the AI is unavailable (manual settings keep working). 10/min |
+| POST   | `/stores/:id/commands/:cid/apply`   |                                               | Re-validates against the current draft, saves it as a `command` revision: `{ config, updatedAt, undoVersionId }`. `409` if already applied/discarded, expired (30 min) or the draft moved on                                                                                                                  |
+| POST   | `/stores/:id/commands/:cid/discard` |                                               | `204`                                                                                                                                                                                                                                                                                                         |
+
+Undo = `POST /stores/:id/versions/:undoVersionId/restore`. A pending suggestion is shown in the draft preview with
+`/public/store?preview=<token>&command=<commandId>` (the web app passes `?command=` through).
+
+Admin: `GET /admin/command-usage` (per store, last 30 days: counts by status, prompt/completion tokens).
+
 ### Store deletion (owner only)
 
 | Method | Path          | Body                                 | Response                                                                                                                            |

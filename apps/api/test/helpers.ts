@@ -15,6 +15,9 @@ import { AssetService } from '../src/assets/asset-service';
 import { MemoryStorage } from '../src/assets/storage';
 import { CatalogService } from '../src/catalog/catalog-service';
 import { MerchantProductService } from '../src/catalog/merchant-products';
+import { CommandService } from '../src/commands/command-service';
+import type { CommandLlm } from '../src/commands/llm';
+import { StubCommandLlm } from '../src/commands/stub-llm';
 import { MemoryCache } from '../src/lib/cache';
 import { Metrics } from '../src/lib/observability';
 import { CheckoutService } from '../src/orders/checkout-service';
@@ -61,6 +64,9 @@ export async function createTestApp(
     tenantCatalog?: string[];
     storageQuota?: number;
     adminQueues?: Queue[];
+    /** Defaults to the deterministic stub; `null` simulates "no API key". */
+    commandLlm?: CommandLlm | null;
+    commandLimit?: number;
   } = {},
 ) {
   const d = testDb();
@@ -94,6 +100,10 @@ export async function createTestApp(
   const queue = new InlineOrderSyncQueue(() => orderSync);
   const storage = new MemoryStorage();
   const assets = new AssetService(d, storage, stores, options.storageQuota);
+  const commandLlm = options.commandLlm === undefined ? new StubCommandLlm() : options.commandLlm;
+  const commands = new CommandService(d, stores, commandLlm, {
+    dailyLimit: options.commandLimit ?? 30,
+  });
   const app = await buildApp({
     db: d,
     sessions: new SessionManager(new MemorySessionStore(options.now), options.now),
@@ -115,6 +125,7 @@ export async function createTestApp(
     }),
     revalidator,
     assets,
+    commands,
     previewSecret: PREVIEW_SECRET,
     webhookSecret: WEBHOOK_SECRET,
     corsOrigins: ['http://localhost:3000'],
@@ -123,7 +134,18 @@ export async function createTestApp(
     metricsToken: METRICS_TOKEN,
     ...(options.adminQueues ? { adminQueues: options.adminQueues } : {}),
   });
-  return { app, getorio, revalidated, queue, orderSync, catalog, alerts, storage, metrics };
+  return {
+    app,
+    getorio,
+    revalidated,
+    queue,
+    orderSync,
+    catalog,
+    alerts,
+    storage,
+    metrics,
+    commandLlm,
+  };
 }
 
 export interface TokenClaims {

@@ -29,8 +29,12 @@ export async function proxy(request: NextRequest) {
   const rest = path === '/' ? '' : path;
   const preview = url.searchParams.get('preview');
   if (preview && /^[A-Za-z0-9._-]{10,300}$/.test(preview)) {
-    target.pathname = `/p/${host}/${encodeURIComponent(preview)}${rest}`;
+    // A pending command-box suggestion travels with the preview token (`<token>~<commandId>`).
+    const command = url.searchParams.get('command');
+    const segment = command && /^[0-9a-f-]{36}$/.test(command) ? `${preview}~${command}` : preview;
+    target.pathname = `/p/${host}/${encodeURIComponent(segment)}${rest}`;
     target.searchParams.delete('preview');
+    target.searchParams.delete('command');
     const res = NextResponse.rewrite(target);
     // Drafts are shown inside the dashboard's iframe and must never be cached or indexed.
     res.headers.set('Cache-Control', 'private, no-store');

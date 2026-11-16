@@ -33,7 +33,6 @@ export const envSchema = z
     GETORIO_WEBHOOK_SECRET: z.string().min(16).optional(),
     /** Link to an order inside Getorio, `{id}` = Getorio order id. */
     GETORIO_ORDER_URL_TEMPLATE: z.string().includes('{id}').optional(),
-    /** Run the order-sync worker inside the API process (dev). In production run `worker.js` separately. */
     S3_ENDPOINT: z.url().optional(),
     S3_BUCKET: z.string().optional(),
     S3_ACCESS_KEY: z.string().optional(),
@@ -50,6 +49,12 @@ export const envSchema = z
     SENTRY_DSN: z.string().optional(),
     /** Enables GET /metrics (Prometheus) for requests with `Authorization: Bearer <token>`. */
     METRICS_TOKEN: z.string().min(16).optional(),
+    ANTHROPIC_API_KEY: z.string().optional(),
+    /** Model for the command box (FR-7.8). */
+    ANTHROPIC_MODEL: z.string().default('claude-opus-5-5'),
+    /** `anthropic` (default) or `stub` (deterministic, for local demos without an API key). */
+    COMMAND_LLM: z.enum(['anthropic', 'stub']).default('anthropic'),
+    COMMANDS_PER_STORE_PER_DAY: z.coerce.number().int().min(0).max(10_000).default(30),
     /** apps/web revalidation endpoint, e.g. http://localhost:3000/api/revalidate */
     WEB_REVALIDATE_URL: z.url().optional(),
     REVALIDATE_SECRET: z.string().min(16).optional(),
@@ -60,6 +65,7 @@ export const envSchema = z
       .string()
       .regex(/^[a-z0-9-]{1,40}$/)
       .default('microstore'),
+    /** Run the background workers inside the API process (dev). In production run `worker.js` separately. */
     RUN_WORKER_IN_PROCESS: z
       .enum(['true', 'false'])
       .default('false')

@@ -41,6 +41,23 @@ describe('proxy (tenant routing)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('carries a pending command-box suggestion into the preview tree', async () => {
+    const cid = '01a1d000-0000-7000-8000-000000000001';
+    const r = await run(
+      `http://zara.microstore.localhost/?preview=abc.123.sigsigsig&command=${cid}`,
+    );
+    expect(r.rewrite).toBe(
+      `http://zara.microstore.localhost/p/zara.microstore.localhost/abc.123.sigsigsig~${cid}`,
+    );
+    // A malformed command id is dropped, the preview still works
+    const bad = await run(
+      'http://zara.microstore.localhost/?preview=abc.123.sigsigsig&command=../../x',
+    );
+    expect(bad.rewrite).toBe(
+      'http://zara.microstore.localhost/p/zara.microstore.localhost/abc.123.sigsigsig',
+    );
+  });
+
   it('ignores malformed preview tokens', async () => {
     expect((await run('http://zara.microstore.localhost/?preview=<script>')).rewrite).toBe(
       'http://zara.microstore.localhost/s/zara.microstore.localhost?preview=%3Cscript%3E',

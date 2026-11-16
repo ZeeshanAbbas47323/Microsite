@@ -4,11 +4,17 @@ import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, setCsrfToken, type SessionInfo, type Store } from './api';
 
+export type Locale = 'en' | 'ur';
+const LOCALE_KEY = 'ms_locale';
+
 interface DashboardState {
   session: SessionInfo;
   store: Store | null;
   setStore: (store: Store | null) => void;
   refreshStore: () => Promise<Store | null>;
+  /** Dashboard UI language (English or Urdu, right-to-left). */
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
 }
 
 const Ctx = createContext<DashboardState | null>(null);
@@ -25,6 +31,29 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [store, setStore] = useState<Store | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locale, setLocaleState] = useState<Locale>('en');
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(LOCALE_KEY) === 'ur') setLocaleState('ur');
+    } catch {
+      // storage unavailable: keep English
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = locale === 'ur' ? 'rtl' : 'ltr';
+  }, [locale]);
+
+  const setLocale = useCallback((next: Locale) => {
+    setLocaleState(next);
+    try {
+      localStorage.setItem(LOCALE_KEY, next);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const refreshStore = useCallback(async () => {
     const { store: s } = await api<{ store: Store | null }>('/stores/me');
@@ -70,5 +99,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  return <Ctx.Provider value={{ session, store, setStore, refreshStore }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ session, store, setStore, refreshStore, locale, setLocale }}>
+      {children}
+    </Ctx.Provider>
+  );
 }

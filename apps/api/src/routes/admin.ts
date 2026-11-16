@@ -48,6 +48,52 @@ export async function adminRoutes(app: FastifyInstance, deps: AppDeps) {
     return { retried: true };
   });
 
+  /** FR-7.8: command box / AI usage per store over the last 30 days. */
+  app.get('/admin/command-usage', async () => {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const rows = await deps.db.commandLog.groupBy({
+      by: ['storeId', 'status'],
+      where: { createdAt: { gte: since } },
+      _count: { _all: true },
+      _sum: { promptTokens: true, completionTokens: true },
+    });
+    const stores = await deps.db.store.findMany({
+      where: { id: { in: [...new Set(rows.map((r) => r.storeId))] } },
+      select: { id: true, name: true },
+    });
+    const names = new Map(stores.map((s) => [s.id, s.name]));
+    const byStore = new Map<
+      string,
+      {
+        storeId: string;
+        storeName: string;
+        total: number;
+        byStatus: Record<string, number>;
+        promptTokens: number;
+        completionTokens: number;
+      }
+    >();
+    for (const r of rows) {
+      const entry = byStore.get(r.storeId) ?? {
+        storeId: r.storeId,
+        storeName: names.get(r.storeId) ?? '(deleted)',
+        total: 0,
+        byStatus: {},
+        promptTokens: 0,
+        completionTokens: 0,
+      };
+      entry.total += r._count._all;
+      entry.byStatus[r.status] = r._count._all;
+      entry.promptTokens += r._sum.promptTokens ?? 0;
+      entry.completionTokens += r._sum.completionTokens ?? 0;
+      byStore.set(r.storeId, entry);
+    }
+    return {
+      since: since.toISOString(),
+      stores: [...byStore.values()].sort((a, b) => b.total - a.total),
+    };
+  });
+
   app.get('/admin/failed-syncs', async () => {
     const orders = await deps.db.order.findMany({
       where: { status: 'sync_failed' },

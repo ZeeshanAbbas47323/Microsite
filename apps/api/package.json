@@ -16,9 +16,11 @@
     "worker": "tsx watch --env-file-if-exists=../../.env src/worker.ts",
     "start:worker": "node --env-file-if-exists=../../.env dist/worker.js",
     "dev:sso-link": "tsx --env-file-if-exists=../../.env scripts/dev-sso-link.ts",
-    "db:seed": "tsx --env-file-if-exists=../../.env scripts/seed.ts"
+    "db:seed": "tsx --env-file-if-exists=../../.env scripts/seed.ts",
+    "eval:commands": "tsx --env-file-if-exists=../../.env scripts/eval-commands.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@aws-sdk/client-s3": "^3",
     "@fastify/cookie": "^11.1.0",
     "@fastify/cors": "^11.1.0",

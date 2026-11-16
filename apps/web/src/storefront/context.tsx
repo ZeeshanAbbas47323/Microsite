@@ -51,7 +51,8 @@ export function hrefBuilder(mode: Mode) {
     if (!mode.preview) return path;
     const [base, hash] = path.split('#');
     const sep = (base ?? '').includes('?') ? '&' : '?';
-    return `${base}${sep}preview=${encodeURIComponent(mode.preview)}${hash ? `#${hash}` : ''}`;
+    const command = mode.command ? `&command=${encodeURIComponent(mode.command)}` : '';
+    return `${base}${sep}preview=${encodeURIComponent(mode.preview)}${command}${hash ? `#${hash}` : ''}`;
   };
 }
 

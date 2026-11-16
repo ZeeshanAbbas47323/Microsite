@@ -17,6 +17,8 @@ export interface Mode {
   host: string;
   /** Draft preview token; when set nothing is cached. */
   preview?: string;
+  /** Pending command-box suggestion to show in the preview (only with `preview`). */
+  command?: string;
 }
 
 export const storeTag = (host: string) => `store:${host}`;
@@ -31,6 +33,7 @@ async function get<T>(
   for (const [k, v] of Object.entries(query))
     if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
   if (mode.preview) url.searchParams.set('preview', mode.preview);
+  if (mode.preview && mode.command) url.searchParams.set('command', mode.command);
   const res = await fetch(url, {
     headers: { 'x-store-host': mode.host, accept: 'application/json' },
     ...(mode.preview

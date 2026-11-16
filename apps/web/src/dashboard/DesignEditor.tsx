@@ -30,6 +30,7 @@ import {
 } from '@/components/ui';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api, ApiError } from './api';
+import { CommandBox } from './CommandBox';
 import { formatDate } from './Overview';
 import { useDashboard } from './session';
 import { useStoreActions } from './useStoreActions';
@@ -57,7 +58,7 @@ const LAYOUT_NAMES: Record<string, string> = { 'bold-01': 'Bold', 'classic-01': 
 
 /** FR-6.2: design editor with live draft preview. Changes are saved to the draft, never live. */
 export function DesignEditor() {
-  const { store, refreshStore } = useDashboard();
+  const { store, refreshStore, locale } = useDashboard();
   const params = useSearchParams();
   const { publish, busy: publishing, error: publishError } = useStoreActions();
   const [config, setConfig] = useState<SiteConfig | null>(null);
@@ -70,7 +71,13 @@ export function DesignEditor() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  /** Command-box suggestion shown in the preview before it is applied. */
+  const [proposalId, setProposalId] = useState<string | null>(null);
   const storeId = store?.id;
+  const previewSrc =
+    previewUrl && proposalId
+      ? `${previewUrl}&command=${encodeURIComponent(proposalId)}`
+      : previewUrl;
 
   const load = useCallback(async () => {
     if (!storeId) return;
@@ -197,6 +204,26 @@ export function DesignEditor() {
       {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
       {publishError ? <Notice tone="error">{publishError}</Notice> : null}
 
+      <CommandBox
+        storeId={store.id}
+        language={locale}
+        disabledReason={
+          dirty ? 'Save or discard your manual changes first, then ask the assistant.' : null
+        }
+        onProposal={setProposalId}
+        onApplied={async () => {
+          await load();
+          await refreshStore();
+          setPreviewKey((k) => k + 1);
+        }}
+        onUndone={async () => {
+          await load();
+          await refreshStore();
+          setPreviewKey((k) => k + 1);
+          setMessage({ tone: 'success', text: 'Change undone.' });
+        }}
+      />
+
       <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
         <div className="rounded-xl border border-neutral-200 bg-white shadow-xs">
           <div
@@ -254,9 +281,11 @@ export function DesignEditor() {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm text-neutral-600">
             <span>
-              {dirty
-                ? 'Preview shows your last saved draft. Save to update it.'
-                : 'Live preview of your draft'}
+              {proposalId
+                ? 'Preview includes the suggested change (not saved yet)'
+                : dirty
+                  ? 'Preview shows your last saved draft. Save to update it.'
+                  : 'Live preview of your draft'}
             </span>
             <div className="flex gap-1" role="group" aria-label="Preview size">
               {(['desktop', 'mobile'] as const).map((d) => (
@@ -273,11 +302,11 @@ export function DesignEditor() {
             </div>
           </div>
           <div className="flex justify-center rounded-xl border border-neutral-200 bg-neutral-100 p-2">
-            {previewUrl ? (
+            {previewSrc ? (
               <iframe
-                key={previewKey}
-                src={previewUrl}
-                title="Store preview"
+                key={`${previewKey}-${proposalId ?? ''}`}
+                src={previewSrc}
+                title={proposalId ? 'Store preview with the suggested change' : 'Store preview'}
                 className={`h-[72vh] rounded-lg border border-neutral-200 bg-white ${device === 'mobile' ? 'w-[390px]' : 'w-full'}`}
               />
             ) : (

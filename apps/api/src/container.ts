@@ -7,6 +7,9 @@ import { CatalogService } from './catalog/catalog-service';
 import { MerchantProductService } from './catalog/merchant-products';
 import { AssetService } from './assets/asset-service';
 import { S3Storage } from './assets/storage';
+import { CommandService } from './commands/command-service';
+import { AnthropicCommandLlm, type CommandLlm } from './commands/llm';
+import { StubCommandLlm } from './commands/stub-llm';
 import { createDb } from './db';
 import { captureError, Metrics } from './lib/observability';
 import type { Env } from './env';
@@ -71,6 +74,16 @@ export function createContainer(
     info,
   );
   const notifications = new BullNotificationQueue(queueConnection, { prefix: env.QUEUE_PREFIX });
+  // The command box needs an Anthropic API key; without one it reports itself unavailable.
+  const commandLlm: CommandLlm | null =
+    env.COMMAND_LLM === 'stub'
+      ? new StubCommandLlm()
+      : env.ANTHROPIC_API_KEY
+        ? new AnthropicCommandLlm({ model: env.ANTHROPIC_MODEL, apiKey: env.ANTHROPIC_API_KEY })
+        : null;
+  const commands = new CommandService(db, stores, commandLlm, {
+    dailyLimit: env.COMMANDS_PER_STORE_PER_DAY,
+  });
   const assets =
     env.S3_BUCKET && env.S3_ACCESS_KEY && env.S3_SECRET_KEY
       ? new AssetService(
@@ -114,6 +127,7 @@ export function createContainer(
       ...(env.TURNSTILE_SECRET ? { captcha: new TurnstileVerifier(env.TURNSTILE_SECRET) } : {}),
     }),
     revalidator,
+    commands,
     assets,
     previewSecret: env.SESSION_SECRET,
     webhookSecret: env.GETORIO_WEBHOOK_SECRET,

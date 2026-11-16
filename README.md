@@ -137,6 +137,13 @@ API tests are integration tests: they need MySQL from docker-compose and use `DA
 
 ## Status
 
+### Phase 2: in progress
+
+- [x] Command box: Claude-backed suggestions → allowlist + schema validation → preview → Apply / Discard / Undo; logs, daily limits, admin usage; 20 sample commands (incl. Roman Urdu) and 30+ adversarial cases tested with a stub; opt-in real-model eval `pnpm --filter @microstore/api eval:commands` (needs `ANTHROPIC_API_KEY`)
+- [x] Section reorder/show/hide/edit, version history and restore (built in Phase 1)
+- [ ] Layouts 3–5 with accessibility checks
+- [ ] Urdu dashboard UI (RTL)
+
 ### Phase 1 (MVP): done
 
 All Phase 1 acceptance criteria pass. See [docs/PHASE1_REPORT.md](docs/PHASE1_REPORT.md) for the results and what is

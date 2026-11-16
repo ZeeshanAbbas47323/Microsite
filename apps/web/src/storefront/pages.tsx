@@ -28,9 +28,12 @@ export interface StoreParams {
 export type Props<Extra = object> = { params: Promise<StoreParams & Extra> };
 
 export function modeOf(params: StoreParams): Mode {
+  // Preview segment: `<token>` or `<token>~<commandId>` (see proxy.ts).
+  const [preview, command] = params.token ? decodeURIComponent(params.token).split('~') : [];
   return {
     host: decodeURIComponent(params.host).toLowerCase(),
-    ...(params.token ? { preview: decodeURIComponent(params.token) } : {}),
+    ...(preview ? { preview } : {}),
+    ...(preview && command ? { command } : {}),
   };
 }
 

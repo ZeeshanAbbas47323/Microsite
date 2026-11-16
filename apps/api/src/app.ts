@@ -13,6 +13,7 @@ import type { AuthProvider } from './auth/sso';
 import type { AssetService } from './assets/asset-service';
 import type { CatalogService } from './catalog/catalog-service';
 import type { MerchantProductService } from './catalog/merchant-products';
+import type { CommandService } from './commands/command-service';
 import type { Db } from './db';
 import type { KeyValueCache } from './lib/cache';
 import { errorHandler } from './lib/errors';
@@ -21,6 +22,7 @@ import { randomToken } from './lib/ids';
 import { adminRoutes } from './routes/admin';
 import { assetRoutes } from './routes/assets';
 import { authRoutes } from './routes/auth';
+import { commandRoutes } from './routes/commands';
 import { healthRoutes } from './routes/health';
 import { merchantCommerceRoutes } from './routes/merchant-commerce';
 import { publicRoutes } from './routes/public';
@@ -42,6 +44,7 @@ export interface AppDeps {
   merchantProducts: MerchantProductService;
   merchantOrders: MerchantOrderService;
   checkout: CheckoutService;
+  commands: CommandService;
   revalidator: SiteRevalidator;
   /** Image uploads; routes answer 503 when object storage is not configured. */
   assets?: AssetService;
@@ -108,6 +111,7 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
       await api.register(async (scope) => webhookRoutes(scope, deps));
       await api.register(async (scope) => assetRoutes(scope, deps));
       await api.register(async (scope) => adminRoutes(scope, deps));
+      await api.register(async (scope) => commandRoutes(scope, deps));
     },
     { prefix: API_PREFIX },
   );
