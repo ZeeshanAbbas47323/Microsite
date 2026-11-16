@@ -5,14 +5,18 @@ import {
   BUTTON_STYLES,
   contrastRatio,
   createOptionalPage,
+  createSection,
   FONT_WHITELIST,
   FOOTER_STYLES,
   HEX_COLOR_REGEX,
   MAX_CONTENT_PAGES,
+  MAX_SECTIONS_PER_PAGE,
   NAVBAR_STYLES,
+  SECTION_TYPES,
   type BusinessCategory,
   type Page,
   type Section,
+  type SectionType,
   type SiteConfig,
 } from '@microstore/site-schema';
 import { LAYOUTS } from '@microstore/layouts';
@@ -564,6 +568,9 @@ function PagesPanel({
   const has = (t: Page['template']) => config.pages.some((p) => p.template === t);
   const canAdd = config.pages.length < MAX_CONTENT_PAGES;
   const [customTitle, setCustomTitle] = useState('');
+  const [newType, setNewType] = useState<SectionType>('richText');
+  /** Id of a just-added section, opened for editing. */
+  const [justAdded, setJustAdded] = useState<string | null>(null);
 
   const setPage = (fn: (p: Page) => Page) =>
     update((c) => ({
@@ -666,6 +673,10 @@ function PagesPanel({
             key={section.id}
             storeId={storeId}
             section={section}
+            defaultOpen={section.id === justAdded}
+            onRemove={() =>
+              setPage((pg) => ({ ...pg, sections: pg.sections.filter((_, j) => j !== i) }))
+            }
             first={i === 0}
             last={i === page.sections.length - 1}
             onChange={(s) =>
@@ -682,6 +693,38 @@ function PagesPanel({
           />
         ))}
       </ol>
+      {page.sections.length < MAX_SECTIONS_PER_PAGE ? (
+        <div className="flex gap-2">
+          <Select
+            aria-label="Section type to add"
+            value={newType}
+            onChange={(e) => setNewType(e.target.value as SectionType)}
+          >
+            {SECTION_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {SECTION_LABELS[type]}
+              </option>
+            ))}
+          </Select>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const section = createSection(
+                newType,
+                page.sections.map((x) => x.id),
+              );
+              setPage((pg) => ({ ...pg, sections: [...pg.sections, section] }));
+              setJustAdded(section.id);
+            }}
+          >
+            Add section
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-500">
+          This page has the maximum of {MAX_SECTIONS_PER_PAGE} sections.
+        </p>
+      )}
 
       {canAdd && (!has('about') || !has('contact') || !has('custom')) ? (
         <div className="space-y-2 border-t border-neutral-200 pt-4">
@@ -723,17 +766,21 @@ function SectionItem({
   section,
   first,
   last,
+  defaultOpen,
   onChange,
   onMove,
+  onRemove,
 }: {
   storeId: string;
   section: Section;
   first: boolean;
   last: boolean;
+  defaultOpen: boolean;
   onChange: (s: Section) => void;
   onMove: (dir: -1 | 1) => void;
+  onRemove: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const props = section.props as Record<string, unknown>;
   const setProp = (key: string, value: unknown) =>
     onChange({ ...section, props: { ...props, [key]: value } } as Section);
@@ -773,6 +820,9 @@ function SectionItem({
           {typeof props.title === 'string' && props.title ? (
             <span className="font-normal text-neutral-500"> · {props.title}</span>
           ) : null}
+          <span className="ms-1 text-xs font-normal text-indigo-700">
+            {open ? '▴ Close' : '▾ Edit'}
+          </span>
         </button>
         <button
           type="button"
@@ -939,6 +989,16 @@ function SectionItem({
               max={12}
             />
           ) : null}
+          <div className="border-t border-neutral-200 pt-3">
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (confirm(`Remove the “${SECTION_LABELS[section.type]}” section?`)) onRemove();
+              }}
+            >
+              Remove section
+            </Button>
+          </div>
         </div>
       ) : null}
     </li>

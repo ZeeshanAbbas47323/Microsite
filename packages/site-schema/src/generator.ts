@@ -24,6 +24,7 @@ import {
   tiktokUrlSchema,
 } from './primitives';
 import type { Section } from './sections';
+import type { SectionType } from './constants';
 import { subdomainSchema } from './subdomain';
 
 // ---------------------------------------------------------------------------------------------
@@ -446,4 +447,48 @@ export function generateSiteConfig(
  */
 export function switchLayout(config: SiteConfig, layoutId: string): SiteConfig {
   return siteConfigSchema.parse({ ...structuredClone(config), layoutId });
+}
+
+/** Starter content for a section added in the editor. Every result passes `sectionSchema`. */
+const NEW_SECTION_PROPS: { [T in SectionType]: Extract<Section, { type: T }>['props'] } = {
+  hero: {
+    title: 'Your headline here',
+    subtitle: 'A short line about what makes your store special.',
+    imageUrl: '',
+    ctaLabel: 'Shop now',
+    ctaLink: '/products',
+  },
+  productGrid: { title: 'Our products', limit: 8, source: 'featured' },
+  richText: { title: 'A few words', paragraphs: ['Write something for your customers here.'] },
+  imageText: {
+    title: 'Our story',
+    body: 'Tell customers who you are and how your products are made.',
+    imageUrl: '',
+    imagePosition: 'right',
+    ctaLabel: '',
+    ctaLink: '',
+  },
+  contactInfo: { title: 'Get in touch', subtitle: '', showWhatsapp: true, showSocial: true },
+  faq: {
+    title: 'Questions',
+    items: [{ question: 'How long does delivery take?', answer: 'Usually 3 to 5 working days.' }],
+  },
+  testimonials: {
+    title: 'What customers say',
+    items: [{ quote: 'Lovely quality and quick delivery.', author: 'Happy customer', role: '' }],
+  },
+  banner: {
+    title: 'Free delivery on orders over Rs 3,000',
+    ctaLabel: '',
+    ctaLink: '',
+    tone: 'primary',
+  },
+};
+
+/** A new section of `type` with an id that is unique among `existingIds`. */
+export function createSection(type: SectionType, existingIds: readonly string[]): Section {
+  const taken = new Set(existingIds);
+  let id: string = type;
+  for (let n = 2; taken.has(id); n++) id = `${type}-${n}`;
+  return { id, type, visible: true, props: structuredClone(NEW_SECTION_PROPS[type]) } as Section;
 }
