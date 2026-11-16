@@ -7,7 +7,11 @@ const id = z.string().min(1).max(64);
 export const currencySchema = z.string().regex(/^[A-Z]{3}$/);
 
 export const productImageSchema = z.object({
-  url: z.url({ protocol: /^https?$/ }),
+  /** https URL from Getorio, or a bundled demo image path (mock catalog only). */
+  url: z.union([
+    z.url({ protocol: /^https?$/ }),
+    z.string().regex(/^\/demo-products\/[a-z0-9-]+\.webp$/),
+  ]),
   alt: z.string().max(200).default(''),
 });
 

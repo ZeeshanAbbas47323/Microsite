@@ -209,3 +209,11 @@ Defaults chosen where the requirements left room. Each one is easy to change; th
   $0.0001 per command. Also tried: `deepseek/deepseek-v4-flash` 19/20, `qwen/qwen3.5-flash-02-23` 0/20 (schema not
   followed), `anthropic/claude-haiku-5.5` unavailable with `require_parameters`. Re-run
   `COMMAND_LLM=openrouter pnpm --filter @microstore/api eval:commands <model>` before switching models.
+
+## Demo product images
+
+- The mock catalog's 12 products use illustrations drawn in code (`apps/api/scripts/demo-product-images.ts`, run
+  with `pnpm --filter @microstore/api demo:images`) and served from `apps/web/public/demo-products/`. No third-party
+  photos, so no licensing questions. Free photo sources were not reachable from the dev network.
+- `productImageSchema` accepts those `/demo-products/<id>.webp` paths besides https URLs; social/JSON-LD images are
+  made absolute with the store URL. Real Getorio products keep sending https URLs.

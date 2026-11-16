@@ -9,18 +9,12 @@ const CATEGORIES = {
   home: { id: 'cat-home', name: 'Home' },
 } as const;
 
-const CATEGORY_COLORS: Record<keyof typeof CATEGORIES, [string, string]> = {
-  bags: ['f3e8d8', '7c4a1e'],
-  accessories: ['e0ecf5', '1f4e79'],
-  footwear: ['ede4f6', '5b2a86'],
-  home: ['e3f1e6', '2d6a3e'],
-};
-
-/** Placeholder product photo (dev/test only). */
-function image(name: string, category: keyof typeof CATEGORIES) {
-  const [bg, fg] = CATEGORY_COLORS[category];
-  // No query string: next/image remote patterns reject image URLs with search params by default.
-  return [{ url: `https://placehold.co/800x800/${bg}/${fg}.png`, alt: name }];
+/**
+ * Demo product illustration served by apps/web from `public/demo-products/` (dev/demo only; drawn by
+ * `pnpm --filter @microstore/api demo:images`). Real Getorio products carry https image URLs.
+ */
+function image(id: string, name: string) {
+  return [{ url: `/demo-products/${id}.webp`, alt: name }];
 }
 
 interface ProductSeed {
@@ -200,7 +194,7 @@ export function createSampleCatalog(updatedAt = '2026-01-01T00:00:00.000Z'): Get
       price: s.price,
       compareAtPrice: s.compareAtPrice ?? null,
       currency: 'PKR',
-      images: image(s.name, s.category),
+      images: image(s.id, s.name),
       category: { ...CATEGORIES[s.category] },
       variants: structuredClone(variants),
       stockQty,

@@ -122,8 +122,13 @@ export async function productMetadata({ params }: Props<{ id: string }>): Promis
     title: `${product.name} | ${data.store.name}`,
     description: product.description.slice(0, 160),
     path: `/products/${encodeURIComponent(product.id)}`,
-    image: product.images[0]?.url,
+    image: absoluteImage(data, product.images[0]?.url),
   });
+}
+
+/** Social previews and JSON-LD need absolute image URLs; demo images are site-relative. */
+function absoluteImage(data: StoreResponse, url: string | undefined) {
+  return url?.startsWith('/') ? storefrontUrl(data.store.hostname, url) : url;
 }
 
 export function systemMetadata(title: string) {
@@ -384,7 +389,7 @@ export async function ProductPage({ params }: Props<{ id: string }>) {
                 name: product.name,
                 sku: product.sku,
                 description: product.description,
-                image: product.images.map((i) => i.url),
+                image: product.images.map((i) => absoluteImage(data, i.url)),
                 url,
                 offers: {
                   '@type': 'Offer',
