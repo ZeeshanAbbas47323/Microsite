@@ -229,6 +229,17 @@ export class StoreService {
     return this.writeDraft(session, storeId, parsed.data, source);
   }
 
+  /** Validates an unsaved editor config exactly like `saveDraft`, without writing it (live preview). */
+  async checkDraft(session: Session, storeId: string, input: unknown): Promise<SiteConfig> {
+    const parsed = siteConfigSchema.safeParse(input);
+    if (!parsed.success)
+      throw new AppError(400, 'validation_error', 'Invalid site config', zodDetails(parsed.error));
+    if (!isKnownLayout(parsed.data.layoutId))
+      throw badRequest(`Unknown layout "${parsed.data.layoutId}"`);
+    await this.load(session.getorioTenantId, storeId);
+    return parsed.data;
+  }
+
   async patchDraft(session: Session, storeId: string, patch: unknown) {
     const store = await this.load(session.getorioTenantId, storeId);
     const result = applyDraftPatch(migrateSiteConfig(store.draftConfig), patch);

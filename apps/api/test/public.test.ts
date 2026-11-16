@@ -146,6 +146,51 @@ describe('draft preview (FR-4.5)', () => {
     expect(res.headers['cache-control']).toBe('no-store');
   });
 
+  it('shows unsaved editor changes in the preview without saving them (live preview)', async () => {
+    const auth = await login(ctx.app, { getorioTenantId: 'tenant-demo' });
+    const store = await createStore(ctx.app, auth);
+    const host = `zara.${ROOT_DOMAIN}`;
+    const { config } = (
+      await ctx.app.inject({
+        method: 'GET',
+        url: `/api/v1/stores/${store.id}/config/draft`,
+        headers: auth.headers,
+      })
+    ).json();
+    const send = (body: unknown, headers = auth.headers, id = store.id) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: `/api/v1/stores/${id}/config/live-preview`,
+        headers,
+        payload: { config: body },
+      });
+
+    const unsaved = { ...config, theme: { ...config.theme, primaryColor: '#123456' } };
+    const res = await send(unsaved);
+    expect(res.statusCode).toBe(200);
+    const { draftId } = res.json();
+
+    const token = createPreviewToken(PREVIEW_SECRET, store.id).token;
+    const preview = await get(
+      `/public/store?preview=${encodeURIComponent(token)}&draft=${draftId}`,
+      host,
+    );
+    expect(preview.json().config.theme.primaryColor).toBe('#123456');
+    // The draft itself is untouched
+    const plain = await get(`/public/store?preview=${encodeURIComponent(token)}`, host);
+    expect(plain.json().config.theme.primaryColor).toBe(config.theme.primaryColor);
+    // Without a valid preview token the draft id is ignored
+    expect((await get(`/public/store?draft=${draftId}`, host)).statusCode).toBe(404);
+
+    // Validated like a saved draft, and scoped to the merchant's own store
+    expect((await send({ ...config, layoutId: 'nope-01' })).statusCode).toBe(400);
+    expect(
+      (await send({ ...config, theme: { ...config.theme, primaryColor: 'red;}' } })).statusCode,
+    ).toBe(400);
+    const other = await login(ctx.app, { getorioTenantId: 'tenant-other' });
+    expect((await send(unsaved, other.headers)).statusCode).toBe(404);
+  });
+
   it('rejects forged, expired and foreign tokens', async () => {
     const auth = await login(ctx.app, { getorioTenantId: 'tenant-demo' });
     const store = await createStore(ctx.app, auth);

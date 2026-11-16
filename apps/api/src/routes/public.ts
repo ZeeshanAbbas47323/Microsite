@@ -6,6 +6,7 @@ import { PRODUCT_SORTS, toPublicProduct } from '../catalog/catalog-service';
 import { AppError, notFound } from '../lib/errors';
 import { idempotencyKeySchema } from '../orders/checkout-service';
 import { verifyPreviewToken } from '../public/preview';
+import { loadLivePreview } from '../stores/live-preview';
 import { resolveStoreByHost, type ResolvedStore } from '../public/tenant';
 import { storeSettingsSchema } from '../stores/settings';
 
@@ -14,6 +15,7 @@ export const STORE_HOST_HEADER = 'x-store-host';
 const previewQuery = z.object({
   preview: z.string().max(300).optional(),
   command: z.uuid().optional(),
+  draft: z.uuid().optional(),
 });
 
 /**
@@ -64,11 +66,15 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
       const { store, primaryHostname, isPreview } = await viewable(request, { allowPreview: true });
       const settings = storeSettingsSchema.parse(store.settings);
       // In preview, a pending command-box suggestion can be shown before it is applied (FR-7.1).
-      const { command } = previewQuery.parse(request.query);
+      // Unsaved editor changes (live preview) win over a suggestion; both need a preview token.
+      const { command, draft } = previewQuery.parse(request.query);
+      const unsaved =
+        isPreview && draft ? await loadLivePreview(deps.cache, store.id, draft) : null;
       const proposed =
-        isPreview && command
+        unsaved ??
+        (isPreview && command
           ? await deps.commands.previewConfig(store.getorioTenantId, store.id, command)
-          : null;
+          : null);
       const config =
         proposed ?? migrateSiteConfig(isPreview ? store.draftConfig : store.publishedConfig);
       reply.header('cache-control', isPreview ? 'no-store' : 'public, max-age=30');

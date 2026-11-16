@@ -74,11 +74,16 @@ export function DesignEditor() {
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
   /** Command-box suggestion shown in the preview before it is applied. */
   const [proposalId, setProposalId] = useState<string | null>(null);
+  /** Unsaved editor changes held by the API for the preview (FR-6.2 live preview). */
+  const [liveDraftId, setLiveDraftId] = useState<string | null>(null);
   const storeId = store?.id;
-  const previewSrc =
-    previewUrl && proposalId
-      ? `${previewUrl}&command=${encodeURIComponent(proposalId)}`
-      : previewUrl;
+  const previewSrc = !previewUrl
+    ? null
+    : dirty && liveDraftId
+      ? `${previewUrl}&draft=${encodeURIComponent(liveDraftId)}`
+      : proposalId
+        ? `${previewUrl}&command=${encodeURIComponent(proposalId)}`
+        : previewUrl;
 
   const load = useCallback(async () => {
     if (!storeId) return;
@@ -101,6 +106,30 @@ export function DesignEditor() {
     const t = setInterval(issue, 45 * 60 * 1000); // tokens live 1 h
     return () => clearInterval(t);
   }, [storeId]);
+
+  // Live preview: send unsaved changes shortly after the merchant stops editing. Invalid
+  // in-between states (e.g. a half-typed color) keep the last good preview.
+  useEffect(() => {
+    if (!storeId || !config || !dirty) {
+      setLiveDraftId(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      api<{ draftId: string }>(`/stores/${storeId}/config/live-preview`, {
+        method: 'POST',
+        body: { config },
+      })
+        .then((r) => {
+          if (!cancelled) setLiveDraftId(r.draftId);
+        })
+        .catch(() => undefined);
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [storeId, config, dirty]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -288,11 +317,13 @@ export function DesignEditor() {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm text-neutral-600">
             <span>
-              {proposalId
-                ? 'Preview includes the suggested change (not saved yet)'
-                : dirty
-                  ? 'Preview shows your last saved draft. Save to update it.'
-                  : 'Live preview of your draft'}
+              {t(
+                dirty
+                  ? 'Preview shows your unsaved changes. Save to keep them.'
+                  : proposalId
+                    ? 'Preview includes the suggested change (not saved yet)'
+                    : 'Live preview of your draft',
+              )}
             </span>
             <div className="flex gap-1" role="group" aria-label="Preview size">
               {(['desktop', 'mobile'] as const).map((d) => (
@@ -311,7 +342,7 @@ export function DesignEditor() {
           <div className="flex justify-center rounded-xl border border-neutral-200 bg-neutral-100 p-2">
             {previewSrc ? (
               <iframe
-                key={`${previewKey}-${proposalId ?? ''}`}
+                key={`${previewKey}-${proposalId ?? ''}-${dirty ? (liveDraftId ?? '') : ''}`}
                 src={previewSrc}
                 title={proposalId ? 'Store preview with the suggested change' : 'Store preview'}
                 className={`h-[72vh] rounded-lg border border-neutral-200 bg-white ${device === 'mobile' ? 'w-[390px]' : 'w-full'}`}

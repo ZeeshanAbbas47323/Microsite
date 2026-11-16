@@ -52,7 +52,8 @@ export function hrefBuilder(mode: Mode) {
     const [base, hash] = path.split('#');
     const sep = (base ?? '').includes('?') ? '&' : '?';
     const command = mode.command ? `&command=${encodeURIComponent(mode.command)}` : '';
-    return `${base}${sep}preview=${encodeURIComponent(mode.preview)}${command}${hash ? `#${hash}` : ''}`;
+    const draft = mode.draft ? `&draft=${encodeURIComponent(mode.draft)}` : '';
+    return `${base}${sep}preview=${encodeURIComponent(mode.preview)}${command}${draft}${hash ? `#${hash}` : ''}`;
   };
 }
 

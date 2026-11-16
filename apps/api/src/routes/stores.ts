@@ -2,6 +2,7 @@ import { LAYOUTS } from '@microstore/layouts';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authOf, requireAuth } from '../auth/plugin';
+import { saveLivePreview } from '../stores/live-preview';
 import { storeSettingsPatchSchema } from '../stores/settings';
 import type { AppDeps } from '../app';
 
@@ -69,6 +70,17 @@ export async function storeRoutes(app: FastifyInstance, deps: AppDeps) {
       const { config } = z.object({ config: z.unknown() }).parse(request.body);
       return stores.saveDraft(authOf(request), id, config);
     });
+
+    authed.post(
+      '/stores/:id/config/live-preview',
+      { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+      async (request) => {
+        const { id } = storeParams.parse(request.params);
+        const { config } = z.object({ config: z.unknown() }).parse(request.body);
+        const checked = await stores.checkDraft(authOf(request), id, config);
+        return { draftId: await saveLivePreview(deps.cache, id, checked) };
+      },
+    );
 
     authed.patch('/stores/:id/config/draft', async (request) => {
       const { id } = storeParams.parse(request.params);

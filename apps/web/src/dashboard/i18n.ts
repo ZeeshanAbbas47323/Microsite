@@ -124,6 +124,11 @@ const UR: Record<string, string> = {
   'Published. Your store is live with these changes.':
     'شائع ہو گیا۔ آپ کا اسٹور ان تبدیلیوں کے ساتھ لائیو ہے۔',
   'Change undone.': 'تبدیلی واپس ہو گئی۔',
+  'Preview shows your unsaved changes. Save to keep them.':
+    'پری ویو میں آپ کی غیر محفوظ تبدیلیاں نظر آ رہی ہیں۔ رکھنے کے لیے محفوظ کریں۔',
+  'Preview includes the suggested change (not saved yet)':
+    'پری ویو میں تجویز کردہ تبدیلی شامل ہے (ابھی محفوظ نہیں)',
+  'Live preview of your draft': 'آپ کے ڈرافٹ کا لائیو پری ویو',
 };
 
 const DICTIONARIES: Record<Locale, Record<string, string>> = { en: {}, ur: UR };

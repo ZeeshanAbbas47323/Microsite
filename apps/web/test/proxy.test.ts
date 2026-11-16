@@ -58,6 +58,14 @@ describe('proxy (tenant routing)', () => {
     );
   });
 
+  it('carries unsaved editor changes into the preview tree', async () => {
+    const did = '01a1d000-0000-7000-8000-000000000002';
+    const r = await run(`http://zara.microstore.localhost/?preview=abc.123.sigsigsig&draft=${did}`);
+    expect(r.rewrite).toBe(
+      `http://zara.microstore.localhost/p/zara.microstore.localhost/abc.123.sigsigsig~~${did}`,
+    );
+  });
+
   it('ignores malformed preview tokens', async () => {
     expect((await run('http://zara.microstore.localhost/?preview=<script>')).rewrite).toBe(
       'http://zara.microstore.localhost/s/zara.microstore.localhost?preview=%3Cscript%3E',
