@@ -14,9 +14,9 @@ interface Props<T extends Section['type']> {
 function Hero({ ctx, section, first }: Props<'hero'>) {
   const v = variantFor(ctx.config.layoutId);
   const { title, subtitle, imageUrl, ctaLabel, ctaLink } = section.props;
-  // On the colored overlay hero the button is inverted so it never blends into the background.
+  // On colored heroes the button is inverted so it never blends into the background.
   const ctaClass =
-    v.hero === 'overlay'
+    v.hero === 'overlay' || v.hero === 'compact'
       ? v.button.replace(
           'bg-[var(--ms-primary)] text-[var(--ms-on-primary)]',
           'bg-[var(--ms-on-primary)] text-[var(--ms-primary)]',
@@ -57,6 +57,92 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           <h1 className={`${v.heroTitle} max-w-3xl`}>{title}</h1>
           {subtitle ? <p className="max-w-xl text-lg opacity-90">{subtitle}</p> : null}
           {cta ? <div>{cta}</div> : null}
+        </div>
+      </section>
+    );
+  }
+
+  if (v.hero === 'centered') {
+    return (
+      <section className={v.section}>
+        <div className={`${v.container} flex flex-col items-center gap-6 text-center`}>
+          <h1 className={`${v.heroTitle} max-w-4xl`}>{title}</h1>
+          {subtitle ? <p className="max-w-2xl text-lg text-[var(--ms-muted)]">{subtitle}</p> : null}
+          {cta ? <div>{cta}</div> : null}
+        </div>
+        {imageUrl ? (
+          <div className={`${v.container} mt-12`}>
+            <ctx.Image
+              src={imageUrl}
+              alt=""
+              width={1600}
+              height={686}
+              sizes="(min-width: 1024px) 1024px, 100vw"
+              priority={first}
+              className="aspect-[21/9] w-full rounded-[var(--ms-radius)] object-cover"
+            />
+          </div>
+        ) : null}
+      </section>
+    );
+  }
+
+  if (v.hero === 'framed') {
+    return (
+      <section
+        className={`${v.section} bg-[color-mix(in_srgb,var(--ms-secondary)_18%,var(--ms-bg))]`}
+      >
+        <div
+          className={`${v.container} grid items-center gap-10 ${imageUrl ? 'md:grid-cols-[5fr_6fr]' : 'text-center'}`}
+        >
+          {imageUrl ? (
+            <div className="rounded-[var(--ms-radius)] bg-[var(--ms-bg)] p-3 shadow-sm ring-1 ring-[var(--ms-border)]">
+              <ctx.Image
+                src={imageUrl}
+                alt=""
+                width={800}
+                height={1000}
+                sizes="(min-width: 768px) 45vw, 100vw"
+                priority={first}
+                className="aspect-[4/5] w-full rounded-[calc(var(--ms-radius)*0.75)] object-cover"
+              />
+            </div>
+          ) : null}
+          <div className={`flex flex-col gap-5 ${imageUrl ? '' : 'items-center'}`}>
+            <span className="h-px w-16 bg-[var(--ms-primary)]" aria-hidden="true" />
+            <h1 className={v.heroTitle}>{title}</h1>
+            {subtitle ? (
+              <p className="max-w-xl text-lg italic text-[var(--ms-muted)]">{subtitle}</p>
+            ) : null}
+            {cta ? <div>{cta}</div> : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (v.hero === 'compact') {
+    return (
+      <section className="bg-[var(--ms-primary)] text-[var(--ms-on-primary)]">
+        <div
+          className={`${v.container} flex flex-col gap-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:py-12`}
+        >
+          <div className="flex flex-col gap-3">
+            <h1 className={v.heroTitle}>{title}</h1>
+            {subtitle ? <p className="max-w-xl text-base sm:text-lg">{subtitle}</p> : null}
+            {cta ? <div className="pt-1">{cta}</div> : null}
+          </div>
+          {imageUrl ? (
+            <ctx.Image
+              src={imageUrl}
+              alt=""
+              width={480}
+              height={480}
+              sizes="(min-width: 640px) 240px, 100vw"
+              priority={first}
+              className="aspect-square w-full rounded-[var(--ms-radius)] object-cover sm:w-60"
+            />
+          ) : null}
         </div>
       </section>
     );

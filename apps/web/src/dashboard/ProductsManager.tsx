@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Input, Notice, Toggle } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import { api } from './api';
+import { useT } from './i18n';
 import { useDashboard } from './session';
 
 interface MerchantProduct {
@@ -26,6 +27,7 @@ const PAGE_SIZE = 25;
 /** FR-6.4: choose which Getorio products appear on the store and which are featured. */
 export function ProductsManager() {
   const { store } = useDashboard();
+  const t = useT();
   const [items, setItems] = useState<MerchantProduct[] | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -85,10 +87,11 @@ export function ProductsManager() {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Products</h1>
+        <h1 className="text-2xl font-bold">{t('Products')}</h1>
         <p className="text-sm text-neutral-600">
-          Products, prices and stock come from Getorio. Choose what shows on your store; changes go
-          live right away.
+          {t(
+            'Products, prices and stock come from Getorio. Choose what shows on your store; changes go live right away.',
+          )}
         </p>
       </div>
       <form

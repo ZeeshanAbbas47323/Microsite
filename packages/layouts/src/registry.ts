@@ -9,7 +9,7 @@ export interface LayoutMeta {
   defaults: LayoutDefaults;
 }
 
-/** P0 ships two layouts (FR-3, Phase 1). Add new ones here; ids must never change once used. */
+/** Layouts 1–2 shipped in Phase 1, 3–5 in Phase 2 (FR-3). Ids must never change once used. */
 export const LAYOUTS: readonly LayoutMeta[] = [
   {
     id: 'bold-01',
@@ -61,6 +61,84 @@ export const LAYOUTS: readonly LayoutMeta[] = [
         showCart: true,
       },
       footer: { style: 'simple' },
+    },
+  },
+  {
+    id: 'minimal-01',
+    name: 'Minimal',
+    description: 'Lots of white space, light type and sharp edges. Products take centre stage.',
+    thumbnail: '/layouts/minimal-01.png',
+    defaults: {
+      layoutId: 'minimal-01',
+      theme: {
+        primaryColor: '#111827',
+        secondaryColor: '#e5e7eb',
+        backgroundColor: '#ffffff',
+        textColor: '#111827',
+        fontFamily: 'Inter',
+        buttonStyle: 'square',
+        borderRadius: 'none',
+      },
+      navbar: {
+        style: 'minimal',
+        sticky: true,
+        backgroundColor: '#ffffff',
+        textColor: '#111827',
+        showCart: true,
+      },
+      footer: { style: 'minimal' },
+    },
+  },
+  {
+    id: 'boutique-01',
+    name: 'Boutique',
+    description: 'Elegant serif type, framed photos and soft colors for fashion and gifts.',
+    thumbnail: '/layouts/boutique-01.png',
+    defaults: {
+      layoutId: 'boutique-01',
+      theme: {
+        primaryColor: '#7c2d12',
+        secondaryColor: '#fcd9b8',
+        backgroundColor: '#fffaf5',
+        textColor: '#292524',
+        fontFamily: 'Playfair Display',
+        buttonStyle: 'pill',
+        borderRadius: 'xl',
+      },
+      navbar: {
+        style: 'centered',
+        sticky: false,
+        backgroundColor: '#fffaf5',
+        textColor: '#292524',
+        showCart: true,
+      },
+      footer: { style: 'columns' },
+    },
+  },
+  {
+    id: 'market-01',
+    name: 'Market',
+    description: 'Bold colors, a compact banner and a dense product grid for larger catalogs.',
+    thumbnail: '/layouts/market-01.png',
+    defaults: {
+      layoutId: 'market-01',
+      theme: {
+        primaryColor: '#dc2626',
+        secondaryColor: '#facc15',
+        backgroundColor: '#ffffff',
+        textColor: '#18181b',
+        fontFamily: 'Nunito',
+        buttonStyle: 'rounded',
+        borderRadius: 'md',
+      },
+      navbar: {
+        style: 'left',
+        sticky: true,
+        backgroundColor: '#b91c1c',
+        textColor: '#ffffff',
+        showCart: true,
+      },
+      footer: { style: 'columns' },
     },
   },
 ];

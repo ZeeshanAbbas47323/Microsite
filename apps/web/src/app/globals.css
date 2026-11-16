@@ -19,3 +19,10 @@ body {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+
+/* Dashboard in Urdu: Nastaliq needs more line height than Latin text. Latin runs (store names,
+   prices, codes) fall back to the system font. */
+html[lang='ur'] .font-urdu-scope {
+  font-family: var(--font-urdu), ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.9;
+}

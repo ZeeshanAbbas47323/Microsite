@@ -4,6 +4,7 @@ import { whatsappHref } from './links';
 import { Navbar } from './Navbar';
 import { themeStyle } from './theme';
 import type { RenderContext } from './types';
+import { variantFor } from './variants';
 
 /** The page frame every layout shares: theme variables, navbar, footer, WhatsApp button. */
 export function SiteShell({
@@ -64,13 +65,10 @@ export function PageHeader({
   title: string;
   children?: ReactNode;
 }) {
-  const v =
-    ctx.config.layoutId === 'classic-01'
-      ? 'text-3xl font-semibold'
-      : 'text-3xl font-extrabold sm:text-4xl';
+  const v = variantFor(ctx.config.layoutId);
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-10 sm:px-6">
-      <h1 className={`${v} tracking-tight`}>{title}</h1>
+      <h1 className={v.pageTitle}>{title}</h1>
       {children}
     </div>
   );

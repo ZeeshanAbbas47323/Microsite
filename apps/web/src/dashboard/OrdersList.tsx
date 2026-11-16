@@ -5,6 +5,7 @@ import { Badge, Button, Notice } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import { api } from './api';
 import { formatDate, SyncBadge, type OrderRow } from './Overview';
+import { useT } from './i18n';
 import { useDashboard } from './session';
 
 interface OrderDetail extends OrderRow {
@@ -27,6 +28,7 @@ const PAGE_SIZE = 20;
 /** FR-6.5: microstore orders with Getorio sync status and manual retry. */
 export function OrdersList() {
   const { store } = useDashboard();
+  const t = useT();
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ items: OrderRow[]; total: number } | null>(null);
@@ -80,12 +82,12 @@ export function OrdersList() {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Orders</h1>
+        <h1 className="text-2xl font-bold">{t('Orders')}</h1>
         <Button variant="secondary" onClick={() => void load()}>
-          Refresh
+          {t('Refresh')}
         </Button>
       </div>
-      <div role="group" aria-label="Filter orders" className="flex flex-wrap gap-2">
+      <div role="group" aria-label={t('Filter orders')} className="flex flex-wrap gap-2">
         {FILTERS.map(([value, label]) => (
           <button
             key={value || 'all'}
@@ -97,7 +99,7 @@ export function OrdersList() {
             }}
             className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 ${status === value ? 'bg-neutral-900 text-white ring-neutral-900' : 'bg-white ring-neutral-300 hover:bg-neutral-50'}`}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </div>

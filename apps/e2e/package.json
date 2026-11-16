@@ -8,7 +8,9 @@
     "e2e:install": "playwright install chromium"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@microstore/config": "workspace:*",
+    "@microstore/layouts": "workspace:^",
     "@playwright/test": "^1.55.0",
     "dotenv": "^17.0.0",
     "jose": "^6.1.0"

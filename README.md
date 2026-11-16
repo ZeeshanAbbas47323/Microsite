@@ -137,12 +137,12 @@ API tests are integration tests: they need MySQL from docker-compose and use `DA
 
 ## Status
 
-### Phase 2: in progress
+### Phase 2: done
 
 - [x] Command box: Claude-backed suggestions → allowlist + schema validation → preview → Apply / Discard / Undo; logs, daily limits, admin usage; 20 sample commands (incl. Roman Urdu) and 30+ adversarial cases tested with a stub; opt-in real-model eval `pnpm --filter @microstore/api eval:commands` (needs `ANTHROPIC_API_KEY`)
 - [x] Section reorder/show/hide/edit, version history and restore (built in Phase 1)
-- [ ] Layouts 3–5 with accessibility checks
-- [ ] Urdu dashboard UI (RTL)
+- [x] Layouts 3–5 (Minimal, Boutique, Market) with distinct hero/card styles; `apps/e2e/tests/layouts-a11y.spec.ts` scans all 5 layouts × 6 storefront pages with axe (WCAG 2.1 AA, 0 violations)
+- [x] Urdu dashboard UI: English/اردو switch in the sidebar, RTL, Noto Nastaliq Urdu; shell, overview, design editor header, assistant, orders/products/settings headings translated (detailed form labels fall back to English for now)
 
 ### Phase 1 (MVP): done
 

@@ -90,17 +90,20 @@ function ctx(overrides: Partial<RenderContext> = {}): RenderContext {
 }
 
 describe('layout rendering', () => {
-  it.each(['bold-01', 'classic-01'])('renders every page of %s without errors', (layoutId) => {
-    const c = ctx({ config: { ...config, layoutId } });
-    for (const page of config.pages) {
-      const html = renderToStaticMarkup(
-        <SiteShell ctx={c}>
-          <Sections ctx={c} sections={page.sections} />
-        </SiteShell>,
-      );
-      expect(html).toContain('Zara &amp; Crafts');
-    }
-  });
+  it.each(['bold-01', 'classic-01', 'minimal-01', 'boutique-01', 'market-01'])(
+    'renders every page of %s without errors',
+    (layoutId) => {
+      const c = ctx({ config: { ...config, layoutId } });
+      for (const page of config.pages) {
+        const html = renderToStaticMarkup(
+          <SiteShell ctx={c}>
+            <Sections ctx={c} sections={page.sections} />
+          </SiteShell>,
+        );
+        expect(html).toContain('Zara &amp; Crafts');
+      }
+    },
+  );
 
   it('honours navbar and footer styles (FR-3.3)', () => {
     for (const style of ['centered', 'left', 'split', 'minimal'] as const) {

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Button, Card, Field, Input, Notice, Textarea, Toggle } from '@/components/ui';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api, ApiError, type Store, type StoreSettings } from './api';
+import { useT } from './i18n';
 import { useDashboard } from './session';
 
 type Business = SiteConfig['business'];
@@ -21,6 +22,7 @@ function errorText(e: unknown) {
 /** FR-6.6: store settings (applied immediately) and business details (saved to the draft). */
 export function SettingsForm({ rootDomain }: { rootDomain: string }) {
   const { store, setStore, refreshStore, session } = useDashboard();
+  const t = useT();
   const [confirmName, setConfirmName] = useState('');
   const [settings, setSettings] = useState<StoreSettings | null>(store?.settings ?? null);
   const [freeShipping, setFreeShipping] = useState(store?.settings.freeShippingThreshold !== null);
@@ -83,7 +85,7 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
   }
 
   const note = (key: string) =>
-    msg[key] ? <Notice tone={msg[key].tone}>{msg[key].text}</Notice> : null;
+    msg[key] ? <Notice tone={msg[key].tone}>{t(msg[key].text)}</Notice> : null;
   const setB = (patch: Partial<Business>) => setBusiness((b) => (b ? { ...b, ...patch } : b));
   const setContact = (patch: Partial<Business['contact']>) =>
     setBusiness((b) => (b ? { ...b, contact: { ...b.contact, ...patch } } : b));
@@ -92,9 +94,9 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-2xl font-bold">{t('Settings')}</h1>
 
-      <Card title="Store address">
+      <Card title={t('Store address')}>
         <div className="space-y-4">
           <Field
             label="Subdomain"
@@ -124,7 +126,7 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
         </div>
       </Card>
 
-      <Card title="Delivery charges">
+      <Card title={t('Delivery charges')}>
         <div className="space-y-4">
           <Field label={`Flat delivery fee (${store.currency})`}>
             {(p) => (
@@ -173,7 +175,7 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
         </div>
       </Card>
 
-      <Card title="Storefront options">
+      <Card title={t('Storefront options')}>
         <div className="space-y-4">
           <Toggle
             label="WhatsApp chat button"
@@ -200,7 +202,7 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
         </div>
       </Card>
 
-      <Card title="Business details">
+      <Card title={t('Business details')}>
         {!business ? (
           <p className="text-sm text-neutral-500">Loading…</p>
         ) : (
@@ -333,7 +335,7 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
       </Card>
 
       {session.merchant.role === 'owner' ? (
-        <Card title="Delete store">
+        <Card title={t('Delete store')}>
           <div className="space-y-4">
             <p className="text-sm text-neutral-700">
               This permanently deletes the store, its pages, images and all Microstore orders with

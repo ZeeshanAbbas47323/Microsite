@@ -596,44 +596,76 @@ function LayoutThumb({
   secondary: string;
   name: string;
 }) {
-  const bold = id === 'bold-01';
+  const darkNav = id === 'bold-01' || id === 'market-01';
+  const tile =
+    id === 'bold-01'
+      ? 'rounded shadow-sm'
+      : id === 'minimal-01'
+        ? ''
+        : id === 'boutique-01'
+          ? 'rounded-lg ring-1 ring-neutral-200'
+          : 'rounded-sm border border-neutral-200';
+  const button = (filled: boolean) => (
+    <div
+      className={`mt-1.5 inline-block px-1.5 py-0.5 font-semibold ${id === 'minimal-01' ? '' : 'rounded-full'} ${filled ? 'text-white' : 'bg-white'}`}
+      style={filled ? { background: primary } : { color: primary }}
+    >
+      Shop now
+    </div>
+  );
   return (
     <div
       className="overflow-hidden rounded-lg border border-neutral-200 bg-white text-[8px]"
       aria-hidden="true"
     >
       <div
-        className={`flex items-center justify-between px-2 py-1.5 ${bold ? 'bg-neutral-900 text-white' : 'border-b border-neutral-100'}`}
+        className={`flex items-center justify-between px-2 py-1.5 ${darkNav ? 'text-white' : 'border-b border-neutral-100'} ${id === 'boutique-01' ? 'justify-center italic' : ''}`}
+        style={darkNav ? { background: id === 'market-01' ? primary : '#111827' } : undefined}
       >
         <span className="font-bold">{name.slice(0, 18)}</span>
-        <span>☰</span>
+        {id === 'boutique-01' ? null : <span>☰</span>}
       </div>
-      {bold ? (
+      {id === 'bold-01' ? (
         <div className="px-2 py-4 text-white" style={{ background: primary }}>
           <div className="text-[11px] font-extrabold leading-tight">Welcome</div>
-          <div
-            className="mt-1.5 inline-block rounded-full bg-white px-1.5 py-0.5 font-semibold"
-            style={{ color: primary }}
-          >
-            Shop now
+          {button(false)}
+        </div>
+      ) : id === 'market-01' ? (
+        <div
+          className="flex items-center justify-between px-2 py-2 text-white"
+          style={{ background: primary }}
+        >
+          <div>
+            <div className="text-[10px] font-extrabold uppercase leading-tight">Big sale</div>
+            {button(false)}
+          </div>
+          <div className="h-6 w-6 rounded" style={{ background: secondary }} />
+        </div>
+      ) : id === 'boutique-01' ? (
+        <div className="flex items-center gap-2 px-2 py-3" style={{ background: `${secondary}55` }}>
+          <div className="h-9 w-7 rounded-md bg-white p-0.5 ring-1 ring-neutral-200">
+            <div className="h-full w-full rounded" style={{ background: secondary }} />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold italic leading-tight">Welcome</div>
+            {button(true)}
           </div>
         </div>
       ) : (
-        <div className="px-2 py-4 text-center">
-          <div className="text-[11px] font-semibold leading-tight">Welcome</div>
+        <div className={`px-2 ${id === 'minimal-01' ? 'py-5' : 'py-4'} text-center`}>
           <div
-            className="mt-1.5 inline-block rounded px-1.5 py-0.5 font-semibold text-white"
-            style={{ background: primary }}
+            className={`text-[11px] leading-tight ${id === 'minimal-01' ? 'font-light' : 'font-semibold'}`}
           >
-            Shop now
+            Welcome
           </div>
+          {button(true)}
         </div>
       )}
-      <div className="grid grid-cols-3 gap-1 p-2">
-        {[0, 1, 2].map((i) => (
+      <div className={`grid gap-1 p-2 ${id === 'market-01' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        {(id === 'market-01' ? [0, 1, 2, 3] : [0, 1, 2]).map((i) => (
           <div
             key={i}
-            className={`aspect-square ${bold ? 'rounded shadow-sm' : 'rounded-sm border border-neutral-200'}`}
+            className={`${id === 'minimal-01' ? 'aspect-[3/4]' : 'aspect-square'} ${tile}`}
             style={{ background: i === 1 ? secondary : '#e5e7eb' }}
           />
         ))}

@@ -40,7 +40,13 @@ const req = (
 describe('layouts and subdomains', () => {
   it('lists layouts without auth', async () => {
     const res = await ctx.app.inject({ method: 'GET', url: '/api/v1/layouts' });
-    expect(res.json().layouts.map((l: { id: string }) => l.id)).toEqual(['bold-01', 'classic-01']);
+    expect(res.json().layouts.map((l: { id: string }) => l.id)).toEqual([
+      'bold-01',
+      'classic-01',
+      'minimal-01',
+      'boutique-01',
+      'market-01',
+    ]);
   });
 
   it('checks subdomain availability', async () => {

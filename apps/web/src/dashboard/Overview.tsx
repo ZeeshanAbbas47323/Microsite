@@ -6,6 +6,7 @@ import { Badge, Button, Card, Notice } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import { api } from './api';
 import { StatusBadge } from './DashboardShell';
+import { useT } from './i18n';
 import { useDashboard } from './session';
 import { useStoreActions } from './useStoreActions';
 
@@ -28,10 +29,11 @@ export interface OrderRow {
 }
 
 export function SyncBadge({ status }: { status: OrderRow['status'] }) {
-  if (status === 'synced') return <Badge tone="green">In Getorio</Badge>;
-  if (status === 'sync_failed') return <Badge tone="red">Sync failed</Badge>;
-  if (status === 'cancelled') return <Badge>Cancelled</Badge>;
-  return <Badge tone="amber">Sending to Getorio</Badge>;
+  const t = useT();
+  if (status === 'synced') return <Badge tone="green">{t('In Getorio')}</Badge>;
+  if (status === 'sync_failed') return <Badge tone="red">{t('Sync failed')}</Badge>;
+  if (status === 'cancelled') return <Badge>{t('Cancelled')}</Badge>;
+  return <Badge tone="amber">{t('Sending to Getorio')}</Badge>;
 }
 
 export function formatDate(iso: string) {
@@ -45,6 +47,7 @@ export function formatDate(iso: string) {
 /** FR-6.1: store status, URL, quick links and recent orders. */
 export function Overview() {
   const { store } = useDashboard();
+  const t = useT();
   const { publish, unpublish, busy, error } = useStoreActions();
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
 
@@ -60,7 +63,7 @@ export function Overview() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Overview</h1>
+      <h1 className="text-2xl font-bold">{t('Overview')}</h1>
       {error ? <Notice tone="error">{error}</Notice> : null}
 
       <Card>
@@ -88,38 +91,38 @@ export function Overview() {
             ) : null}
             {store.publishedAt ? (
               <p className="text-xs text-neutral-500">
-                Last published {formatDate(store.publishedAt)}
+                {t('Last published {date}', { date: formatDate(store.publishedAt) })}
               </p>
             ) : null}
             {store.status === 'draft' ? (
               <p className="text-sm text-neutral-600">
-                Customers can’t see your store until you publish it.
+                {t('Customers can’t see your store until you publish it.')}
               </p>
             ) : null}
             {store.hasUnpublishedChanges && store.status === 'published' ? (
               <p className="text-sm text-amber-800">
-                You have changes that customers can’t see yet.
+                {t('You have changes that customers can’t see yet.')}
               </p>
             ) : null}
           </div>
           {store.status === 'suspended' ? (
-            <Notice tone="error">This store is suspended. Contact Getorio support.</Notice>
+            <Notice tone="error">{t('This store is suspended. Contact Getorio support.')}</Notice>
           ) : (
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/dashboard/design"
                 className="inline-flex h-10 items-center rounded-lg px-4 text-sm font-semibold ring-1 ring-neutral-300 hover:bg-neutral-50"
               >
-                Edit design
+                {t('Edit design')}
               </Link>
               {live ? (
                 <Button variant="secondary" onClick={unpublish} loading={busy === 'unpublish'}>
-                  Unpublish
+                  {t('Unpublish')}
                 </Button>
               ) : null}
               {!live || store.hasUnpublishedChanges ? (
                 <Button onClick={publish} loading={busy === 'publish'}>
-                  {live ? 'Publish changes' : 'Publish store'}
+                  {live ? t('Publish changes') : t('Publish store')}
                 </Button>
               ) : null}
             </div>
@@ -138,25 +141,25 @@ export function Overview() {
             href={href as string}
             className="rounded-xl border border-neutral-200 bg-white p-4 hover:border-indigo-300"
           >
-            <p className="font-semibold">{title}</p>
-            <p className="text-sm text-neutral-600">{text}</p>
+            <p className="font-semibold">{t(title as string)}</p>
+            <p className="text-sm text-neutral-600">{t(text as string)}</p>
           </Link>
         ))}
       </div>
 
       <Card
-        title="Recent orders"
+        title={t('Recent orders')}
         actions={
           <Link href="/dashboard/orders" className="text-sm font-medium text-indigo-700">
-            View all
+            {t('View all')}
           </Link>
         }
       >
         {orders === null ? (
-          <p className="text-sm text-neutral-500">Loading…</p>
+          <p className="text-sm text-neutral-500">{t('Loading…')}</p>
         ) : orders.length === 0 ? (
           <p className="text-sm text-neutral-500">
-            No orders yet. Share your store link to get your first order.
+            {t('No orders yet. Share your store link to get your first order.')}
           </p>
         ) : (
           <ul className="divide-y divide-neutral-100">

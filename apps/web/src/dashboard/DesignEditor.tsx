@@ -15,6 +15,7 @@ import {
   type Section,
   type SiteConfig,
 } from '@microstore/site-schema';
+import { LAYOUTS } from '@microstore/layouts';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
@@ -31,6 +32,7 @@ import {
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api, ApiError } from './api';
 import { CommandBox } from './CommandBox';
+import { useT } from './i18n';
 import { formatDate } from './Overview';
 import { useDashboard } from './session';
 import { useStoreActions } from './useStoreActions';
@@ -54,11 +56,10 @@ const SECTION_LABELS: Record<Section['type'], string> = {
   banner: 'Announcement',
 };
 
-const LAYOUT_NAMES: Record<string, string> = { 'bold-01': 'Bold', 'classic-01': 'Classic' };
-
 /** FR-6.2: design editor with live draft preview. Changes are saved to the draft, never live. */
 export function DesignEditor() {
   const { store, refreshStore, locale } = useDashboard();
+  const t = useT();
   const params = useSearchParams();
   const { publish, busy: publishing, error: publishError } = useStoreActions();
   const [config, setConfig] = useState<SiteConfig | null>(null);
@@ -165,24 +166,24 @@ export function DesignEditor() {
       setMessage({ tone: 'success', text: 'Published. Your store is live with these changes.' });
   }
 
-  if (!store || !config) return <p className="text-neutral-500">Loading…</p>;
+  if (!store || !config) return <p className="text-neutral-500">{t('Loading…')}</p>;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Design</h1>
+          <h1 className="text-2xl font-bold">{t('Design')}</h1>
           {dirty ? (
-            <Badge tone="amber">Unsaved changes</Badge>
+            <Badge tone="amber">{t('Unsaved changes')}</Badge>
           ) : store.hasUnpublishedChanges ? (
-            <Badge tone="indigo">Draft not published</Badge>
+            <Badge tone="indigo">{t('Draft not published')}</Badge>
           ) : (
-            <Badge tone="green">Up to date</Badge>
+            <Badge tone="green">{t('Up to date')}</Badge>
           )}
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={save} loading={saving} disabled={!dirty}>
-            Save draft
+            {t('Save draft')}
           </Button>
           <Button
             onClick={saveAndPublish}
@@ -192,23 +193,29 @@ export function DesignEditor() {
               (!dirty && !store.hasUnpublishedChanges && store.status === 'published')
             }
           >
-            Publish
+            {t('Publish')}
           </Button>
         </div>
       </div>
       {params.get('welcome') ? (
         <Notice tone="success">
-          Your store is ready as a draft. Adjust the design, then press Publish when you are happy.
+          {t(
+            'Your store is ready as a draft. Adjust the design, then press Publish when you are happy.',
+          )}
         </Notice>
       ) : null}
-      {message ? <Notice tone={message.tone}>{message.text}</Notice> : null}
+      {message ? (
+        <Notice tone={message.tone}>
+          {typeof message.text === 'string' ? t(message.text) : message.text}
+        </Notice>
+      ) : null}
       {publishError ? <Notice tone="error">{publishError}</Notice> : null}
 
       <CommandBox
         storeId={store.id}
         language={locale}
         disabledReason={
-          dirty ? 'Save or discard your manual changes first, then ask the assistant.' : null
+          dirty ? t('Save or discard your manual changes first, then ask the assistant.') : null
         }
         onProposal={setProposalId}
         onApplied={async () => {
@@ -228,7 +235,7 @@ export function DesignEditor() {
         <div className="rounded-xl border border-neutral-200 bg-white shadow-xs">
           <div
             role="tablist"
-            aria-label="Design settings"
+            aria-label={t('Design settings')}
             className="flex border-b border-neutral-200"
           >
             {(
@@ -248,7 +255,7 @@ export function DesignEditor() {
                 onClick={() => setTab(id)}
                 className={`flex-1 px-2 py-3 text-sm font-medium ${tab === id ? 'border-b-2 border-indigo-600 text-indigo-700' : 'text-neutral-600 hover:text-neutral-900'}`}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
@@ -341,7 +348,7 @@ function ThemePanel({ config, update }: { config: SiteConfig; update: Update }) 
         <legend className="mb-2 text-sm font-medium">Layout</legend>
         <p className="text-xs text-neutral-500">Switching keeps your content and colors.</p>
         <div className="grid grid-cols-2 gap-2">
-          {Object.entries(LAYOUT_NAMES).map(([id, name]) => (
+          {LAYOUTS.map(({ id, name }) => (
             <label
               key={id}
               className="cursor-pointer rounded-lg border-2 border-neutral-200 p-3 text-sm font-medium has-[:checked]:border-indigo-600"

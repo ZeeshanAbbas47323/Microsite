@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import { Badge } from '@/components/ui';
 import { api } from './api';
+import { useT } from './i18n';
 import { useDashboard } from './session';
 
 const NAV = [
@@ -16,17 +17,19 @@ const NAV = [
 ];
 
 export function StatusBadge({ status }: { status: 'draft' | 'published' | 'suspended' }) {
+  const t = useT();
   return status === 'published' ? (
-    <Badge tone="green">Live</Badge>
+    <Badge tone="green">{t('Live')}</Badge>
   ) : status === 'suspended' ? (
-    <Badge tone="red">Suspended</Badge>
+    <Badge tone="red">{t('Suspended')}</Badge>
   ) : (
-    <Badge tone="amber">Not published</Badge>
+    <Badge tone="amber">{t('Not published')}</Badge>
   );
 }
 
 export function DashboardShell({ children }: { children: ReactNode }) {
-  const { store, session } = useDashboard();
+  const { store, session, locale, setLocale } = useDashboard();
+  const t = useT();
   const isAdmin = session.merchant.role === 'platform_admin';
   const pathname = usePathname();
   const router = useRouter();
@@ -54,7 +57,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-neutral-50 text-neutral-900 md:grid md:grid-cols-[220px_1fr]">
-      <aside className="border-b border-neutral-200 bg-white md:min-h-dvh md:border-b-0 md:border-r">
+      <aside className="border-b border-neutral-200 bg-white md:min-h-dvh md:border-b-0 md:border-e">
         <div className="flex items-center justify-between gap-2 px-4 py-4 md:block">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">
@@ -66,7 +69,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-        <nav aria-label="Dashboard" className="overflow-x-auto px-2 pb-2 md:pb-4">
+        <nav aria-label={t('Dashboard')} className="overflow-x-auto px-2 pb-2 md:pb-4">
           <ul className="flex gap-1 md:flex-col">
             {[...NAV, ...(isAdmin ? [{ href: '/dashboard/admin', label: 'Admin' }] : [])].map(
               (item) => {
@@ -81,7 +84,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                       {...(active ? { 'aria-current': 'page' as const } : {})}
                       className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${active ? 'bg-indigo-50 text-indigo-700' : 'text-neutral-700 hover:bg-neutral-100'}`}
                     >
-                      {item.label}
+                      {t(item.label)}
                     </Link>
                   </li>
                 );
@@ -97,7 +100,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               rel="noopener noreferrer"
               className="block rounded-lg px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
             >
-              View store ↗
+              {t('View store ↗')}
             </a>
           ) : null}
           <button
@@ -105,11 +108,44 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             onClick={logout}
             className="block w-full rounded-lg px-3 py-2 text-start text-sm text-neutral-700 hover:bg-neutral-100"
           >
-            Sign out
+            {t('Sign out')}
           </button>
         </div>
+        <LanguageSwitch locale={locale} onChange={setLocale} label={t('Language')} />
       </aside>
       <main className="min-w-0 px-4 py-6 sm:px-8">{children}</main>
+    </div>
+  );
+}
+
+function LanguageSwitch({
+  locale,
+  onChange,
+  label,
+}: {
+  locale: 'en' | 'ur';
+  onChange: (locale: 'en' | 'ur') => void;
+  label: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex gap-1 px-4 py-3 md:px-5">
+      {(
+        [
+          ['en', 'English'],
+          ['ur', 'اردو'],
+        ] as const
+      ).map(([value, name]) => (
+        <button
+          key={value}
+          type="button"
+          lang={value}
+          aria-pressed={locale === value}
+          onClick={() => onChange(value)}
+          className={`rounded-md px-2.5 py-1 text-sm ${locale === value ? 'bg-indigo-50 font-semibold text-indigo-700' : 'text-neutral-600 hover:bg-neutral-100'}`}
+        >
+          {name}
+        </button>
+      ))}
     </div>
   );
 }

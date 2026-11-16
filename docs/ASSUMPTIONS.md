@@ -168,3 +168,16 @@ Defaults chosen where the requirements left room. Each one is easy to change; th
 | P2-5 | A proposal must be applied within 30 minutes and is re-validated against the current draft; applying creates a `command` revision, and Undo restores the revision before it.                                                                                                                                                                       | `commands/command-service.ts` |
 | P2-6 | Clarifications and out-of-scope requests are logged as `rejected` with reason `needs_clarification` / `out_of_scope`; model refusals as `rejected` / `refused`; outages as `error`.                                                                                                                                                                | `command_logs`                |
 | P2-7 | Summaries are requested in the dashboard language (en/ur); the stub only has a generic Urdu summary.                                                                                                                                                                                                                                               | `prompt.ts`, `stub-llm.ts`    |
+
+## Phase 2: layouts 3–5 and Urdu UI
+
+- Layouts 3–5 reuse the shared section components; each layout differs through a `LayoutVariant`
+  (hero style, type scale, card/button treatment, container width) plus its registry defaults.
+  Ids `minimal-01`, `boutique-01`, `market-01` are permanent.
+- Accessibility gate: axe (`wcag2a/aa`, `wcag21a/aa`) on home, products, product, cart, about and
+  contact for every layout, using each layout's default colors. Merchant-chosen colors are still
+  checked by the contrast guard in the theme editor, not by this test.
+- Urdu UI: translations live in `apps/web/src/dashboard/i18n.ts`, keyed by the English text, so any
+  untranslated string stays in English. The choice is per browser (`localStorage`), not per account.
+  Translations were written by us and should be reviewed by a native Urdu speaker before launch.
+- Storefront language/RTL is unchanged: it follows the store's `rtl` setting, not the dashboard locale.
