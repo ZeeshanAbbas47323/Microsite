@@ -8,7 +8,7 @@ import { Prisma, type Store } from '../generated/prisma/client';
 import { AppError, conflict } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { storeSettingsSchema } from '../stores/settings';
-import type { OrderNotifier } from '../notifications/order-notifier';
+import type { NotificationQueue } from '../notifications/queue';
 import type { CaptchaVerifier } from './captcha';
 import type { OrderSyncQueue } from './order-sync';
 
@@ -107,7 +107,7 @@ export class CheckoutService {
     private readonly catalog: CatalogService,
     private readonly queue: OrderSyncQueue,
     private readonly extras: {
-      notifier?: OrderNotifier;
+      notifications?: NotificationQueue;
       captcha?: CaptchaVerifier;
       onOrderPlaced?: () => void;
     } = {},
@@ -200,8 +200,8 @@ export class CheckoutService {
 
     // If enqueueing fails the order stays pending_sync and the sweeper picks it up.
     await this.queue.enqueue(orderId).catch(() => undefined);
-    // Customer email / message: best effort, never blocks or fails the order.
-    void this.extras.notifier?.orderPlaced(orderId);
+    // Customer email / message is queued: best effort, never blocks or fails the order.
+    await this.extras.notifications?.orderPlaced(orderId).catch(() => undefined);
     this.extras.onOrderPlaced?.();
     const order = await this.db.order.findUniqueOrThrow({
       where: { id: orderId },

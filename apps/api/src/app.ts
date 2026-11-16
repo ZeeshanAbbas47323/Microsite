@@ -1,3 +1,4 @@
+import type { Queue } from 'bullmq';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -17,6 +18,7 @@ import type { KeyValueCache } from './lib/cache';
 import { errorHandler } from './lib/errors';
 import { registerMetrics, type Metrics } from './lib/observability';
 import { randomToken } from './lib/ids';
+import { adminRoutes } from './routes/admin';
 import { assetRoutes } from './routes/assets';
 import { authRoutes } from './routes/auth';
 import { healthRoutes } from './routes/health';
@@ -50,6 +52,8 @@ export interface AppDeps {
   corsOrigins: string[];
   secureCookies: boolean;
   metrics?: Metrics;
+  /** BullMQ queues shown to platform admins. */
+  adminQueues?: Queue[];
   /** Bearer token for `/metrics`; the endpoint is hidden without it. */
   metricsToken?: string;
 }
@@ -103,6 +107,7 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
       await api.register(async (scope) => publicRoutes(scope, deps));
       await api.register(async (scope) => webhookRoutes(scope, deps));
       await api.register(async (scope) => assetRoutes(scope, deps));
+      await api.register(async (scope) => adminRoutes(scope, deps));
     },
     { prefix: API_PREFIX },
   );

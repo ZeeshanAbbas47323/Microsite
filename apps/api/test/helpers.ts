@@ -1,3 +1,4 @@
+import type { Queue } from 'bullmq';
 import {
   InMemoryGetorioClient,
   createSampleCatalog,
@@ -55,7 +56,12 @@ export const METRICS_TOKEN = 'metrics-token-0123456789abcdef';
 export const WEBHOOK_SECRET = 'whsec_test_0123456789abcdef';
 
 export async function createTestApp(
-  options: { now?: () => number; tenantCatalog?: string[]; storageQuota?: number } = {},
+  options: {
+    now?: () => number;
+    tenantCatalog?: string[];
+    storageQuota?: number;
+    adminQueues?: Queue[];
+  } = {},
 ) {
   const d = testDb();
   const revalidated: { storeId: string; hostnames: string[] }[] = [];
@@ -115,6 +121,7 @@ export async function createTestApp(
     secureCookies: false,
     metrics,
     metricsToken: METRICS_TOKEN,
+    ...(options.adminQueues ? { adminQueues: options.adminQueues } : {}),
   });
   return { app, getorio, revalidated, queue, orderSync, catalog, alerts, storage, metrics };
 }

@@ -8,7 +8,8 @@ import type { AppDeps } from '../app';
 const storeParams = z.object({ id: z.uuid() });
 const versionParams = z.object({ id: z.uuid(), vid: z.uuid() });
 
-export async function storeRoutes(app: FastifyInstance, { stores }: AppDeps) {
+export async function storeRoutes(app: FastifyInstance, deps: AppDeps) {
+  const { stores } = deps;
   app.get('/layouts', async () => ({
     layouts: LAYOUTS.map(({ id, name, description, thumbnail }) => ({
       id,
@@ -44,6 +45,18 @@ export async function storeRoutes(app: FastifyInstance, { stores }: AppDeps) {
       const { id } = storeParams.parse(request.params);
       const patch = storeSettingsPatchSchema.parse(request.body);
       return { store: await stores.updateSettings(authOf(request), id, patch) };
+    });
+
+    authed.delete('/stores/:id', async (request, reply) => {
+      const { id } = storeParams.parse(request.params);
+      const { confirmName } = z
+        .object({ confirmName: z.string().max(200) })
+        .parse(request.body ?? {});
+      await stores.deleteStore(authOf(request), id, confirmName, async (storeId) => {
+        await deps.assets?.purgeStore(storeId);
+        await deps.catalog.invalidate(authOf(request).getorioTenantId);
+      });
+      return reply.status(204).send();
     });
 
     authed.get('/stores/:id/config/draft', async (request) => {

@@ -148,6 +148,21 @@ The worker (`pnpm --filter @microstore/api start:worker`, or in-process with `RU
 Getorio with the order id as idempotency key: 8 attempts, exponential backoff from 30 s, then `sync_failed` plus an
 alert log. Non-retryable Getorio errors fail at once. A sweeper re-enqueues orders stuck in `pending_sync` > 10 min.
 
+### Store deletion (owner only)
+
+| Method | Path          | Body                                 | Response                                                                                                                            |
+| ------ | ------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| DELETE | `/stores/:id` | `{ confirmName }` (exact store name) | `204`. Deletes the store with all orders/customer data, versions, domains, product selections and images (files too). Staff → `403` |
+
+### Platform admin (`role = platform_admin`)
+
+| Method | Path                                     | Notes                                                    |
+| ------ | ---------------------------------------- | -------------------------------------------------------- |
+| GET    | `/admin/queues`                          | BullMQ queues with job counts and the latest failed jobs |
+| POST   | `/admin/queues/:queue/jobs/:jobId/retry` | Retry a failed job (`409` if not failed)                 |
+| GET    | `/admin/failed-syncs`                    | Orders in `sync_failed` across all stores                |
+| POST   | `/admin/orders/:oid/retry-sync`          | Retry an order sync for any store                        |
+
 ### Images (authenticated, FR-6.8)
 
 | Method | Path                                     | Notes                                                                                                                                                                                                                                                                |

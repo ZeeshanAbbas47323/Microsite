@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { serverEnv } from '@/lib/env';
 import { storeTag } from '@/storefront/api';
+import { clearStoreStatus } from '@/storefront/availability';
 
 const body = z.object({
   hostnames: z
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
       { error: { code: 'bad_request', message: 'Invalid body' } },
       { status: 400 },
     );
-  for (const host of parsed.data.hostnames) revalidateTag(storeTag(host), { expire: 0 });
+  for (const host of parsed.data.hostnames) {
+    revalidateTag(storeTag(host), { expire: 0 });
+    clearStoreStatus(host);
+  }
   return Response.json({ revalidated: parsed.data.hostnames });
 }

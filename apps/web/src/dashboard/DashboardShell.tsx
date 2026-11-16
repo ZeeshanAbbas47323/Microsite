@@ -26,16 +26,20 @@ export function StatusBadge({ status }: { status: 'draft' | 'published' | 'suspe
 }
 
 export function DashboardShell({ children }: { children: ReactNode }) {
-  const { store } = useDashboard();
+  const { store, session } = useDashboard();
+  const isAdmin = session.merchant.role === 'platform_admin';
   const pathname = usePathname();
   const router = useRouter();
   const onboarding = pathname.startsWith('/dashboard/onboarding');
+  // Platform admins usually have no store of their own.
+  const adminPage = pathname.startsWith('/dashboard/admin');
 
   useEffect(() => {
-    if (!store && !onboarding) router.replace('/dashboard/onboarding');
+    if (!store && !onboarding && !(adminPage && isAdmin))
+      router.replace(isAdmin ? '/dashboard/admin' : '/dashboard/onboarding');
     // Having a store while on onboarding means it was just created: continue in the editor.
     if (store && onboarding) router.replace('/dashboard/design?welcome=1');
-  }, [store, onboarding, router]);
+  }, [store, onboarding, adminPage, isAdmin, router]);
 
   async function logout() {
     await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
@@ -43,6 +47,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   if (!store) {
+    if (adminPage && isAdmin)
+      return <div className="min-h-dvh bg-neutral-50 px-4 py-6 sm:px-8">{children}</div>;
     return onboarding ? <div className="min-h-dvh bg-neutral-50">{children}</div> : null;
   }
 
@@ -62,23 +68,25 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </div>
         <nav aria-label="Dashboard" className="overflow-x-auto px-2 pb-2 md:pb-4">
           <ul className="flex gap-1 md:flex-col">
-            {NAV.map((item) => {
-              const active =
-                item.href === '/dashboard'
-                  ? pathname === item.href
-                  : pathname.startsWith(item.href);
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    {...(active ? { 'aria-current': 'page' as const } : {})}
-                    className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${active ? 'bg-indigo-50 text-indigo-700' : 'text-neutral-700 hover:bg-neutral-100'}`}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
+            {[...NAV, ...(isAdmin ? [{ href: '/dashboard/admin', label: 'Admin' }] : [])].map(
+              (item) => {
+                const active =
+                  item.href === '/dashboard'
+                    ? pathname === item.href
+                    : pathname.startsWith(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      {...(active ? { 'aria-current': 'page' as const } : {})}
+                      className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${active ? 'bg-indigo-50 text-indigo-700' : 'text-neutral-700 hover:bg-neutral-100'}`}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              },
+            )}
           </ul>
         </nav>
         <div className="hidden space-y-1 px-2 md:block">

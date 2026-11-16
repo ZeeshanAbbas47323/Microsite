@@ -1,12 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { contentSecurityPolicy } from './lib/csp';
 import { dashboardHosts } from './lib/env';
+import { storeStatus, unavailablePage } from './storefront/availability';
 
 /**
  * Tenant routing (requirements §2.2). The dashboard host serves the app as-is; every other host is
  * a storefront and is rewritten to `/s/<host>/...` (or `/p/<host>/<token>/...` for draft previews).
  * Which store a host belongs to is decided by the API from the `domains` table.
  */
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
   const path = url.pathname;
   const host = (request.headers.get('host') ?? '').toLowerCase().replace(/:\d+$/, '');
@@ -18,9 +20,9 @@ export function proxy(request: NextRequest) {
   if (dashboardHosts.includes(host)) {
     // Internal storefront paths are never reachable directly.
     if (path === '/s' || path.startsWith('/s/') || path === '/p' || path.startsWith('/p/')) {
-      return NextResponse.rewrite(new URL('/not-found-page', request.url));
+      return withCsp(NextResponse.rewrite(new URL('/not-found-page', request.url)), 'self');
     }
-    return NextResponse.next();
+    return withCsp(NextResponse.next(), 'self');
   }
 
   const target = url.clone();
@@ -33,11 +35,22 @@ export function proxy(request: NextRequest) {
     // Drafts are shown inside the dashboard's iframe and must never be cached or indexed.
     res.headers.set('Cache-Control', 'private, no-store');
     res.headers.set('X-Robots-Tag', 'noindex');
-    return res;
+    return withCsp(res, 'dashboard');
   }
+  // Unknown, unpublished and suspended stores get a small page with the right status (404/503).
+  const availability = await storeStatus(host);
+  if (availability && availability.status !== 'published') {
+    return withCsp(unavailablePage(availability.status, availability.name), 'self');
+  }
+
   target.pathname = `/s/${host}${rest}`;
   const res = NextResponse.rewrite(target);
   res.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  return withCsp(res, 'self');
+}
+
+function withCsp<T extends Response>(res: T, frameAncestors: 'self' | 'dashboard'): T {
+  res.headers.set('Content-Security-Policy', contentSecurityPolicy({ frameAncestors }));
   return res;
 }
 

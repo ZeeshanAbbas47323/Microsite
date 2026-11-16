@@ -2,6 +2,7 @@ import { buildApp } from './app';
 import { createContainer } from './container';
 import { loadEnv } from './env';
 import { initSentry } from './lib/observability';
+import { startNotificationWorker } from './notifications/queue';
 import { startOrderSyncWorker } from './orders/order-sync';
 
 const env = loadEnv();
@@ -40,9 +41,16 @@ const worker = env.RUN_WORKER_IN_PROCESS
     })
   : null;
 
+const notificationWorker = env.RUN_WORKER_IN_PROCESS
+  ? startNotificationWorker(container.queueConnection, container.notifier, {
+      prefix: container.queuePrefix,
+    })
+  : null;
+
 const shutdown = async () => {
   await app.close();
   await worker?.close();
+  await notificationWorker?.close();
   await container.close();
   process.exit(0);
 };

@@ -12,6 +12,7 @@ import { captureError, Metrics } from './lib/observability';
 import type { Env } from './env';
 import { RedisCache } from './lib/cache';
 import { OrderNotifier } from './notifications/order-notifier';
+import { BullNotificationQueue } from './notifications/queue';
 import { ConsoleEmailSender, SmtpEmailSender, WebhookMessageSender } from './notifications/senders';
 import { TurnstileVerifier } from './orders/captcha';
 import { CheckoutService } from './orders/checkout-service';
@@ -69,6 +70,7 @@ export function createContainer(
       : null,
     info,
   );
+  const notifications = new BullNotificationQueue(queueConnection, { prefix: env.QUEUE_PREFIX });
   const assets =
     env.S3_BUCKET && env.S3_ACCESS_KEY && env.S3_SECRET_KEY
       ? new AssetService(
@@ -107,7 +109,7 @@ export function createContainer(
       env.GETORIO_ORDER_URL_TEMPLATE,
     ),
     checkout: new CheckoutService(db, catalog, queue, {
-      notifier,
+      notifications,
       onOrderPlaced: () => metrics.ordersPlaced.inc(),
       ...(env.TURNSTILE_SECRET ? { captcha: new TurnstileVerifier(env.TURNSTILE_SECRET) } : {}),
     }),
@@ -117,6 +119,7 @@ export function createContainer(
     webhookSecret: env.GETORIO_WEBHOOK_SECRET,
     metrics,
     metricsToken: env.METRICS_TOKEN,
+    adminQueues: [queue.queue, notifications.queue],
     corsOrigins: env.CORS_ORIGINS,
     secureCookies: env.NODE_ENV === 'production',
   };
@@ -127,9 +130,11 @@ export function createContainer(
     queueConnection,
     queuePrefix: env.QUEUE_PREFIX,
     orderSync,
+    notifier,
     metrics,
     async close() {
       await queue.close();
+      await notifications.close();
       await db.$disconnect();
       redis.disconnect();
     },

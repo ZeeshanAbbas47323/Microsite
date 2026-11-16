@@ -96,6 +96,25 @@ describe('tenant resolution', () => {
   });
 });
 
+describe('store status (FR-4.6)', () => {
+  it('reports published, unpublished, suspended and unknown hosts', async () => {
+    const status = async (h: string) => (await get('/public/store-status', h)).json();
+    expect(await status(`nobody.${ROOT_DOMAIN}`)).toEqual({ status: 'not_found' });
+    const auth = await login(ctx.app, { getorioTenantId: 'tenant-demo' });
+    const store = await createStore(ctx.app, auth);
+    const host = `zara.${ROOT_DOMAIN}`;
+    expect(await status(host)).toEqual({ status: 'unpublished', name: 'Zara Crafts' });
+    await ctx.app.inject({
+      method: 'POST',
+      url: `/api/v1/stores/${store.id}/publish`,
+      headers: auth.headers,
+    });
+    expect(await status(host)).toEqual({ status: 'published', name: 'Zara Crafts' });
+    await testDb().store.update({ where: { id: store.id }, data: { status: 'suspended' } });
+    expect(await status(host)).toEqual({ status: 'suspended', name: 'Zara Crafts' });
+  });
+});
+
 describe('draft preview (FR-4.5)', () => {
   it('shows the draft with a valid token, even when unpublished', async () => {
     const auth = await login(ctx.app, { getorioTenantId: 'tenant-demo' });

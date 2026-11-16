@@ -45,3 +45,48 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test:coverage
+
+  e2e:
+    # Full stack (MySQL, Redis, S3, API + worker, web) and the Playwright happy path.
+    runs-on: ubuntu-latest
+    needs: check
+    env:
+      WEB_PORT: '3000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          sed -i \
+            -e 's|^ROOT_DOMAIN=.*|ROOT_DOMAIN=microstore.localhost|' \
+            -e 's|^STOREFRONT_URL_TEMPLATE=.*|STOREFRONT_URL_TEMPLATE=http://{host}:3000|' \
+            -e 's|^SSO_SHARED_SECRET=.*|SSO_SHARED_SECRET=ci-sso-secret-0123456789abcdef0123|' \
+            -e 's|^REVALIDATE_SECRET=.*|REVALIDATE_SECRET=ci-revalidate-secret-0123456789|' \
+            -e 's|^RUN_WORKER_IN_PROCESS=.*|RUN_WORKER_IN_PROCESS=true|' \
+            -e 's|^DASHBOARD_HOSTS=.*|DASHBOARD_HOSTS=localhost,127.0.0.1|' \
+            .env
+          cp .env apps/web/.env.local
+      - run: docker compose up -d --wait mysql redis
+      - run: docker compose up -d s3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter @microstore/api db:deploy
+      - name: Start API and web
+        run: |
+          (cd apps/api && node --env-file=../../.env dist/server.js > ../../api.log 2>&1 &)
+          (cd apps/web && pnpm start > ../../web.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf localhost:4000/ready && curl -sf localhost:3000 >/dev/null && break; sleep 1; done
+      - run: pnpm --filter @microstore/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @microstore/e2e e2e
+      - if: failure()
+        run: tail -n 200 api.log web.log
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/e2e/playwright-report

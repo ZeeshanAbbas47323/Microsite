@@ -282,6 +282,44 @@ export class StoreService {
     return this.get(tenantId, storeId);
   }
 
+  /**
+   * Permanently deletes a store (requirements §9.1: data deletion on store delete). Orders, order
+   * items (customer PII), versions, domains, product selections and image records are removed by
+   * cascade; `beforeDelete` removes files from object storage first. Only the owner may do this,
+   * and only after typing the store name.
+   */
+  async deleteStore(
+    session: Session,
+    storeId: string,
+    confirmName: string,
+    beforeDelete: (storeId: string) => Promise<void> = async () => {},
+  ) {
+    if (session.role !== 'owner')
+      throw new AppError(403, 'forbidden', 'Only the store owner can delete the store');
+    const tenantId = session.getorioTenantId;
+    const store = await this.load(tenantId, storeId);
+    if (confirmName.trim() !== store.name) {
+      throw new AppError(400, 'validation_error', 'Type the store name exactly to confirm');
+    }
+    await beforeDelete(store.id);
+    const hostnames = store.domains.map((d) => d.hostname);
+    await this.db.$transaction(async (tx) => {
+      await tx.store.delete({ where: { id: store.id } });
+      // The audit trail keeps that a deletion happened, without customer data.
+      await tx.auditLog.create({
+        data: {
+          id: newId(),
+          storeId: null,
+          getorioTenantId: tenantId,
+          actor: `merchant:${session.merchantId}`,
+          action: 'store.deleted',
+          metadata: json({ storeId: store.id, hostnames }),
+        },
+      });
+    });
+    await this.revalidator.revalidateStore(store.id, hostnames);
+  }
+
   /** Takes the storefront offline. The published config is kept so it can be re-published. */
   async unpublish(session: Session, storeId: string) {
     const tenantId = session.getorioTenantId;

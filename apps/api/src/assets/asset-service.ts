@@ -151,6 +151,14 @@ export class AssetService {
     };
   }
 
+  /** Removes every stored file of a store (used before deleting the store). */
+  async purgeStore(storeId: string) {
+    const keys = (await this.db.asset.findMany({ where: { storeId }, select: { key: true } })).map(
+      (a) => a.key,
+    );
+    for (let i = 0; i < keys.length; i += 500) await this.storage.delete(keys.slice(i, i + 500));
+  }
+
   async remove(tenantId: string, storeId: string, assetId: string) {
     const asset = await this.db.asset.findFirst({
       where: { id: assetId, storeId, getorioTenantId: tenantId },

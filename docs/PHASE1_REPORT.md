@@ -53,12 +53,22 @@ publish/unpublish, design editor (more than the "minimal" scope: sections, pages
 with retries, orders in the dashboard, SEO basics, image uploads, order emails + SMS/WhatsApp hook, optional Turnstile,
 seed script, Docker setup, metrics/Sentry hooks.
 
+## Phase 1 close-out (2026-11-16)
+
+| Item                                | Result                                                                                                                                                                                                                                                                |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unavailable stores (FR-4.6)         | The web proxy checks `/public/store-status` and answers with a small page naming the store: 404 for unpublished/unknown, **503 + Retry-After** for suspended. Live status cached 30 s, unknown hosts 5 s, unpublished/suspended never (so publishing is instant).     |
+| Customer notifications              | Moved to a BullMQ `notifications` queue, processed by the worker (or in-process in dev).                                                                                                                                                                              |
+| Store deletion / PII erasure (§9.1) | Owner-only `DELETE /stores/:id` with typed confirmation: deletes orders and order items (customer data), versions, domains, product selections, image records **and image files**; audit log keeps only that a deletion happened. Dashboard: Settings → Delete store. |
+| Queue dashboard (§9.6)              | Platform admins get Dashboard → Admin: queue counts, failed jobs with retry, failed order syncs across stores with retry (`/admin/queues`, `/admin/failed-syncs`).                                                                                                    |
+| Content-Security-Policy             | Set on every page by the proxy at runtime; only the dashboard may frame the draft preview.                                                                                                                                                                            |
+| CI                                  | GitHub Actions `check` passed on the Phase 1 commit; an `e2e` job now runs the full stack + Playwright.                                                                                                                                                               |
+| Dashboard thumbnails                | Not a bug: the placeholder images are very light; verified they load.                                                                                                                                                                                                 |
+
 ## Known gaps / follow-ups
 
-- Real Getorio integration depends on the PHP team implementing [GETORIO_API_CONTRACT.md](GETORIO_API_CONTRACT.md) and
-  answering the open questions (SSO, variants, image hosting).
-- Unavailable/suspended stores show a generic 404 page (not store-branded, suspended is not 503 in the web app).
-- Customer notifications are sent in-process after checkout, not through the job queue.
-- No BullMQ UI (queue depth is exported as a metric), no store-deletion/PII-erasure flow, no strict CSP on the web app.
-- No CI job yet for E2E/load tests (they need the full stack).
-- Admin panel, order tracking, payments, analytics: Phase 3. Command box, layouts 3–5, Urdu UI: Phase 2.
+- Real Getorio integration is planned **after the demo** (decision 2026-11-16). Until then the mock client is used;
+  the PHP team needs [GETORIO_API_CONTRACT.md](GETORIO_API_CONTRACT.md) and the SSO decision.
+- CSP allows `'unsafe-inline'` scripts (needed for statically cached Next.js pages without nonces).
+- Admin panel beyond queues/failed syncs (store list, suspend), order tracking, payments, analytics: Phase 3.
+  Command box, layouts 3–5, Urdu UI: Phase 2.

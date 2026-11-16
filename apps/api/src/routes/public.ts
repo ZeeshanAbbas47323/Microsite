@@ -31,6 +31,29 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
     return { ...resolved, isPreview };
   }
 
+  /**
+   * Cheap availability check used by the web proxy to answer unavailable stores with the right
+   * status (FR-4.6: 404 unpublished / unknown, 503 suspended) and the store's name.
+   */
+  app.get(
+    '/public/store-status',
+    { config: { rateLimit: { max: 3000, timeWindow: '1 minute' } } },
+    async (request) => {
+      const host =
+        (request.headers[STORE_HOST_HEADER] as string | undefined) ?? request.headers.host;
+      const resolved = await resolveStoreByHost(deps.db, host);
+      if (!resolved) return { status: 'not_found' as const };
+      const { store } = resolved;
+      const status =
+        store.status === 'suspended'
+          ? ('suspended' as const)
+          : store.status === 'published' && store.publishedConfig !== null
+            ? ('published' as const)
+            : ('unpublished' as const);
+      return { status, name: store.name };
+    },
+  );
+
   app.get(
     '/public/store',
     { config: { rateLimit: { max: 300, timeWindow: '1 minute' } } },

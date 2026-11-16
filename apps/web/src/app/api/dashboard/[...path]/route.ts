@@ -5,7 +5,7 @@ import { dashboardHosts, serverEnv } from '@/lib/env';
  * session cookie lives here (HTTP-only). Requests are forwarded to the API with the cookie and CSRF
  * header; Set-Cookie (sign-in, rotation, logout) is passed back.
  */
-const ALLOWED = /^(auth\/(sso|session|logout)|layouts|subdomains\/check|stores(\/.*)?)$/;
+const ALLOWED = /^(auth\/(sso|session|logout)|layouts|subdomains\/check|stores(\/.*)?|admin\/.+)$/;
 const FORWARD_HEADERS = ['cookie', 'content-type', 'x-csrf-token', 'accept'];
 
 async function forward(request: Request, { params }: { params: Promise<{ path: string[] }> }) {

@@ -2,6 +2,7 @@ import pino from 'pino';
 import { createContainer } from './container';
 import { loadEnv } from './env';
 import { initSentry } from './lib/observability';
+import { startNotificationWorker } from './notifications/queue';
 import { startOrderSyncWorker } from './orders/order-sync';
 
 /** Standalone background worker: Getorio order sync (FR-5.7). */
@@ -22,10 +23,14 @@ worker.worker.on('failed', (job, err) =>
     'order sync attempt failed',
   ),
 );
-log.info('order-sync worker started');
+const notificationWorker = startNotificationWorker(container.queueConnection, container.notifier, {
+  prefix: container.queuePrefix,
+});
+log.info('order-sync and notification workers started');
 
 const shutdown = async () => {
   await worker.close();
+  await notificationWorker.close();
   await container.close();
   process.exit(0);
 };

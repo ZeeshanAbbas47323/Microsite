@@ -100,9 +100,9 @@ describe('OrderNotifier (FR-5.8)', () => {
 
   it('is triggered by checkout', async () => {
     const store = await testDb().store.findUniqueOrThrow({ where: { id: storeId } });
-    const orderPlaced = vi.fn(async () => ({ email: true, message: false }));
+    const orderPlaced = vi.fn(async () => undefined);
     const checkout = new CheckoutService(testDb(), ctx.catalog, ctx.queue, {
-      notifier: { orderPlaced } as unknown as OrderNotifier,
+      notifications: { orderPlaced },
     });
     await checkout.placeOrder(store, body(), 'trigger-key-0123456789');
     expect(orderPlaced).toHaveBeenCalledTimes(1);
@@ -129,6 +129,35 @@ describe('OrderNotifier (FR-5.8)', () => {
       (async () => new Response('', { status: 500 })) as unknown as typeof fetch,
     );
     await expect(failing.send({ toPhone: '1', text: 'x' })).rejects.toThrow();
+  });
+});
+
+describe('notification queue', () => {
+  it('runs the notifier inline and through BullMQ', async () => {
+    const { InlineNotificationQueue, BullNotificationQueue, startNotificationWorker } =
+      await import('../src/notifications/queue');
+    const order = await placeOrder();
+    const id = (await testDb().order.findFirstOrThrow({ where: { orderRef: order.orderRef } })).id;
+    const email = new ConsoleEmailSender();
+    const notifier = new OrderNotifier(testDb(), email, null);
+    await new InlineNotificationQueue(notifier).orderPlaced(id);
+    expect(email.sent).toHaveLength(1);
+
+    const connection = {
+      url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+      maxRetriesPerRequest: null,
+    };
+    const prefix = `ms-test-notify-${process.pid}`;
+    const queue = new BullNotificationQueue(connection, { prefix });
+    const worker = startNotificationWorker(connection, notifier, { prefix });
+    try {
+      await queue.orderPlaced(id);
+      await expect.poll(() => email.sent.length, { timeout: 10_000 }).toBe(2);
+    } finally {
+      await worker.close();
+      await queue.queue.obliterate({ force: true });
+      await queue.close();
+    }
   });
 });
 

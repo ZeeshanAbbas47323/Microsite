@@ -20,7 +20,8 @@ function errorText(e: unknown) {
 
 /** FR-6.6: store settings (applied immediately) and business details (saved to the draft). */
 export function SettingsForm({ rootDomain }: { rootDomain: string }) {
-  const { store, setStore, refreshStore } = useDashboard();
+  const { store, setStore, refreshStore, session } = useDashboard();
+  const [confirmName, setConfirmName] = useState('');
   const [settings, setSettings] = useState<StoreSettings | null>(store?.settings ?? null);
   const [freeShipping, setFreeShipping] = useState(store?.settings.freeShippingThreshold !== null);
   const [subdomain, setSubdomain] = useState(store?.subdomain ?? '');
@@ -330,6 +331,49 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
           </div>
         )}
       </Card>
+
+      {session.merchant.role === 'owner' ? (
+        <Card title="Delete store">
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-700">
+              This permanently deletes the store, its pages, images and all Microstore orders with
+              customer details. Orders already in Getorio stay there. This cannot be undone.
+            </p>
+            <Field label={`Type “${store.name}” to confirm`}>
+              {(p) => (
+                <Input
+                  {...p}
+                  value={confirmName}
+                  onChange={(e) => setConfirmName(e.target.value)}
+                  autoComplete="off"
+                />
+              )}
+            </Field>
+            {note('delete')}
+            <Button
+              variant="danger"
+              disabled={confirmName.trim() !== store.name}
+              loading={busy === 'delete'}
+              onClick={async () => {
+                setBusy('delete');
+                try {
+                  await api(`/stores/${store.id}`, {
+                    method: 'DELETE',
+                    body: { confirmName: confirmName.trim() },
+                  });
+                  setStore(null);
+                } catch (e) {
+                  setMsg((m) => ({ ...m, delete: { tone: 'error', text: errorText(e) } }));
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              Delete store permanently
+            </Button>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
