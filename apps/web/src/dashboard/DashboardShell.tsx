@@ -55,6 +55,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     return onboarding ? <div className="min-h-dvh bg-neutral-50">{children}</div> : null;
   }
 
+  // The theme editor is full-screen with its own top bar (and an Exit link back here).
+  if (pathname.startsWith('/dashboard/design')) return <>{children}</>;
+
   return (
     <div className="min-h-dvh bg-neutral-50 text-neutral-900 md:grid md:grid-cols-[220px_1fr]">
       <aside className="border-b border-neutral-200 bg-white md:min-h-dvh md:border-b-0 md:border-e">

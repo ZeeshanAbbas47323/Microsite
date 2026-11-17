@@ -73,7 +73,9 @@ describe('applyDraftPatch', () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.config.business.tagline).toBe('New tagline');
-      expect(r.config.pages[0]?.sections).toHaveLength(3);
+      expect(r.config.pages[0]?.sections).toHaveLength(
+        (sampleConfig().pages[0]?.sections.length ?? 0) - 1,
+      );
     }
   });
 

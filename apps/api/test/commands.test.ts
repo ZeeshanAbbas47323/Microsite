@@ -137,16 +137,15 @@ describe('command box: apply, undo, discard (FR-7.1, FR-8)', () => {
     const { commandId } = (await propose('Hide the announcement banner')).json();
     // The merchant removes the banner manually in the meantime
     const config = await draft();
-    const idx = config.pages[0]?.sections.findIndex((s) => s.type === 'banner') ?? -1;
+    const sections = config.pages[0]?.sections ?? [];
+    const idx = sections.findIndex((s) => s.type === 'banner');
+    // Remove the banner and everything after it, so the proposal's path no longer exists.
     await ctx.app.inject({
       method: 'PATCH',
       url: `/api/v1/stores/${storeId}/config/draft`,
       headers: auth.headers,
       payload: {
-        patch: [
-          { op: 'remove', path: `/pages/0/sections/${idx}` },
-          { op: 'remove', path: `/pages/0/sections/${idx}` },
-        ],
+        patch: sections.slice(idx).map(() => ({ op: 'remove', path: `/pages/0/sections/${idx}` })),
       },
     });
     expect((await act(commandId, 'apply')).statusCode).toBe(409);
@@ -292,7 +291,8 @@ const ADVERSARIAL: [string, unknown][] = [
     [
       {
         op: 'replace',
-        path: '/pages/0/sections/2/props/title',
+        // The hero title is required, so markup-only text cannot survive sanitizing.
+        path: '/pages/0/sections/0/props/title',
         from: null,
         value: '<img src=x onerror=alert(1)>',
       },

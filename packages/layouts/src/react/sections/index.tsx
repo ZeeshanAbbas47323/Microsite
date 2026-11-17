@@ -1,3 +1,5 @@
+import { SECTION_INFO } from '@microstore/site-schema';
+import { Icon } from '../icons';
 import { SmartLink, whatsappHref } from '../links';
 import { ProductList } from '../ProductCard';
 import type { RenderContext, Section } from '../types';
@@ -13,21 +15,40 @@ interface Props<T extends Section['type']> {
 
 function Hero({ ctx, section, first }: Props<'hero'>) {
   const v = variantFor(ctx.config.layoutId);
-  const { title, subtitle, imageUrl, ctaLabel, ctaLink } = section.props;
+  const { title, subtitle, imageUrl, ctaLabel, ctaLink, eyebrow } = section.props;
+  const colored = v.hero === 'overlay' || v.hero === 'compact';
   // On colored heroes the button is inverted so it never blends into the background.
-  const ctaClass =
-    v.hero === 'overlay' || v.hero === 'compact'
-      ? v.button.replace(
-          'bg-[var(--ms-primary)] text-[var(--ms-on-primary)]',
-          'bg-[var(--ms-on-primary)] text-[var(--ms-primary)]',
-        )
-      : v.button;
-  const cta =
-    ctaLabel && ctaLink ? (
-      <SmartLink ctx={ctx} href={ctaLink} className={ctaClass}>
-        {ctaLabel}
-      </SmartLink>
+  const ctaClass = colored
+    ? v.button.replace(
+        'bg-[var(--ms-primary)] text-[var(--ms-on-primary)]',
+        'bg-[var(--ms-on-primary)] text-[var(--ms-primary)]',
+      )
+    : v.button;
+  const secondaryClass = colored
+    ? `${v.button.replace('bg-[var(--ms-primary)] text-[var(--ms-on-primary)] hover:brightness-110', '')} border-2 border-current hover:bg-white/10`
+    : v.buttonSecondary;
+  const secondaryLabel = section.props.secondaryCtaLabel ?? '';
+  const secondaryLink = section.props.secondaryCtaLink ?? '';
+  const ctas =
+    (ctaLabel && ctaLink) || (secondaryLabel && secondaryLink) ? (
+      <div className="flex flex-wrap gap-3">
+        {ctaLabel && ctaLink ? (
+          <SmartLink ctx={ctx} href={ctaLink} className={ctaClass}>
+            {ctaLabel}
+          </SmartLink>
+        ) : null}
+        {secondaryLabel && secondaryLink ? (
+          <SmartLink ctx={ctx} href={secondaryLink} className={secondaryClass}>
+            {secondaryLabel}
+          </SmartLink>
+        ) : null}
+      </div>
     ) : null;
+  const eyebrowEl = eyebrow ? (
+    <p className={colored ? 'text-xs font-bold uppercase tracking-[0.2em]' : v.eyebrow}>
+      {eyebrow}
+    </p>
+  ) : null;
 
   if (v.hero === 'overlay') {
     return (
@@ -54,9 +75,10 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
         <div
           className={`${v.container} flex min-h-[60vh] flex-col justify-center gap-6 py-20 ${imageUrl ? 'text-white' : ''}`}
         >
+          {eyebrowEl}
           <h1 className={`${v.heroTitle} max-w-3xl`}>{title}</h1>
           {subtitle ? <p className="max-w-xl text-lg opacity-90">{subtitle}</p> : null}
-          {cta ? <div>{cta}</div> : null}
+          {ctas}
         </div>
       </section>
     );
@@ -66,9 +88,10 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
     return (
       <section className={v.section}>
         <div className={`${v.container} flex flex-col items-center gap-6 text-center`}>
+          {eyebrowEl}
           <h1 className={`${v.heroTitle} max-w-4xl`}>{title}</h1>
           {subtitle ? <p className="max-w-2xl text-lg text-[var(--ms-muted)]">{subtitle}</p> : null}
-          {cta ? <div>{cta}</div> : null}
+          {ctas}
         </div>
         {imageUrl ? (
           <div className={`${v.container} mt-12`}>
@@ -110,11 +133,12 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           ) : null}
           <div className={`flex flex-col gap-5 ${imageUrl ? '' : 'items-center'}`}>
             <span className="h-px w-16 bg-[var(--ms-primary)]" aria-hidden="true" />
+            {eyebrowEl}
             <h1 className={v.heroTitle}>{title}</h1>
             {subtitle ? (
               <p className="max-w-xl text-lg italic text-[var(--ms-muted)]">{subtitle}</p>
             ) : null}
-            {cta ? <div>{cta}</div> : null}
+            {ctas}
           </div>
         </div>
       </section>
@@ -128,9 +152,10 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           className={`${v.container} flex flex-col gap-6 py-10 sm:flex-row sm:items-center sm:justify-between sm:py-12`}
         >
           <div className="flex flex-col gap-3">
+            {eyebrowEl}
             <h1 className={v.heroTitle}>{title}</h1>
             {subtitle ? <p className="max-w-xl text-base sm:text-lg">{subtitle}</p> : null}
-            {cta ? <div className="pt-1">{cta}</div> : null}
+            {ctas ? <div className="pt-1">{ctas}</div> : null}
           </div>
           {imageUrl ? (
             <ctx.Image
@@ -154,9 +179,10 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
         className={`${v.container} grid items-center gap-10 ${imageUrl ? 'md:grid-cols-2' : 'text-center'}`}
       >
         <div className={`flex flex-col gap-5 ${imageUrl ? '' : 'items-center'}`}>
+          {eyebrowEl}
           <h1 className={v.heroTitle}>{title}</h1>
           {subtitle ? <p className="max-w-xl text-lg text-[var(--ms-muted)]">{subtitle}</p> : null}
-          {cta ? <div>{cta}</div> : null}
+          {ctas}
         </div>
         {imageUrl ? (
           <ctx.Image
@@ -424,34 +450,135 @@ function Banner({ ctx, section }: Props<'banner'>) {
   );
 }
 
+function Features({ ctx, section }: Props<'features'>) {
+  const v = variantFor(ctx.config.layoutId);
+  const { title, items } = section.props;
+  if (!items.length) return null;
+  const cols =
+    items.length >= 4 ? 'lg:grid-cols-4' : items.length === 3 ? 'md:grid-cols-3' : 'sm:grid-cols-2';
+  return (
+    <section
+      className={
+        title ? v.section : 'border-y border-[var(--ms-border)] bg-[var(--ms-surface)] py-8'
+      }
+    >
+      <div className={`${v.container} space-y-8`}>
+        {title ? <h2 className={`${v.heading} text-center`}>{title}</h2> : null}
+        <ul className={`grid gap-6 sm:grid-cols-2 ${cols}`}>
+          {items.map((item, i) => (
+            <li key={i} className="flex items-start gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--ms-primary)_12%,var(--ms-bg))] text-[var(--ms-primary)]">
+                <Icon name={item.icon} className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-semibold">{item.title}</h3>
+                {item.text ? <p className="text-sm text-[var(--ms-muted)]">{item.text}</p> : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function CategoryGrid({ ctx, section }: Props<'categoryGrid'>) {
+  const v = variantFor(ctx.config.layoutId);
+  const tiles = (ctx.sectionCategories?.[section.id] ?? []).slice(0, section.props.limit);
+  // One category is not worth a "shop by category" row.
+  if (tiles.length < 2) return null;
+  const { title, subtitle } = section.props;
+  return (
+    <section className={v.section}>
+      <div className={`${v.container} space-y-8`}>
+        {title || subtitle ? (
+          <div className="space-y-2">
+            {title ? <h2 className={v.heading}>{title}</h2> : null}
+            {subtitle ? <p className="text-[var(--ms-muted)]">{subtitle}</p> : null}
+          </div>
+        ) : null}
+        <ul className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
+          {tiles.map((c) => (
+            <li key={c.id}>
+              <ctx.Link
+                href={ctx.href(`/products?category=${encodeURIComponent(c.id)}`)}
+                className="group relative block overflow-hidden rounded-[var(--ms-radius)] bg-[var(--ms-surface)] ring-1 ring-[var(--ms-border)]"
+              >
+                {c.imageUrl ? (
+                  <ctx.Image
+                    src={c.imageUrl}
+                    alt=""
+                    width={500}
+                    height={600}
+                    sizes="(min-width: 768px) 25vw, 50vw"
+                    className="aspect-[5/6] w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div
+                    className="aspect-[5/6] w-full bg-[linear-gradient(135deg,var(--ms-primary),var(--ms-secondary))]"
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/75 to-transparent px-4 pb-4 pt-10 text-white">
+                  <span className="text-base font-semibold sm:text-lg">{c.name}</span>
+                  <span aria-hidden="true" className="transition group-hover:translate-x-1">
+                    →
+                  </span>
+                </span>
+              </ctx.Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 /** Renders every visible section of a page in order. Unknown types render nothing. */
 export function Sections({ ctx, sections }: { ctx: RenderContext; sections: Section[] }) {
   const visible = sections.filter((s) => s.visible);
   return (
     <>
       {visible.map((section, i) => {
-        const first = i === 0;
-        switch (section.type) {
-          case 'hero':
-            return <Hero key={section.id} ctx={ctx} section={section} first={first} />;
-          case 'productGrid':
-            return <ProductGrid key={section.id} ctx={ctx} section={section} first={first} />;
-          case 'richText':
-            return <RichText key={section.id} ctx={ctx} section={section} first={first} />;
-          case 'imageText':
-            return <ImageText key={section.id} ctx={ctx} section={section} first={first} />;
-          case 'contactInfo':
-            return <ContactInfo key={section.id} ctx={ctx} section={section} first={first} />;
-          case 'faq':
-            return <Faq key={section.id} ctx={ctx} section={section} first={first} />;
-          case 'testimonials':
-            return <Testimonials key={section.id} ctx={ctx} section={section} first={first} />;
-          case 'banner':
-            return <Banner key={section.id} ctx={ctx} section={section} first={first} />;
-          default:
-            return null;
-        }
+        const rendered = renderSection(ctx, section, i === 0);
+        if (!ctx.editable || !rendered) return rendered;
+        return (
+          <div
+            key={section.id}
+            data-ms-section={section.id}
+            data-ms-label={SECTION_INFO[section.type].label}
+          >
+            {rendered}
+          </div>
+        );
       })}
     </>
   );
+}
+
+function renderSection(ctx: RenderContext, section: Section, first: boolean) {
+  switch (section.type) {
+    case 'hero':
+      return <Hero key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'productGrid':
+      return <ProductGrid key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'richText':
+      return <RichText key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'imageText':
+      return <ImageText key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'contactInfo':
+      return <ContactInfo key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'faq':
+      return <Faq key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'testimonials':
+      return <Testimonials key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'banner':
+      return <Banner key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'features':
+      return <Features key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'categoryGrid':
+      return <CategoryGrid key={section.id} ctx={ctx} section={section} first={first} />;
+    default:
+      return null;
+  }
 }

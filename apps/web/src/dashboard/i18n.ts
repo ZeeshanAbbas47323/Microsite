@@ -143,6 +143,21 @@ const UR: Record<string, string> = {
   'Published. Your store is live with these changes.':
     'شائع ہو گیا۔ آپ کا اسٹور ان تبدیلیوں کے ساتھ لائیو ہے۔',
   'Change undone.': 'تبدیلی واپس ہو گئی۔',
+  Exit: 'باہر نکلیں',
+  Redo: 'دوبارہ کریں',
+  'AI assistant': 'AI اسسٹنٹ',
+  'Version history': 'ورژن ہسٹری',
+  'Add page': 'صفحہ شامل کریں',
+  'Add a page': 'صفحہ شامل کریں',
+  'Preview size': 'پری ویو کا سائز',
+  'Theme settings': 'تھیم سیٹنگز',
+  Back: 'واپس',
+  Close: 'بند کریں',
+  Dismiss: 'ہٹائیں',
+  Page: 'صفحہ',
+  Editor: 'ایڈیٹر',
+  Add: 'شامل کریں',
+  'Version restored into your draft.': 'ورژن آپ کے ڈرافٹ میں بحال ہو گیا۔',
   'Preview shows your unsaved changes. Save to keep them.':
     'پری ویو میں آپ کی غیر محفوظ تبدیلیاں نظر آ رہی ہیں۔ رکھنے کے لیے محفوظ کریں۔',
   'Preview includes the suggested change (not saved yet)':

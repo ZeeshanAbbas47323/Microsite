@@ -585,7 +585,7 @@ function Stack({ children }: { children: ReactNode }) {
 }
 
 /** Live mini preview of a layout in the merchant's colors (FR-1.2 step 5). */
-function LayoutThumb({
+export function LayoutThumb({
   id,
   primary,
   secondary,

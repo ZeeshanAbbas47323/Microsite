@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TEXT_LIMITS as L } from './constants';
+import { FEATURE_ICONS, TEXT_LIMITS as L } from './constants';
 import {
   imageUrlSchema,
   linkSchema,
@@ -12,11 +12,15 @@ import {
 // (e.g. raw HTML or style overrides) into a layout.
 
 export const heroPropsSchema = z.strictObject({
+  /** Small line above the title, e.g. "New collection". */
+  eyebrow: plainText(L.ctaLabel).optional(),
   title: plainText(L.sectionTitle, { min: 1 }),
   subtitle: plainText(L.sectionSubtitle),
   imageUrl: optionalString(imageUrlSchema),
   ctaLabel: plainText(L.ctaLabel),
   ctaLink: optionalString(linkSchema),
+  secondaryCtaLabel: plainText(L.ctaLabel).optional(),
+  secondaryCtaLink: optionalString(linkSchema).optional(),
 });
 
 export const PRODUCT_GRID_SOURCES = ['featured', 'all', 'latest', 'category'] as const;
@@ -81,6 +85,27 @@ export const testimonialsPropsSchema = z.strictObject({
     .max(12),
 });
 
+/** Store promises in a row: delivery, payment, returns... */
+export const featuresPropsSchema = z.strictObject({
+  title: plainText(L.sectionTitle),
+  items: z
+    .array(
+      z.strictObject({
+        icon: z.enum(FEATURE_ICONS),
+        title: plainText(L.ctaLabel, { min: 1 }),
+        text: plainText(L.sectionSubtitle),
+      }),
+    )
+    .max(6),
+});
+
+/** Tiles for the store's product categories (from Getorio), each showing a product photo. */
+export const categoryGridPropsSchema = z.strictObject({
+  title: plainText(L.sectionTitle),
+  subtitle: plainText(L.sectionSubtitle),
+  limit: z.number().int().min(2).max(8),
+});
+
 export const bannerPropsSchema = z.strictObject({
   title: plainText(L.sectionTitle, { min: 1 }),
   ctaLabel: plainText(L.ctaLabel),
@@ -134,6 +159,17 @@ export const bannerSectionSchema = z.strictObject({
   props: bannerPropsSchema,
 });
 
+export const featuresSectionSchema = z.strictObject({
+  ...sectionBase,
+  type: z.literal('features'),
+  props: featuresPropsSchema,
+});
+export const categoryGridSectionSchema = z.strictObject({
+  ...sectionBase,
+  type: z.literal('categoryGrid'),
+  props: categoryGridPropsSchema,
+});
+
 export const sectionSchema = z.discriminatedUnion('type', [
   heroSectionSchema,
   productGridSectionSchema,
@@ -143,6 +179,8 @@ export const sectionSchema = z.discriminatedUnion('type', [
   faqSectionSchema,
   testimonialsSectionSchema,
   bannerSectionSchema,
+  featuresSectionSchema,
+  categoryGridSectionSchema,
 ]);
 
 export type Section = z.infer<typeof sectionSchema>;

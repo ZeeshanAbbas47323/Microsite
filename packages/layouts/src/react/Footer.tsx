@@ -51,16 +51,18 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
     const { contact } = business;
     return (
       <footer className="mt-auto border-t border-[var(--ms-border)] bg-[var(--ms-surface)]">
-        <div className={`${v.container} grid gap-8 py-12 sm:grid-cols-3`}>
-          <div className="space-y-2">
+        <div
+          className={`${v.container} grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1.4fr]`}
+        >
+          <div className="space-y-3">
             <p className="text-lg font-bold">{business.name}</p>
             {business.tagline ? (
-              <p className="text-sm text-[var(--ms-muted)]">{business.tagline}</p>
+              <p className="max-w-xs text-sm text-[var(--ms-muted)]">{business.tagline}</p>
             ) : null}
             <SocialLinks ctx={ctx} />
           </div>
-          <nav aria-label="Footer">
-            <p className="mb-3 text-sm font-semibold">Pages</p>
+          <nav aria-label="Shop">
+            <p className="mb-3 text-sm font-semibold">Shop</p>
             <ul className="space-y-2 text-sm">
               {pages.map((p) => (
                 <li key={p.slug}>
@@ -69,7 +71,18 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
                   </ctx.Link>
                 </li>
               ))}
+            </ul>
+          </nav>
+          <nav aria-label="Help">
+            <p className="mb-3 text-sm font-semibold">Help</p>
+            <ul className="space-y-2 text-sm">
               <li>{track}</li>
+              <li>
+                <ctx.Link href={ctx.href('/cart')} className="hover:underline">
+                  Your cart
+                </ctx.Link>
+              </li>
+              <li className="text-[var(--ms-muted)]">Cash on delivery</li>
             </ul>
           </nav>
           <address className="space-y-2 text-sm not-italic">
@@ -107,9 +120,13 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
             ) : null}
           </address>
         </div>
-        <p className="border-t border-[var(--ms-border)] py-5 text-center text-xs text-[var(--ms-muted)]">
-          {footer.text}
-        </p>
+        <div className="border-t border-[var(--ms-border)]">
+          <p
+            className={`${v.container} py-5 text-center text-xs text-[var(--ms-muted)] sm:text-start`}
+          >
+            {footer.text}
+          </p>
+        </div>
       </footer>
     );
   }

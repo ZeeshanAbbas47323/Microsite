@@ -65,24 +65,20 @@ describe('validateCommandPatch: allowed changes', () => {
   });
 
   it('reorders sections within a page', () => {
+    const ids = config.pages[0]?.sections.map((s) => s.id) ?? [];
     const r = expectOk(
       validateCommandPatch(config, [
         { op: 'move', from: '/pages/0/sections/3', path: '/pages/0/sections/0' },
       ]),
     );
-    expect(sectionIds(r, 0)).toEqual(['home-about', 'home-hero', 'home-featured', 'home-banner']);
+    expect(sectionIds(r, 0)).toEqual([ids[3], ...ids.filter((_, i) => i !== 3)]);
 
     const down = expectOk(
       validateCommandPatch(config, [
         { op: 'move', from: '/pages/0/sections/0', path: '/pages/0/sections/3' },
       ]),
     );
-    expect(sectionIds(down, 0)).toEqual([
-      'home-featured',
-      'home-banner',
-      'home-about',
-      'home-hero',
-    ]);
+    expect(sectionIds(down, 0)).toEqual([...ids.slice(1, 4), ids[0], ...ids.slice(4)]);
   });
 
   it('applies operations sequentially', () => {
@@ -451,7 +447,7 @@ const ADVERSARIAL: [string, unknown, PatchErrorCode][] = [
   ],
   [
     'move to out-of-range position',
-    [{ op: 'move', from: '/pages/0/sections/0', path: '/pages/0/sections/4' }],
+    [{ op: 'move', from: '/pages/0/sections/0', path: '/pages/0/sections/40' }],
     'invalid_move',
   ],
   [
@@ -500,7 +496,8 @@ const ADVERSARIAL: [string, unknown, PatchErrorCode][] = [
     [
       {
         op: 'replace',
-        path: '/pages/0/sections/2/props/title',
+        // The hero title is required, so a markup-only value leaves it empty and invalid.
+        path: '/pages/0/sections/0/props/title',
         value: '<img src=x onerror=alert(1)>',
       },
     ],

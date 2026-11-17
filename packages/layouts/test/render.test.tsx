@@ -84,6 +84,12 @@ function ctx(overrides: Partial<RenderContext> = {}): RenderContext {
     ),
     Image: ({ src, alt }) => <img src={src} alt={alt} />,
     sectionProducts: { 'home-featured': [product] },
+    sectionCategories: {
+      'home-categories': [
+        { id: 'cat-bags', name: 'Bags', imageUrl: '/demo-products/p-1001.webp' },
+        { id: 'cat-home', name: 'Home', imageUrl: null },
+      ],
+    },
     currentPath: '/',
     ...overrides,
   };
@@ -101,6 +107,12 @@ describe('layout rendering', () => {
           </SiteShell>,
         );
         expect(html).toContain('Zara &amp; Crafts');
+        if (page.slug === 'home') {
+          // Features strip, category tiles and the hero's second button all render.
+          expect(html).toContain('Cash on delivery');
+          expect(html).toContain('/products?category=cat-bags');
+          expect(html).toContain('Shop by category');
+        }
       }
     },
   );

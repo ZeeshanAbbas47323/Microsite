@@ -201,6 +201,46 @@ function seo(title: string, storeName: string, description: string): Page['seo']
 }
 
 /** What the default copy of an optional page is derived from. */
+/** Promises every Microstore can keep (COD, tracking, contact); merchants edit them freely. */
+function storeFeatures(hasWhatsapp: boolean): Extract<Section, { type: 'features' }>['props'] {
+  return {
+    title: '',
+    items: [
+      { icon: 'cash', title: 'Cash on delivery', text: 'Pay when your order arrives.' },
+      {
+        icon: 'truck',
+        title: 'Delivery across Pakistan',
+        text: 'Delivery charges are shown before you order.',
+      },
+      {
+        icon: 'clock',
+        title: 'Track your order',
+        text: 'Check your order status any time.',
+      },
+      {
+        icon: 'phone',
+        title: 'Friendly support',
+        text: hasWhatsapp ? 'Questions? Message us on WhatsApp.' : 'Questions? Give us a call.',
+      },
+    ],
+  };
+}
+
+const SHOPPING_FAQ = [
+  {
+    question: 'How do I pay?',
+    answer: 'We accept cash on delivery. You pay when your order arrives.',
+  },
+  {
+    question: 'Do you deliver to my city?',
+    answer: 'We deliver across Pakistan. The delivery charge for your city is shown at checkout.',
+  },
+  {
+    question: 'How can I track my order?',
+    answer: 'Open "Track your order" and enter your order number and phone number.',
+  },
+];
+
 export interface PageStoreInfo {
   name: string;
   description: string;
@@ -230,12 +270,54 @@ export function createOptionalPage(
       seo: seo('About us', name, store.description || copy.about),
       sections: [
         {
+          id: 'about-intro',
+          type: 'imageText',
+          visible: true,
+          props: {
+            title: clip(`About ${name}`, L.sectionTitle),
+            body: clip(store.description || copy.about, L.body, true),
+            imageUrl: '',
+            imagePosition: 'right',
+            ctaLabel: 'Shop our products',
+            ctaLink: '/products',
+          },
+        },
+        {
+          id: 'about-values',
+          type: 'features',
+          visible: true,
+          props: {
+            title: 'What we care about',
+            items: [
+              { icon: 'heart', title: 'Chosen with care', text: copy.about },
+              {
+                icon: 'shield',
+                title: 'Honest prices',
+                text: 'What you see is what you pay, with delivery shown upfront.',
+              },
+              {
+                icon: 'phone',
+                title: 'Real people',
+                text: store.hasWhatsapp
+                  ? 'Talk to us on WhatsApp before or after you order.'
+                  : 'Call us before or after you order.',
+              },
+            ],
+          },
+        },
+        {
           id: 'about-story',
           type: 'richText',
           visible: true,
           props: {
-            title: clip(`About ${name}`, L.sectionTitle),
-            paragraphs: [clip(store.description || copy.about, L.body, true)],
+            title: 'Our story',
+            paragraphs: [
+              clip(
+                `${name} started${store.city ? ` in ${store.city}` : ''} with a simple idea: good products, fair prices and service you can count on. Add your own story here.`,
+                L.body,
+                true,
+              ),
+            ],
           },
         },
       ],
@@ -270,10 +352,7 @@ export function createOptionalPage(
           props: {
             title: 'Frequently asked questions',
             items: [
-              {
-                question: 'How do I pay?',
-                answer: 'We accept cash on delivery. You pay when your order arrives.',
-              },
+              ...SHOPPING_FAQ,
               {
                 question: 'How will I know my order is confirmed?',
                 answer: 'You will see a confirmation with your order number right after checkout.',
@@ -327,12 +406,27 @@ export function generateSiteConfig(
       type: 'hero',
       visible: true,
       props: {
+        eyebrow: 'Cash on delivery across Pakistan',
         title: business.tagline || clip(`Welcome to ${name}`, L.sectionTitle),
         subtitle: clip(business.tagline ? copy.heroSubtitle : summary, L.sectionSubtitle),
         imageUrl: '',
         ctaLabel: 'Shop now',
         ctaLink: '/products',
+        secondaryCtaLabel: data.pages.about ? 'Our story' : '',
+        secondaryCtaLink: data.pages.about ? '/about' : '',
       },
+    },
+    {
+      id: 'home-features',
+      type: 'features',
+      visible: true,
+      props: storeFeatures(contact.whatsapp !== ''),
+    },
+    {
+      id: 'home-categories',
+      type: 'categoryGrid',
+      visible: true,
+      props: { title: 'Shop by category', subtitle: '', limit: 4 },
     },
     {
       id: 'home-featured',
@@ -367,6 +461,20 @@ export function generateSiteConfig(
       },
     });
   }
+  homeSections.push(
+    {
+      id: 'home-new',
+      type: 'productGrid',
+      visible: true,
+      props: { title: 'New arrivals', limit: 4, source: 'latest' },
+    },
+    {
+      id: 'home-faq',
+      type: 'faq',
+      visible: true,
+      props: { title: 'Questions? We have answers', items: SHOPPING_FAQ },
+    },
+  );
 
   const pages: Page[] = [
     {
@@ -483,6 +591,8 @@ const NEW_SECTION_PROPS: { [T in SectionType]: Extract<Section, { type: T }>['pr
     ctaLink: '',
     tone: 'primary',
   },
+  features: storeFeatures(true),
+  categoryGrid: { title: 'Shop by category', subtitle: '', limit: 4 },
 };
 
 /** A new section of `type` with an id that is unique among `existingIds`. */

@@ -16,6 +16,8 @@ import { CartView } from '@/components/cart/CartView';
 import { CheckoutForm } from '@/components/cart/CheckoutForm';
 import { OrderConfirmation } from '@/components/cart/OrderConfirmation';
 import { TrackOrderForm } from '@/components/cart/TrackOrderForm';
+import { PreviewBridge } from '@/components/PreviewBridge';
+import { PreviewScrollKeeper } from '@/components/PreviewScrollKeeper';
 import { VisitBeacon } from '@/components/VisitBeacon';
 import { serverEnv, storefrontUrl } from '@/lib/env';
 import { fontFamilyFor } from '@/lib/fonts';
@@ -163,7 +165,14 @@ async function Shell({
       banner={<PreviewBanner mode={mode} />}
     >
       {children(ctx)}
-      {mode.preview ? null : <VisitBeacon />}
+      {mode.preview ? (
+        <>
+          <PreviewScrollKeeper />
+          <PreviewBridge />
+        </>
+      ) : (
+        <VisitBeacon />
+      )}
     </SiteShell>
   );
 }
@@ -269,7 +278,12 @@ export async function ProductsPage({ params, searchParams }: ProductsProps) {
       {(ctx) => (
         <>
           <Sections ctx={ctx} sections={extraSections} />
-          <PageHeader ctx={ctx} title={page?.title ?? 'Products'} />
+          <PageHeader ctx={ctx} title={page?.title ?? 'Products'}>
+            <p className="mt-2 text-[var(--ms-muted)]">
+              {products.total === 1 ? '1 product' : `${products.total} products`}
+              {search ? ` for “${search}”` : ''}
+            </p>
+          </PageHeader>
           <div className="mx-auto w-full max-w-6xl space-y-6 px-4 pb-16 pt-6 sm:px-6">
             <form
               action="/products"
@@ -374,6 +388,16 @@ export async function ProductPage({ params }: Props<{ id: string }>) {
   const data = await loadStore(mode);
   const product = await getProduct(mode, decodeURIComponent(p.id));
   if (!product) notFound();
+  // "You may also like": same category first, then featured products.
+  const [sameCategory, featured] = await Promise.all([
+    product.category
+      ? getProducts(mode, { pageSize: 8, category: product.category.id })
+      : Promise.resolve(null),
+    getProducts(mode, { pageSize: 8, featured: true }),
+  ]);
+  const related = [...(sameCategory?.items ?? []), ...featured.items]
+    .filter((x, i, all) => x.id !== product.id && all.findIndex((y) => y.id === x.id) === i)
+    .slice(0, 4);
   const href = hrefBuilder(mode);
   const base = storefrontUrl(data.store.hostname);
   const url = storefrontUrl(data.store.hostname, `/products/${encodeURIComponent(product.id)}`);
@@ -416,6 +440,7 @@ export async function ProductPage({ params }: Props<{ id: string }>) {
             ctx={ctx}
             product={product}
             purchase={<AddToCart product={product} cartHref={href('/cart')} />}
+            related={related}
           />
         </>
       )}

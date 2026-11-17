@@ -75,7 +75,7 @@ export const VARIANTS: Record<string, LayoutVariant> = {
     hero: 'framed',
     heroTitle: 'text-4xl font-semibold leading-tight sm:text-6xl',
     card: 'group flex flex-col overflow-hidden rounded-[var(--ms-radius)] bg-[var(--ms-surface)] ring-1 ring-[var(--ms-border)] transition hover:ring-[var(--ms-primary)]',
-    cardImage: 'aspect-[4/5] w-full object-cover transition duration-500 group-hover:scale-[1.02]',
+    cardImage: 'aspect-[4/5] w-full object-cover',
     button: primary,
     buttonSecondary: outline,
   },

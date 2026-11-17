@@ -23,6 +23,13 @@ export interface PublicProduct {
   }[];
 }
 
+/** A product category with one of its product photos, for "Shop by category" tiles. */
+export interface CategoryTile {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+}
+
 export interface StoreInfo {
   name: string;
   hostname: string;
@@ -68,10 +75,17 @@ export interface RenderContext {
   Image: ComponentType<ImageProps>;
   /** Products already loaded for each productGrid section, by section id. */
   sectionProducts: Record<string, PublicProduct[]>;
+  /** Category tiles for each categoryGrid section, by section id. */
+  sectionCategories?: Record<string, CategoryTile[]>;
   /** Current path, for aria-current in the navbar. */
   currentPath: string;
   /** Interactive cart link (client component) rendered in the navbar. */
   cartSlot?: ReactNode;
+  /**
+   * Draft preview inside the theme editor: sections carry `data-ms-section` so the editor can
+   * highlight and select them.
+   */
+  editable?: boolean;
 }
 
 export type { Page, Section, SiteConfig };

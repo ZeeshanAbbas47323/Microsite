@@ -1,5 +1,6 @@
 import 'server-only';
 import type {
+  CategoryTile,
   ImageProps,
   LinkProps,
   PublicProduct,
@@ -79,6 +80,21 @@ async function loadSectionProducts(mode: Mode, page: Page | undefined) {
   return result;
 }
 
+/** Category tiles for each categoryGrid section: categories with one product photo each. */
+async function loadSectionCategories(mode: Mode, page: Page | undefined) {
+  const result: Record<string, CategoryTile[]> = {};
+  const sections = (page?.sections ?? []).filter((s) => s.visible && s.type === 'categoryGrid');
+  if (!sections.length) return result;
+  const res = await getProducts(mode, { pageSize: 48, sort: 'featured' });
+  const tiles: CategoryTile[] = res.categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    imageUrl: res.items.find((p) => p.category?.id === c.id)?.images[0]?.url ?? null,
+  }));
+  for (const s of sections) result[s.id] = tiles;
+  return result;
+}
+
 export async function buildContext(
   mode: Mode,
   data: StoreResponse,
@@ -92,8 +108,10 @@ export async function buildContext(
     Link: NextLink,
     Image: NextImage,
     sectionProducts: await loadSectionProducts(mode, page),
+    sectionCategories: await loadSectionCategories(mode, page),
     currentPath,
     cartSlot: <CartLink href={href('/cart')} />,
+    editable: Boolean(mode.preview),
   };
 }
 

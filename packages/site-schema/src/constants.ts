@@ -30,8 +30,30 @@ export const SECTION_TYPES = [
   'faq',
   'testimonials',
   'banner',
+  'features',
+  'categoryGrid',
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
+
+/** Merchant-facing names and one-line descriptions of section types (editor and preview). */
+export const SECTION_INFO: Record<SectionType, { label: string; description: string }> = {
+  hero: { label: 'Hero banner', description: 'Big headline with buttons at the top of a page.' },
+  features: { label: 'Features', description: 'Icons with short promises: delivery, payment...' },
+  categoryGrid: {
+    label: 'Shop by category',
+    description: 'Photo tiles for your product categories.',
+  },
+  productGrid: { label: 'Product grid', description: 'Featured, newest or all products.' },
+  imageText: {
+    label: 'Image with text',
+    description: 'A photo beside a short story and a button.',
+  },
+  richText: { label: 'Text', description: 'A heading and paragraphs of text.' },
+  banner: { label: 'Announcement', description: 'A colored strip with one message and a link.' },
+  testimonials: { label: 'Testimonials', description: 'Quotes from real customers.' },
+  faq: { label: 'FAQ', description: 'Questions and answers that open on tap.' },
+  contactInfo: { label: 'Contact details', description: 'Phone, WhatsApp, email and address.' },
+};
 
 /** Content page templates stored in the config. They count towards the 2 to 5 page limit. */
 export const CONTENT_PAGE_TEMPLATES = ['home', 'products', 'about', 'contact', 'custom'] as const;
@@ -44,6 +66,21 @@ export type SystemPage = (typeof SYSTEM_PAGES)[number];
 export const MIN_CONTENT_PAGES = 2;
 export const MAX_CONTENT_PAGES = 5;
 export const MAX_SECTIONS_PER_PAGE = 20;
+
+/** Icons a `features` item may show; layouts draw each one as inline SVG. */
+export const FEATURE_ICONS = [
+  'truck',
+  'cash',
+  'exchange',
+  'shield',
+  'star',
+  'phone',
+  'gift',
+  'leaf',
+  'clock',
+  'heart',
+] as const;
+export type FeatureIcon = (typeof FEATURE_ICONS)[number];
 
 /** Templates whose slug is fixed (routing depends on it). */
 export const FIXED_PAGE_SLUGS: Partial<Record<ContentPageTemplate, string>> = {

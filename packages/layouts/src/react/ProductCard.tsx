@@ -19,9 +19,12 @@ export function ProductCard({
   const image = product.images[0];
   const onSale =
     product.compareAtPrice !== null && Number(product.compareAtPrice) > Number(product.price);
+  const percentOff = onSale
+    ? Math.round((1 - Number(product.price) / Number(product.compareAtPrice)) * 100)
+    : 0;
   return (
     <ctx.Link href={ctx.href(`/products/${encodeURIComponent(product.id)}`)} className={v.card}>
-      <div className="relative bg-[var(--ms-border)]">
+      <div className="relative overflow-hidden bg-[var(--ms-border)]">
         {image ? (
           <ctx.Image
             src={image.url}
@@ -29,7 +32,7 @@ export function ProductCard({
             width={600}
             height={600}
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-            className={v.cardImage}
+            className={`${v.cardImage} transition duration-500 group-hover:scale-105`}
             priority={priority}
           />
         ) : (
@@ -41,11 +44,16 @@ export function ProductCard({
           </span>
         ) : onSale ? (
           <span className="absolute start-2 top-2 rounded-full bg-[var(--ms-secondary)] px-2.5 py-1 text-xs font-semibold text-[var(--ms-on-secondary)]">
-            Sale
+            {percentOff >= 5 ? `-${percentOff}%` : 'Sale'}
           </span>
         ) : null}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
+        {product.category ? (
+          <p className="text-xs uppercase tracking-wider text-[var(--ms-muted)]">
+            {product.category.name}
+          </p>
+        ) : null}
         <Heading className="line-clamp-2 text-sm font-semibold sm:text-base">
           {product.name}
         </Heading>
