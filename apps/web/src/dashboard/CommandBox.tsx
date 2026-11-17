@@ -13,6 +13,7 @@ interface Warning {
 type Result =
   | { status: 'ok'; commandId: string; summary: string; warnings: Warning[] }
   | { status: 'clarify'; commandId: string; question: string }
+  | { status: 'advice'; commandId: string; message: string; suggestions: string[] }
   | { status: 'unsupported' | 'rejected'; commandId: string; message: string; supported: string[] };
 
 interface Usage {
@@ -22,10 +23,11 @@ interface Usage {
 }
 
 const EXAMPLES = [
-  'Make the navbar dark blue',
-  'Change font to Poppins',
-  'Hide the testimonials section',
-  'navbar ka color kala kardo',
+  'Mera store kaisa lag raha hai?',
+  'Store ko luxury look do',
+  'home par FAQ section add karo',
+  'About section ke liye achi si kahani likho',
+  'Shop now button ko about page par le jao',
 ];
 
 /**
@@ -242,6 +244,36 @@ export function CommandBox({
           </div>
         ) : null}
         {result?.status === 'clarify' ? <Notice>{result.question}</Notice> : null}
+        {result?.status === 'advice' ? (
+          <div className="space-y-3 rounded-lg bg-white p-3 text-sm ring-1 ring-indigo-200">
+            <p>{result.message}</p>
+            {result.suggestions.length ? (
+              <>
+                <p className="text-xs font-medium text-neutral-500">{t('Try one of these:')}</p>
+                <ul className="space-y-2">
+                  {result.suggestions.map((s) => (
+                    <li key={s}>
+                      <button
+                        type="button"
+                        disabled={busy !== null || left === 0}
+                        onClick={() => {
+                          setCommand(s);
+                          void ask(s);
+                        }}
+                        className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-start ring-1 ring-neutral-200 hover:bg-indigo-50 hover:ring-indigo-300 disabled:opacity-50"
+                      >
+                        <span aria-hidden="true" className="text-indigo-600">
+                          ✦
+                        </span>
+                        <span>{s}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </div>
+        ) : null}
         {result && (result.status === 'unsupported' || result.status === 'rejected') ? (
           <div className="rounded-lg bg-white p-3 text-sm ring-1 ring-neutral-200">
             <p className="font-medium">{result.message}</p>

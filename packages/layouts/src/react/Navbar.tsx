@@ -1,4 +1,4 @@
-import { pagePath } from './links';
+import { editableAttrs, HEADER_ID, pagePath } from './links';
 import type { RenderContext } from './types';
 
 function Logo({ ctx }: { ctx: RenderContext }) {
@@ -82,7 +82,7 @@ export function Navbar({ ctx }: { ctx: RenderContext }) {
 
   if (navbar.style === 'centered') {
     return (
-      <header className={base}>
+      <header className={base} {...editableAttrs(ctx, HEADER_ID, 'Header')}>
         <div className={`${inner} justify-between md:flex-col md:gap-2`}>
           <div className="flex w-full items-center justify-between md:justify-center">
             <MobileMenu ctx={ctx} alwaysVisible={false} />
@@ -99,7 +99,7 @@ export function Navbar({ ctx }: { ctx: RenderContext }) {
 
   if (navbar.style === 'split') {
     return (
-      <header className={base}>
+      <header className={base} {...editableAttrs(ctx, HEADER_ID, 'Header')}>
         <div className={`${inner} grid grid-cols-[1fr_auto_1fr]`}>
           <nav aria-label="Main" className="flex items-center">
             <MobileMenu ctx={ctx} alwaysVisible={false} />
@@ -114,7 +114,7 @@ export function Navbar({ ctx }: { ctx: RenderContext }) {
 
   if (navbar.style === 'minimal') {
     return (
-      <header className={base}>
+      <header className={base} {...editableAttrs(ctx, HEADER_ID, 'Header')}>
         <div className={`${inner} justify-between`}>
           <Logo ctx={ctx} />
           <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export function Navbar({ ctx }: { ctx: RenderContext }) {
   }
 
   return (
-    <header className={base}>
+    <header className={base} {...editableAttrs(ctx, HEADER_ID, 'Header')}>
       <div className={`${inner} justify-between`}>
         <Logo ctx={ctx} />
         <div className="flex items-center gap-4">

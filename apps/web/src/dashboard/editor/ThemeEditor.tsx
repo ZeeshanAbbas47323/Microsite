@@ -11,6 +11,7 @@ import {
   type SectionType,
   type SiteConfig,
 } from '@microstore/site-schema';
+import { FOOTER_ID, HEADER_ID } from '@microstore/layouts/react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -765,12 +766,24 @@ export function ThemeEditor() {
             src={previewSrc}
             device={device}
             title={proposalId ? 'Store preview with the suggested change' : 'Store preview'}
-            selectedId={selectedSection?.id ?? null}
+            selectedId={
+              selection?.kind === 'header'
+                ? HEADER_ID
+                : selection?.kind === 'footer'
+                  ? FOOTER_ID
+                  : (selectedSection?.id ?? null)
+            }
             hoverId={hoverId}
             onSelect={(id) => {
               setTab('sections');
               setAddingPage(false);
-              setSelection({ kind: 'section', id });
+              setSelection(
+                id === HEADER_ID
+                  ? { kind: 'header' }
+                  : id === FOOTER_ID
+                    ? { kind: 'footer' }
+                    : { kind: 'section', id },
+              );
             }}
             onNavigate={onPreviewNavigate}
           />

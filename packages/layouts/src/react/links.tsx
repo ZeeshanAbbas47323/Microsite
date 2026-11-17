@@ -35,3 +35,12 @@ export function pagePath(slug: string): string {
 export function whatsappHref(phone: string): string {
   return `https://wa.me/${phone.replace(/\D/g, '')}`;
 }
+
+/** Ids the theme editor uses for the header and footer (they are not page sections). */
+export const HEADER_ID = '__header';
+export const FOOTER_ID = '__footer';
+
+/** Marks a block as selectable in the theme editor preview (`ctx.editable`). */
+export function editableAttrs(ctx: RenderContext, id: string, label: string) {
+  return ctx.editable ? { 'data-ms-section': id, 'data-ms-label': label } : {};
+}

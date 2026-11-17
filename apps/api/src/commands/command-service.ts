@@ -1,3 +1,4 @@
+import { LAYOUTS } from '@microstore/layouts';
 import {
   DEFAULT_COMMAND_SCOPE,
   describeAllowedPaths,
@@ -37,17 +38,49 @@ export type CommandResponse =
       warnings: PatchWarning[];
     }
   | { status: 'clarify'; commandId: string; question: string }
+  | { status: 'advice'; commandId: string; message: string; suggestions: string[] }
   | { status: 'unsupported'; commandId: string; message: string; supported: string[] }
   | { status: 'rejected'; commandId: string; message: string; supported: string[] };
 
+/** `/pages/about/...` → `/pages/3/...` when a page has that slug; models sometimes use slugs. */
+function resolvePageSlug(pointer: string, config: SiteConfig | undefined): string {
+  if (!config) return pointer;
+  return pointer.replace(/^\/pages\/([a-z][a-z0-9-]*)(?=\/|$)/, (whole, slug: string) => {
+    const index = config.pages.findIndex((p) => p.slug === slug);
+    return index >= 0 ? `/pages/${index}` : whole;
+  });
+}
+
+/** Model output → JSON Patch operation (the model always fills every field). */
+export function toPatchOperation(op: CommandOutput['patch'][number], config?: SiteConfig) {
+  const path = resolvePageSlug(op.path, config);
+  if (op.op === 'move') return { op: 'move', from: resolvePageSlug(op.from ?? '', config), path };
+  if (op.op === 'remove') return { op: 'remove', path };
+  return { op: op.op, path, value: op.value };
+}
+
+/** Everything the command box may change; layouts come from the registry. */
+export const COMMAND_SCOPE: CommandScope = {
+  ...DEFAULT_COMMAND_SCOPE,
+  layouts: LAYOUTS.map(({ id, name }) => ({ id, name })),
+};
+
 /** Plain-language list of what the command box can do, shown with "I can't do that yet". */
-export function supportedActions(scope: CommandScope = DEFAULT_COMMAND_SCOPE): string[] {
+export function supportedActions(scope: CommandScope = COMMAND_SCOPE): string[] {
   return [
     'Change colors (brand, background, text, navigation bar)',
     'Change the font, button style and corner rounding',
     'Change the navigation bar and footer style, footer text, sticky menu, cart icon',
+    'Write the brand description in the footer and align the footer bottom line',
     'Show, hide or reorder sections',
     ...(scope.sectionText ? ['Change section titles, subtitles and button labels'] : []),
+    ...(scope.sectionContent
+      ? ['Change section text, button links to your own pages, and page names in the menu']
+      : []),
+    ...(scope.sections ? ['Add a new section (FAQ, features, products...) or remove one'] : []),
+    ...(scope.layouts?.length
+      ? [`Switch layout (${scope.layouts.map((l) => l.name).join(', ')})`]
+      : []),
   ];
 }
 
@@ -75,7 +108,7 @@ export class CommandService {
     private readonly llm: CommandLlm | null,
     private readonly options: CommandServiceOptions,
   ) {
-    this.scope = options.scope ?? DEFAULT_COMMAND_SCOPE;
+    this.scope = options.scope ?? COMMAND_SCOPE;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -110,118 +143,149 @@ export class CommandService {
       commandText: command,
       language,
     };
-    let result: LlmResult | null = null;
     let output: CommandOutput | null = null;
     let tokens = { model: this.llm.model, promptTokens: 0, completionTokens: 0 };
+    let feedback: string | undefined;
+    let checked: ReturnType<typeof validateCommandPatch> | null = null;
+    let summary = '';
+    let latencyMs = 0;
 
-    // One retry on malformed model output (FR-7.7).
-    for (let attempt = 0; attempt < 2 && !output; attempt++) {
-      try {
-        result = await this.llm.propose({ config, command, language, scope: this.scope });
-        tokens = {
-          model: result.model,
-          promptTokens: tokens.promptTokens + result.promptTokens,
-          completionTokens: tokens.completionTokens + result.completionTokens,
-        };
-        const parsed = commandOutputSchema.safeParse(result.raw);
-        if (parsed.success) output = parsed.data;
-      } catch (error) {
-        if (!(error instanceof LlmError)) throw error;
-        if (error.usage) {
+    // Round 2 happens only when the server rejected round 1's patch: the model gets the errors
+    // once to correct itself (a model slip should not cost the owner a failed command).
+    for (let round = 0; round < 2; round++) {
+      output = null;
+      // One retry on malformed model output (FR-7.7).
+      for (let attempt = 0; attempt < 2 && !output; attempt++) {
+        try {
+          const result: LlmResult = await this.llm.propose({
+            config,
+            command,
+            language,
+            scope: this.scope,
+            ...(feedback ? { feedback } : {}),
+          });
           tokens = {
-            model: error.usage.model,
-            promptTokens: tokens.promptTokens + error.usage.promptTokens,
-            completionTokens: tokens.completionTokens + error.usage.completionTokens,
+            model: result.model,
+            promptTokens: tokens.promptTokens + result.promptTokens,
+            completionTokens: tokens.completionTokens + result.completionTokens,
           };
+          const parsed = commandOutputSchema.safeParse(result.raw);
+          if (parsed.success) output = parsed.data;
+        } catch (error) {
+          if (!(error instanceof LlmError)) throw error;
+          if (error.usage) {
+            tokens = {
+              model: error.usage.model,
+              promptTokens: tokens.promptTokens + error.usage.promptTokens,
+              completionTokens: tokens.completionTokens + error.usage.completionTokens,
+            };
+          }
+          if (error.kind === 'malformed') continue;
+          await this.log({
+            ...base,
+            ...tokens,
+            status: error.kind === 'refused' ? 'rejected' : 'error',
+            rejectionReason: error.kind,
+            latencyMs: Date.now() - started,
+          });
+          if (error.kind === 'refused') {
+            return {
+              status: 'unsupported',
+              commandId: base.id,
+              message: "I can't help with that request.",
+              supported: supportedActions(this.scope),
+            };
+          }
+          throw new AppError(
+            503,
+            'service_unavailable',
+            'The assistant is not available right now. You can still use the manual settings.',
+          );
         }
-        if (error.kind === 'malformed') continue;
+      }
+      latencyMs = Date.now() - started;
+
+      if (!output) {
         await this.log({
           ...base,
           ...tokens,
-          status: error.kind === 'refused' ? 'rejected' : 'error',
-          rejectionReason: error.kind,
-          latencyMs: Date.now() - started,
+          status: 'error',
+          rejectionReason: 'malformed_output',
+          latencyMs,
         });
-        if (error.kind === 'refused') {
-          return {
-            status: 'unsupported',
-            commandId: base.id,
-            message: "I can't help with that request.",
-            supported: supportedActions(this.scope),
-          };
-        }
         throw new AppError(
           503,
           'service_unavailable',
-          'The assistant is not available right now. You can still use the manual settings.',
+          'The assistant gave an unusable answer. Please try again or use the manual settings.',
         );
       }
-    }
-    const latencyMs = Date.now() - started;
 
-    if (!output) {
-      await this.log({
-        ...base,
-        ...tokens,
-        status: 'error',
-        rejectionReason: 'malformed_output',
-        latencyMs,
-      });
-      throw new AppError(
-        503,
-        'service_unavailable',
-        'The assistant gave an unusable answer. Please try again or use the manual settings.',
-      );
-    }
+      summary = sanitizePlainText(output.summary, { maxLength: 500 });
+      if (output.status === 'clarify') {
+        const question =
+          sanitizePlainText(output.clarification ?? output.summary, { maxLength: 500 }) ||
+          'Could you say a bit more about what you want to change?';
+        await this.log({
+          ...base,
+          ...tokens,
+          status: 'rejected',
+          rejectionReason: 'needs_clarification',
+          summary: question,
+          latencyMs,
+        });
+        return { status: 'clarify', commandId: base.id, question };
+      }
+      if (output.status === 'advice') {
+        // Advice changes nothing; each suggestion is a command the owner can run with one click.
+        const suggestions = output.suggestions
+          .map((s) => sanitizePlainText(s, { maxLength: MAX_COMMAND_LENGTH }))
+          .filter(Boolean)
+          .slice(0, 3);
+        await this.log({
+          ...base,
+          ...tokens,
+          status: 'rejected',
+          rejectionReason: 'advice',
+          summary,
+          latencyMs,
+        });
+        return { status: 'advice', commandId: base.id, message: summary, suggestions };
+      }
+      if (output.status === 'unsupported' || output.patch.length === 0) {
+        await this.log({
+          ...base,
+          ...tokens,
+          status: 'rejected',
+          rejectionReason: 'out_of_scope',
+          summary,
+          latencyMs,
+        });
+        return {
+          status: 'unsupported',
+          commandId: base.id,
+          message: summary || "I can't do that yet.",
+          supported: supportedActions(this.scope),
+        };
+      }
 
-    const summary = sanitizePlainText(output.summary, { maxLength: 500 });
-    if (output.status === 'clarify') {
-      const question =
-        sanitizePlainText(output.clarification ?? output.summary, { maxLength: 500 }) ||
-        'Could you say a bit more about what you want to change?';
+      // The real enforcement: allowlist per operation, then the whole resulting config (FR-7.2 step 4).
+      const ops = output.patch.map((op) => toPatchOperation(op, config));
+      checked = validateCommandPatch(config, ops, this.scope);
+      if (checked.ok) break;
+
+      const reasons = checked.errors
+        .map((e) => `${e.code}${e.path ? ` ${e.path}` : ''}: ${e.message}`)
+        .join('; ')
+        .slice(0, 500);
+      if (round === 0) {
+        feedback = `${reasons}\nYour operations were: ${JSON.stringify(ops).slice(0, 1500)}`;
+        continue;
+      }
       await this.log({
         ...base,
         ...tokens,
         status: 'rejected',
-        rejectionReason: 'needs_clarification',
-        summary: question,
-        latencyMs,
-      });
-      return { status: 'clarify', commandId: base.id, question };
-    }
-    if (output.status === 'unsupported' || output.patch.length === 0) {
-      await this.log({
-        ...base,
-        ...tokens,
-        status: 'rejected',
-        rejectionReason: 'out_of_scope',
-        summary,
-        latencyMs,
-      });
-      return {
-        status: 'unsupported',
-        commandId: base.id,
-        message: summary || "I can't do that yet.",
-        supported: supportedActions(this.scope),
-      };
-    }
-
-    // The real enforcement: allowlist per operation, then the whole resulting config (FR-7.2 step 4).
-    const ops = output.patch.map((op) =>
-      op.op === 'move'
-        ? { op: 'move', from: op.from ?? '', path: op.path }
-        : { op: op.op, path: op.path, value: op.value },
-    );
-    const checked = validateCommandPatch(config, ops, this.scope);
-    if (!checked.ok) {
-      await this.log({
-        ...base,
-        ...tokens,
-        status: 'rejected',
-        rejectionReason: checked.errors
-          .map((e) => `${e.code}${e.path ? ` ${e.path}` : ''}`)
-          .join('; ')
-          .slice(0, 500),
+        rejectionReason: reasons,
         patch: json(ops),
         summary,
         latencyMs,
@@ -233,6 +297,7 @@ export class CommandService {
         supported: supportedActions(this.scope),
       };
     }
+    if (!checked?.ok) throw new Error('unreachable: no validated patch');
 
     await this.log({
       ...base,

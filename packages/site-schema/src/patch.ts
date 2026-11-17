@@ -2,19 +2,34 @@ import { z } from 'zod';
 import {
   BORDER_RADII,
   BUTTON_STYLES,
+  FEATURE_ICONS,
+  FOOTER_ALIGNS,
   FOOTER_STYLES,
+  MAX_SECTIONS_PER_PAGE,
   NAVBAR_STYLES,
+  SECTION_INFO,
+  SECTION_TYPES,
   TEXT_LIMITS,
+  type SectionType,
 } from './constants';
 import { siteConfigSchema, fontFamilySchema, type SiteConfig } from './config';
 import { contrastRatio, WCAG_AA_NORMAL } from './contrast';
-import { hexColorSchema, plainText, sanitizePlainText } from './primitives';
+import { createSection } from './generator';
+import {
+  hexColorSchema,
+  linkSchema,
+  optionalString,
+  plainText,
+  sanitizePlainText,
+} from './primitives';
 
 /*
  * Command-box patch validation (FR-7.2 to FR-7.6).
  *
  * The model returns RFC 6902 operations. This module is the real enforcement: default deny,
- * only `replace` on allowlisted scalar paths, `move` of sections within one page, and `test`.
+ * only `replace` on allowlisted scalar paths, `move` of sections within one page, `test`, and
+ * (scope `sections`) `add` of a new section by type name — the server builds its starter content —
+ * and `remove` of one section.
  * Each value is checked against its own rule, then the whole resulting config is re-validated.
  * Any failure rejects the entire patch.
  */
@@ -37,8 +52,18 @@ export type JsonPatchOperation = z.infer<typeof jsonPatchOperationSchema>;
 export interface CommandScope {
   /** Editing section title/subtitle/ctaLabel text (FR-7.3, P1). */
   sectionText: boolean;
+  /** Longer section text, the hero's extra line and second button, button links, page names. */
+  sectionContent?: boolean;
+  /** Adding a new section (by type) and removing one. */
+  sections?: boolean;
+  /** Layouts the store may switch to; switching is not allowed when absent. */
+  layouts?: readonly { id: string; name: string }[];
 }
-export const DEFAULT_COMMAND_SCOPE: CommandScope = { sectionText: true };
+export const DEFAULT_COMMAND_SCOPE: CommandScope = {
+  sectionText: true,
+  sectionContent: true,
+  sections: true,
+};
 
 export type PatchErrorCode =
   | 'invalid_patch'
@@ -82,9 +107,15 @@ interface ValueRule {
   schema: z.ZodType;
   /** When set, string values are sanitized to plain text of this length before validation. */
   textMaxLength?: number;
-  scope?: keyof CommandScope;
+  scope?: 'sectionText' | 'sectionContent';
   description: string;
 }
+
+/** Sections whose `items` commands may add to or remove from, with their maximum length. */
+const ITEM_LIMITS: Partial<Record<SectionType, number>> = { faq: 20, features: 6 };
+
+/** A path on the store itself: no scheme, no host, no protocol-relative `//`. */
+const STORE_PATH = /^\/(?!\/)[A-Za-z0-9\-._~/?=&%]*$/;
 
 const enumOf = <T extends readonly [string, ...string[]]>(values: T) => z.enum(values);
 
@@ -132,6 +163,17 @@ const VALUE_RULES: readonly ValueRule[] = [
     description: `plain text, max ${TEXT_LIMITS.footerText} chars`,
   },
   {
+    pattern: ['footer', 'bottomAlign'],
+    schema: enumOf(FOOTER_ALIGNS),
+    description: `${FOOTER_ALIGNS.join(' | ')} (alignment of the footer's bottom line; auto = style default)`,
+  },
+  {
+    pattern: ['footer', 'about'],
+    schema: plainText(TEXT_LIMITS.footerAbout, { multiline: true }),
+    textMaxLength: TEXT_LIMITS.footerAbout,
+    description: `plain text brand description shown in the footer, max ${TEXT_LIMITS.footerAbout} chars`,
+  },
+  {
     pattern: ['pages', '#', 'sections', '#', 'visible'],
     schema: z.boolean(),
     description: 'boolean',
@@ -149,6 +191,99 @@ const VALUE_RULES: readonly ValueRule[] = [
     scope: 'sectionText',
     description: `plain text, max ${max} chars`,
   })),
+  ...(
+    [
+      ['eyebrow', TEXT_LIMITS.ctaLabel, 'small line above the hero title'],
+      ['secondaryCtaLabel', TEXT_LIMITS.ctaLabel, "hero's second button text"],
+    ] as const
+  ).map(([key, max, what]): ValueRule => ({
+    pattern: ['pages', '#', 'sections', '#', 'props', key],
+    schema: plainText(max),
+    textMaxLength: max,
+    scope: 'sectionContent',
+    description: `plain text, max ${max} chars (${what})`,
+  })),
+  {
+    pattern: ['pages', '#', 'sections', '#', 'props', 'body'],
+    schema: plainText(TEXT_LIMITS.body, { multiline: true }),
+    textMaxLength: TEXT_LIMITS.body,
+    scope: 'sectionContent',
+    description: `plain text, max ${TEXT_LIMITS.body} chars (image-with-text body)`,
+  },
+  {
+    pattern: ['pages', '#', 'sections', '#', 'props', 'paragraphs', '#'],
+    schema: plainText(TEXT_LIMITS.body, { multiline: true }),
+    textMaxLength: TEXT_LIMITS.body,
+    scope: 'sectionContent',
+    description: `plain text, max ${TEXT_LIMITS.body} chars (one existing paragraph of a text section)`,
+  },
+  // Commands may only point buttons at the store's own pages: a prompt-injected request must
+  // never be able to send customers to another website (the editor can still set any https link).
+  ...(['ctaLink', 'secondaryCtaLink'] as const).map((key): ValueRule => ({
+    pattern: ['pages', '#', 'sections', '#', 'props', key],
+    schema: optionalString(
+      linkSchema.pipe(z.string().regex(STORE_PATH, 'Must be a page of this store')),
+    ),
+    scope: 'sectionContent',
+    description:
+      'a path of this store like /products, /about or /products?category=x, or "" for no button',
+  })),
+  // Product and category grids
+  {
+    pattern: ['pages', '#', 'sections', '#', 'props', 'limit'],
+    schema: z.number().int().min(1).max(24),
+    scope: 'sectionContent',
+    description: 'whole number: products shown (1-24) or category tiles (2-8)',
+  },
+  {
+    pattern: ['pages', '#', 'sections', '#', 'props', 'source'],
+    schema: z.enum(['featured', 'latest', 'all']),
+    scope: 'sectionContent',
+    description: 'featured | latest | all (which products a product grid shows)',
+  },
+  // FAQ questions and feature items (testimonials are never written by commands: no fake reviews)
+  ...(
+    [
+      ['question', TEXT_LIMITS.sectionSubtitle, 'FAQ question'],
+      ['answer', TEXT_LIMITS.shortBody, 'FAQ answer'],
+      ['title', TEXT_LIMITS.ctaLabel, 'feature title'],
+      ['text', TEXT_LIMITS.sectionSubtitle, 'feature text'],
+    ] as const
+  ).map(([key, max, what]): ValueRule => ({
+    pattern: ['pages', '#', 'sections', '#', 'props', 'items', '#', key],
+    schema: plainText(max, { multiline: key === 'answer', min: key === 'text' ? 0 : 1 }),
+    textMaxLength: max,
+    scope: 'sectionContent',
+    description: `plain text, max ${max} chars (${what})`,
+  })),
+  {
+    pattern: ['pages', '#', 'sections', '#', 'props', 'items', '#', 'icon'],
+    schema: z.enum(FEATURE_ICONS),
+    scope: 'sectionContent',
+    description: `${FEATURE_ICONS.join(' | ')} (feature icon)`,
+  },
+  // Search engines
+  {
+    pattern: ['pages', '#', 'seo', 'title'],
+    schema: plainText(TEXT_LIMITS.seoTitle),
+    textMaxLength: TEXT_LIMITS.seoTitle,
+    scope: 'sectionContent',
+    description: `plain text, max ${TEXT_LIMITS.seoTitle} chars (page title in Google and browser tabs)`,
+  },
+  {
+    pattern: ['pages', '#', 'seo', 'description'],
+    schema: plainText(TEXT_LIMITS.seoDescription),
+    textMaxLength: TEXT_LIMITS.seoDescription,
+    scope: 'sectionContent',
+    description: `plain text, max ${TEXT_LIMITS.seoDescription} chars (page description in Google)`,
+  },
+  {
+    pattern: ['pages', '#', 'title'],
+    schema: plainText(TEXT_LIMITS.pageTitle, { min: 1 }),
+    textMaxLength: TEXT_LIMITS.pageTitle,
+    scope: 'sectionContent',
+    description: `plain text, max ${TEXT_LIMITS.pageTitle} chars (the page's name in the menu)`,
+  },
 ];
 
 const SECTION_PATTERN: Pattern = ['pages', '#', 'sections', '#'];
@@ -159,7 +294,7 @@ function patternToString(pattern: Pattern, indexNames = ['p', 's']): string {
 }
 
 export interface AllowedCommandPath {
-  op: 'replace' | 'move';
+  op: 'replace' | 'move' | 'add' | 'remove';
   path: string;
   value: string;
 }
@@ -180,6 +315,38 @@ export function describeAllowedPaths(
     path: patternToString(SECTION_PATTERN),
     value: 'from /pages/{p}/sections/{a} to /pages/{p}/sections/{b} (same page only)',
   });
+  if (scope.layouts?.length) {
+    rules.push({
+      op: 'replace',
+      path: '/layoutId',
+      value: scope.layouts.map((l) => `${l.id} (${l.name})`).join(' | '),
+    });
+  }
+  if (scope.sections) {
+    rules.push(
+      {
+        op: 'add',
+        path: patternToString(SECTION_PATTERN),
+        value: `a section type name, one of: ${SECTION_TYPES.map((t) => `${t} (${SECTION_INFO[t].label})`).join(', ')}. The server creates it with starter content; use {s} = the position, or "-" to add at the end`,
+      },
+      {
+        op: 'remove',
+        path: patternToString(SECTION_PATTERN),
+        value: 'removes that one section (pages themselves cannot be removed)',
+      },
+      {
+        op: 'add',
+        path: `${patternToString(SECTION_PATTERN)}/props/items/{i}`,
+        value:
+          'FAQ sections: the new question text; features sections: the new feature title. Then "replace" its answer (FAQ, required) or text and icon (features) in the same patch. Use "-" as {i} to add at the end',
+      },
+      {
+        op: 'remove',
+        path: `${patternToString(SECTION_PATTERN)}/props/items/{i}`,
+        value: 'removes one FAQ question or feature item',
+      },
+    );
+  }
   return rules;
 }
 
@@ -296,6 +463,121 @@ export function validateCommandPatch(
 
     const segments = parsePointer(op.path);
     if (!segments) return fail(i, 'invalid_pointer', 'Invalid JSON pointer', op.path);
+
+    // Layout switch: only to a layout the store offers.
+    if (op.op === 'replace' && segments.length === 1 && segments[0] === 'layoutId') {
+      const layouts = scope.layouts ?? [];
+      if (!layouts.length) {
+        return fail(i, 'path_not_allowed', 'This setting cannot be changed by a command', op.path);
+      }
+      if (typeof op.value !== 'string' || !layouts.some((l) => l.id === op.value)) {
+        return fail(i, 'invalid_value', 'Unknown layout', op.path);
+      }
+      doc.layoutId = op.value;
+      accepted.push({ op: 'replace', path: op.path, value: op.value });
+      continue;
+    }
+
+    // FAQ / feature items: add by text (the server builds the item), or remove one.
+    if (
+      (op.op === 'add' || op.op === 'remove') &&
+      segments.length === 7 &&
+      matches(['pages', '#', 'sections', '#', 'props', 'items'], segments.slice(0, 6))
+    ) {
+      if (!scope.sectionContent) {
+        return fail(i, 'operation_not_allowed', `"${op.op}" operations are not allowed`, op.path);
+      }
+      const pages = doc.pages as SiteConfig['pages'];
+      const section = pages[Number(segments[1])]?.sections[Number(segments[3])];
+      if (!section) return fail(i, 'path_not_found', 'Section does not exist', op.path);
+      const limit = ITEM_LIMITS[section.type];
+      if (!limit) {
+        return fail(i, 'path_not_allowed', 'Only FAQ and features items can be changed', op.path);
+      }
+      const items = (section.props as unknown as { items: Record<string, string>[] }).items;
+      const last = segments[6] as string;
+      if (op.op === 'remove') {
+        if (!INDEX.test(last) || Number(last) >= items.length) {
+          return fail(i, 'path_not_found', 'Item does not exist', op.path);
+        }
+        items.splice(Number(last), 1);
+        accepted.push({ op: 'remove', path: op.path });
+        continue;
+      }
+      if (typeof op.value !== 'string' || !op.value.trim()) {
+        return fail(i, 'invalid_value', 'Expected the new item text', op.path);
+      }
+      if (items.length >= limit) {
+        return fail(i, 'invalid_value', `At most ${limit} items`, op.path);
+      }
+      const index = last === '-' ? items.length : INDEX.test(last) ? Number(last) : -1;
+      if (index < 0 || index > items.length) {
+        return fail(i, 'invalid_move', 'Position is out of range', op.path);
+      }
+      const text = sanitizePlainText(op.value, { maxLength: TEXT_LIMITS.sectionSubtitle });
+      items.splice(
+        index,
+        0,
+        section.type === 'faq'
+          ? { question: text, answer: '' }
+          : { icon: 'star', title: text.slice(0, TEXT_LIMITS.ctaLabel), text: '' },
+      );
+      accepted.push({ op: 'add', path: op.path, value: text });
+      continue;
+    }
+
+    if (op.op === 'add' || op.op === 'remove') {
+      const pages = doc.pages as SiteConfig['pages'];
+      const atEnd = op.op === 'add' && segments.length === 4 && segments[3] === '-';
+      const sectionPath =
+        matches(SECTION_PATTERN, segments) ||
+        (atEnd && matches(['pages', '#', 'sections'], segments.slice(0, 3)));
+      if (!scope.sections || !sectionPath) {
+        return fail(i, 'operation_not_allowed', `"${op.op}" operations are not allowed`, op.path);
+      }
+      const page = pages[Number(segments[1])];
+      if (!page) return fail(i, 'path_not_found', 'Page does not exist', op.path);
+      if (op.op === 'remove') {
+        const index = Number(segments[3]);
+        if (index >= page.sections.length) {
+          return fail(i, 'path_not_found', 'Section does not exist', op.path);
+        }
+        page.sections.splice(index, 1);
+        accepted.push({ op: 'remove', path: op.path });
+        continue;
+      }
+      const type = op.value;
+      if (typeof type !== 'string' || !(SECTION_TYPES as readonly string[]).includes(type)) {
+        return fail(
+          i,
+          'invalid_value',
+          `Expected a section type: ${SECTION_TYPES.join(', ')}`,
+          op.path,
+        );
+      }
+      if (page.sections.length >= MAX_SECTIONS_PER_PAGE) {
+        return fail(
+          i,
+          'invalid_value',
+          `A page holds at most ${MAX_SECTIONS_PER_PAGE} sections`,
+          op.path,
+        );
+      }
+      const index = atEnd ? page.sections.length : Number(segments[3]);
+      if (index > page.sections.length) {
+        return fail(i, 'invalid_move', 'Position is out of range', op.path);
+      }
+      page.sections.splice(
+        index,
+        0,
+        createSection(
+          type as SectionType,
+          page.sections.map((s) => s.id),
+        ),
+      );
+      accepted.push({ op: 'add', path: op.path, value: type });
+      continue;
+    }
 
     if (op.op === 'replace' || op.op === 'test') {
       const rule = VALUE_RULES.find((r) => matches(r.pattern, segments));

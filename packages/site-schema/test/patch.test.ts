@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   describeAllowedPaths,
+  DEFAULT_COMMAND_SCOPE,
   MAX_PATCH_OPERATIONS,
+  migrateSiteConfig,
   validateCommandPatch,
   type PatchErrorCode,
   type PatchValidationResult,
@@ -24,6 +26,178 @@ const sectionIds = (r: { config: typeof config }, page: number) =>
   r.config.pages[page]?.sections.map((s) => s.id);
 
 describe('validateCommandPatch: allowed changes', () => {
+  const layouts = [
+    { id: 'bold-01', name: 'Bold' },
+    { id: 'classic-01', name: 'Classic' },
+  ];
+  const home = (c: typeof config) => c.pages[0]?.sections ?? [];
+
+  it('switches to a layout the store offers, and only those', () => {
+    const r = expectOk(
+      validateCommandPatch(config, [{ op: 'replace', path: '/layoutId', value: 'classic-01' }], {
+        ...DEFAULT_COMMAND_SCOPE,
+        layouts,
+      }),
+    );
+    expect(r.config.layoutId).toBe('classic-01');
+    expectRejected(
+      validateCommandPatch(config, [{ op: 'replace', path: '/layoutId', value: 'evil-01' }], {
+        ...DEFAULT_COMMAND_SCOPE,
+        layouts,
+      }),
+      'invalid_value',
+    );
+  });
+
+  it('adds a section by type with starter content, then edits it in the same patch', () => {
+    const r = expectOk(
+      validateCommandPatch(config, [
+        { op: 'add', path: '/pages/0/sections/1', value: 'faq' },
+        { op: 'replace', path: '/pages/0/sections/1/props/title', value: 'Sawal jawab' },
+        { op: 'add', path: '/pages/0/sections/-', value: 'testimonials' },
+      ]),
+    );
+    expect(home(r.config)[1]).toMatchObject({ type: 'faq', props: { title: 'Sawal jawab' } });
+    expect(home(r.config).at(-1)?.type).toBe('testimonials');
+    expect(r.patch[0]).toEqual({ op: 'add', path: '/pages/0/sections/1', value: 'faq' });
+  });
+
+  it('removes one section', () => {
+    const before = home(config).length;
+    const r = expectOk(
+      validateCommandPatch(config, [{ op: 'remove', path: '/pages/0/sections/0' }]),
+    );
+    expect(home(r.config)).toHaveLength(before - 1);
+    expect(home(r.config)[0]?.id).toBe(home(config)[1]?.id);
+  });
+
+  it('adds, edits and removes FAQ questions and feature items', () => {
+    const faq = home(config).findIndex((x) => x.type === 'faq');
+    const features = home(config).findIndex((x) => x.type === 'features');
+    const faqCount = (home(config)[faq]?.props as { items: unknown[] }).items.length;
+    const r = expectOk(
+      validateCommandPatch(config, [
+        {
+          op: 'add',
+          path: `/pages/0/sections/${faq}/props/items/-`,
+          value: 'Kya exchange hota hai?',
+        },
+        {
+          op: 'replace',
+          path: `/pages/0/sections/${faq}/props/items/${faqCount}/answer`,
+          value: 'Haan, 7 din mein.',
+        },
+        { op: 'remove', path: `/pages/0/sections/${faq}/props/items/0` },
+        { op: 'add', path: `/pages/0/sections/${features}/props/items/0`, value: 'Easy exchange' },
+        {
+          op: 'replace',
+          path: `/pages/0/sections/${features}/props/items/0/icon`,
+          value: 'exchange',
+        },
+        {
+          op: 'replace',
+          path: `/pages/0/sections/${features}/props/items/0/text`,
+          value: 'Within 7 days.',
+        },
+      ]),
+    );
+    const faqItems = (home(r.config)[faq]?.props as { items: { question: string }[] }).items;
+    expect(faqItems.at(-1)).toEqual({
+      question: 'Kya exchange hota hai?',
+      answer: 'Haan, 7 din mein.',
+    });
+    expect(faqItems).toHaveLength(faqCount);
+    expect((home(r.config)[features]?.props as { items: unknown[] }).items[0]).toEqual({
+      icon: 'exchange',
+      title: 'Easy exchange',
+      text: 'Within 7 days.',
+    });
+    // A question without an answer is not a valid FAQ.
+    expectRejected(
+      validateCommandPatch(config, [
+        { op: 'add', path: `/pages/0/sections/${faq}/props/items/-`, value: 'Unanswered?' },
+      ]),
+      'invalid_result',
+    );
+  });
+
+  it('changes product grids and search engine text', () => {
+    const grid = home(config).findIndex((x) => x.type === 'productGrid');
+    const r = expectOk(
+      validateCommandPatch(config, [
+        { op: 'replace', path: `/pages/0/sections/${grid}/props/limit`, value: 4 },
+        { op: 'replace', path: `/pages/0/sections/${grid}/props/source`, value: 'latest' },
+        { op: 'replace', path: '/pages/0/seo/title', value: 'Zara Crafts | Handmade in Lahore' },
+        { op: 'replace', path: '/pages/0/seo/description', value: 'Handmade bags and gifts.' },
+      ]),
+    );
+    expect(home(r.config)[grid]?.props).toMatchObject({ limit: 4, source: 'latest' });
+    expect(r.config.pages[0]?.seo.title).toBe('Zara Crafts | Handmade in Lahore');
+  });
+
+  it('edits hero extras, body text, store links and page names', () => {
+    const textIndex = config.pages.findIndex((p) => p.slug === 'about');
+    const about = config.pages[textIndex]?.sections ?? [];
+    const body = about.findIndex((s) => s.type === 'imageText');
+    const story = about.findIndex((s) => s.type === 'richText');
+    const r = expectOk(
+      validateCommandPatch(config, [
+        { op: 'replace', path: '/pages/0/sections/0/props/eyebrow', value: 'Naya collection' },
+        {
+          op: 'replace',
+          path: '/pages/0/sections/0/props/ctaLink',
+          value: '/products?category=cat-bags',
+        },
+        { op: 'replace', path: '/pages/0/sections/0/props/secondaryCtaLabel', value: 'Contact us' },
+        { op: 'replace', path: '/pages/0/sections/0/props/secondaryCtaLink', value: '/contact' },
+        {
+          op: 'replace',
+          path: `/pages/${textIndex}/sections/${body}/props/body`,
+          value: 'Since 2015.',
+        },
+        {
+          op: 'replace',
+          path: `/pages/${textIndex}/sections/${story}/props/paragraphs/0`,
+          value: 'Hamari kahani.',
+        },
+        { op: 'replace', path: `/pages/${textIndex}/title`, value: 'Hamari Kahani' },
+      ]),
+    );
+    expect(home(r.config)[0]?.props).toMatchObject({
+      eyebrow: 'Naya collection',
+      ctaLink: '/products?category=cat-bags',
+      secondaryCtaLabel: 'Contact us',
+      secondaryCtaLink: '/contact',
+    });
+    expect(r.config.pages[textIndex]?.title).toBe('Hamari Kahani');
+  });
+
+  it('edits the footer brand description, also on configs saved before it existed', () => {
+    const { about: _about, ...oldFooter } = config.footer;
+    const old = migrateSiteConfig({ ...config, footer: oldFooter });
+    expect(old.footer.about).toBe('');
+    const r = expectOk(
+      validateCommandPatch(old, [
+        { op: 'replace', path: '/footer/about', value: 'Handmade in Lahore since 2015.' },
+      ]),
+    );
+    expect(r.config.footer.about).toBe('Handmade in Lahore since 2015.');
+  });
+
+  it('aligns the footer bottom line, also on configs saved before the setting existed', () => {
+    const { bottomAlign: _align, ...oldFooter } = config.footer;
+    const old = migrateSiteConfig({ ...config, footer: oldFooter });
+    expect(old.footer.bottomAlign).toBe('auto');
+    const r = expectOk(
+      validateCommandPatch(old, [{ op: 'replace', path: '/footer/bottomAlign', value: 'center' }]),
+    );
+    expect(r.config.footer.bottomAlign).toBe('center');
+    expect(
+      validateCommandPatch(old, [{ op: 'replace', path: '/footer/bottomAlign', value: 'justify' }])
+        .ok,
+    ).toBe(false);
+  });
+
   it('changes theme and navbar colors', () => {
     const r = expectOk(
       validateCommandPatch(config, [
@@ -248,12 +422,44 @@ const ADVERSARIAL: [string, unknown, PatchErrorCode][] = [
 
   // Forbidden operations
   [
-    'add a new section',
+    'add a section as a raw object (only a type name is accepted)',
     [{ op: 'add', path: '/pages/0/sections/-', value: { id: 'x', type: 'hero' } }],
+    'invalid_value',
+  ],
+  [
+    'add an unknown section type',
+    [{ op: 'add', path: '/pages/0/sections/0', value: 'script' }],
+    'invalid_value',
+  ],
+  [
+    'add a section past the end',
+    [{ op: 'add', path: '/pages/0/sections/99', value: 'faq' }],
+    'invalid_move',
+  ],
+  ['add a page', [{ op: 'add', path: '/pages/-', value: 'faq' }], 'operation_not_allowed'],
+  ['remove a missing section', [{ op: 'remove', path: '/pages/0/sections/99' }], 'path_not_found'],
+  ['remove a page', [{ op: 'remove', path: '/pages/1' }], 'operation_not_allowed'],
+  [
+    'remove a theme setting',
+    [{ op: 'remove', path: '/theme/primaryColor' }],
     'operation_not_allowed',
   ],
-  ['remove a section', [{ op: 'remove', path: '/pages/0/sections/0' }], 'operation_not_allowed'],
-  ['remove a page', [{ op: 'remove', path: '/pages/1' }], 'operation_not_allowed'],
+  // The default scope offers no layouts (the API passes the real list).
+  [
+    'switch layout without a layout list',
+    [{ op: 'replace', path: '/layoutId', value: 'classic-01' }],
+    'path_not_allowed',
+  ],
+  [
+    'protocol-relative button link',
+    [{ op: 'replace', path: '/pages/0/sections/0/props/ctaLink', value: '//evil.com' }],
+    'invalid_value',
+  ],
+  [
+    'javascript button link',
+    [{ op: 'replace', path: '/pages/0/sections/0/props/ctaLink', value: 'javascript:alert(1)' }],
+    'invalid_value',
+  ],
   [
     'copy a section',
     [{ op: 'copy', from: '/pages/0/sections/0', path: '/pages/0/sections/1' }],
@@ -301,7 +507,7 @@ const ADVERSARIAL: [string, unknown, PatchErrorCode][] = [
   [
     'change CTA link to external domain',
     [{ op: 'replace', path: '/pages/0/sections/0/props/ctaLink', value: 'https://evil.com' }],
-    'path_not_allowed',
+    'invalid_value',
   ],
   [
     'change hero image url',
@@ -329,11 +535,30 @@ const ADVERSARIAL: [string, unknown, PatchErrorCode][] = [
     [{ op: 'replace', path: '/pages/2/slug', value: 'checkout' }],
     'path_not_allowed',
   ],
-  ['change seo', [{ op: 'replace', path: '/pages/0/seo/title', value: 'x' }], 'path_not_allowed'],
   [
-    'change product grid limit',
-    [{ op: 'replace', path: '/pages/0/sections/1/props/limit', value: 1000 }],
+    'search title over the limit is cut, markup-only is emptied',
+    [{ op: 'replace', path: '/pages/0/seo/title', value: 42 }],
+    'invalid_value',
+  ],
+  [
+    'product grid with 1000 products',
+    [{ op: 'replace', path: '/pages/0/sections/3/props/limit', value: 1000 }],
+    'invalid_value',
+  ],
+  [
+    'write a testimonial (no made-up reviews)',
+    [{ op: 'replace', path: '/pages/0/sections/0/props/items/0/quote', value: 'Best shop ever!' }],
     'path_not_allowed',
+  ],
+  [
+    'add an item to a hero',
+    [{ op: 'add', path: '/pages/0/sections/0/props/items/-', value: 'x' }],
+    'path_not_allowed',
+  ],
+  [
+    'product grid from an arbitrary category',
+    [{ op: 'replace', path: '/pages/0/sections/3/props/source', value: 'category' }],
+    'invalid_value',
   ],
   [
     'prototype pollution via __proto__',

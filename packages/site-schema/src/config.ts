@@ -6,6 +6,7 @@ import {
   CURRENT_SCHEMA_VERSION,
   FIXED_PAGE_SLUGS,
   FONT_WHITELIST,
+  FOOTER_ALIGNS,
   FOOTER_STYLES,
   MAX_CONTENT_PAGES,
   MAX_SECTIONS_PER_PAGE,
@@ -51,6 +52,9 @@ export const navbarSchema = z.strictObject({
 export const footerSchema = z.strictObject({
   style: z.enum(FOOTER_STYLES),
   text: plainText(L.footerText),
+  /** Short brand description shown under the store name (falls back to the tagline). */
+  about: plainText(L.footerAbout, { multiline: true }).default(''),
+  bottomAlign: z.enum(FOOTER_ALIGNS).default('auto'),
 });
 
 export const contactSchema = z.strictObject({

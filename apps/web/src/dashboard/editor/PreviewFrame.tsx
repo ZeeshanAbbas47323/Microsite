@@ -148,7 +148,9 @@ export function PreviewFrame({
               onLoad={() => onLoad(i)}
               aria-hidden={shown ? undefined : true}
               tabIndex={shown ? undefined : -1}
-              className={`absolute inset-0 h-full w-full border-0 ${shown ? 'z-10' : 'pointer-events-none z-0 opacity-0'}`}
+              // No background on purpose: until a just-swapped frame paints, it stays see-through
+              // and the previous version shows behind it instead of a white flash.
+              className={`absolute inset-0 h-full w-full border-0 ${shown ? 'z-10' : 'pointer-events-none z-0'}`}
             />
           );
         })}

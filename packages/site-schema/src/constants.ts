@@ -20,6 +20,11 @@ export const BUTTON_STYLES = ['rounded', 'pill', 'square'] as const;
 export const BORDER_RADII = ['none', 'sm', 'md', 'lg', 'xl'] as const;
 export const NAVBAR_STYLES = ['centered', 'left', 'split', 'minimal'] as const;
 export const FOOTER_STYLES = ['simple', 'columns', 'minimal'] as const;
+/**
+ * Alignment of the footer's bottom line. `auto` keeps each footer style's own alignment; left and
+ * right follow the reading direction (RTL mirrors them).
+ */
+export const FOOTER_ALIGNS = ['auto', 'left', 'center', 'right'] as const;
 
 export const SECTION_TYPES = [
   'hero',
@@ -124,6 +129,7 @@ export const TEXT_LIMITS = {
   body: 2000,
   shortBody: 600,
   footerText: 200,
+  footerAbout: 300,
   address: 250,
   city: 80,
   author: 80,

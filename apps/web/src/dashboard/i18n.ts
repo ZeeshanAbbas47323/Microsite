@@ -144,6 +144,7 @@ const UR: Record<string, string> = {
     'شائع ہو گیا۔ آپ کا اسٹور ان تبدیلیوں کے ساتھ لائیو ہے۔',
   'Change undone.': 'تبدیلی واپس ہو گئی۔',
   Exit: 'باہر نکلیں',
+  'Try one of these:': 'ان میں سے کوئی آزمائیں:',
   Redo: 'دوبارہ کریں',
   'AI assistant': 'AI اسسٹنٹ',
   'Version history': 'ورژن ہسٹری',

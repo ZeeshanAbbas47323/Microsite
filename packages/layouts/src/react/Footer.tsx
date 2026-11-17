@@ -1,4 +1,4 @@
-import { pagePath, whatsappHref } from './links';
+import { editableAttrs, FOOTER_ID, pagePath, whatsappHref } from './links';
 import type { RenderContext } from './types';
 import { variantFor } from './variants';
 
@@ -28,9 +28,20 @@ function SocialLinks({ ctx }: { ctx: RenderContext }) {
   );
 }
 
+const ALIGN_TEXT = { left: 'text-start', center: 'text-center', right: 'text-end' } as const;
+const ALIGN_ROW = {
+  left: 'sm:justify-start',
+  center: 'sm:justify-center',
+  right: 'sm:justify-end',
+} as const;
+
 export function Footer({ ctx }: { ctx: RenderContext }) {
   const { footer, business, pages } = ctx.config;
   const v = variantFor(ctx.config.layoutId);
+  const about = footer.about || business.tagline;
+  // Bottom line alignment (start/end so right-to-left stores mirror it).
+  const align = footer.bottomAlign === 'auto' ? undefined : footer.bottomAlign;
+  const textAlign = align ? ALIGN_TEXT[align] : null;
   // FR-5.10: every footer links to order tracking.
   const track = (
     <ctx.Link href={ctx.href('/track')} className="hover:underline">
@@ -40,9 +51,17 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
 
   if (footer.style === 'minimal') {
     return (
-      <footer className="border-t border-[var(--ms-border)] py-8 text-center text-sm text-[var(--ms-muted)]">
-        <p>{footer.text}</p>
-        <p className="mt-2">{track}</p>
+      <footer
+        className="border-t border-[var(--ms-border)] py-8 text-center text-sm text-[var(--ms-muted)]"
+        {...editableAttrs(ctx, FOOTER_ID, 'Footer')}
+      >
+        {footer.about ? (
+          <p className="mx-auto mb-3 max-w-xl whitespace-pre-line">{footer.about}</p>
+        ) : null}
+        <div className={textAlign ? `${v.container} ${textAlign}` : ''}>
+          <p>{footer.text}</p>
+          <p className="mt-2">{track}</p>
+        </div>
       </footer>
     );
   }
@@ -50,14 +69,17 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
   if (footer.style === 'columns') {
     const { contact } = business;
     return (
-      <footer className="mt-auto border-t border-[var(--ms-border)] bg-[var(--ms-surface)]">
+      <footer
+        className="mt-auto border-t border-[var(--ms-border)] bg-[var(--ms-surface)]"
+        {...editableAttrs(ctx, FOOTER_ID, 'Footer')}
+      >
         <div
           className={`${v.container} grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1.4fr]`}
         >
           <div className="space-y-3">
             <p className="text-lg font-bold">{business.name}</p>
-            {business.tagline ? (
-              <p className="max-w-xs text-sm text-[var(--ms-muted)]">{business.tagline}</p>
+            {about ? (
+              <p className="max-w-xs whitespace-pre-line text-sm text-[var(--ms-muted)]">{about}</p>
             ) : null}
             <SocialLinks ctx={ctx} />
           </div>
@@ -122,7 +144,7 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
         </div>
         <div className="border-t border-[var(--ms-border)]">
           <p
-            className={`${v.container} py-5 text-center text-xs text-[var(--ms-muted)] sm:text-start`}
+            className={`${v.container} py-5 text-xs text-[var(--ms-muted)] ${textAlign ?? 'text-center sm:text-start'}`}
           >
             {footer.text}
           </p>
@@ -132,9 +154,20 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
   }
 
   return (
-    <footer className="mt-auto border-t border-[var(--ms-border)]">
+    <footer
+      className="mt-auto border-t border-[var(--ms-border)]"
+      {...editableAttrs(ctx, FOOTER_ID, 'Footer')}
+    >
+      {footer.about ? (
+        <div className={`${v.container} border-b border-[var(--ms-border)] py-8`}>
+          <p className="font-semibold">{business.name}</p>
+          <p className="mt-1 max-w-2xl whitespace-pre-line text-sm text-[var(--ms-muted)]">
+            {footer.about}
+          </p>
+        </div>
+      ) : null}
       <div
-        className={`${v.container} flex flex-col items-center justify-between gap-4 py-8 text-sm text-[var(--ms-muted)] sm:flex-row`}
+        className={`${v.container} flex flex-col items-center gap-4 py-8 text-sm text-[var(--ms-muted)] sm:flex-row ${align ? `sm:gap-8 ${ALIGN_ROW[align]}` : 'justify-between'}`}
       >
         <p>{footer.text}</p>
         {track}

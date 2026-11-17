@@ -13,14 +13,14 @@ import {
 
 export const heroPropsSchema = z.strictObject({
   /** Small line above the title, e.g. "New collection". */
-  eyebrow: plainText(L.ctaLabel).optional(),
+  eyebrow: plainText(L.ctaLabel).default(''),
   title: plainText(L.sectionTitle, { min: 1 }),
   subtitle: plainText(L.sectionSubtitle),
   imageUrl: optionalString(imageUrlSchema),
   ctaLabel: plainText(L.ctaLabel),
   ctaLink: optionalString(linkSchema),
-  secondaryCtaLabel: plainText(L.ctaLabel).optional(),
-  secondaryCtaLink: optionalString(linkSchema).optional(),
+  secondaryCtaLabel: plainText(L.ctaLabel).default(''),
+  secondaryCtaLink: optionalString(linkSchema).default(''),
 });
 
 export const PRODUCT_GRID_SOURCES = ['featured', 'all', 'latest', 'category'] as const;

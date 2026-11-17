@@ -64,8 +64,18 @@ test('theme editor: select, edit, preview, undo; accessible', async ({ page }) =
   ).toBeVisible({ timeout: 20_000 });
   expect((await chrome()).violations.map((v) => v.id)).toEqual([]);
 
-  // Back to the list, undo restores the saved state.
+  // The footer is editable too: brand description shows under the store name.
   await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: /^Footer/ }).click();
+  await page.getByLabel('About your brand').fill('Handmade in Lahore since 2015.');
+  await expect(
+    page
+      .frameLocator('iframe[title="Store preview"]:not([aria-hidden])')
+      .getByText('Handmade in Lahore since 2015.'),
+  ).toBeVisible({ timeout: 20_000 });
+
+  // Two undo steps (footer text, FAQ heading) bring back the saved state.
+  await page.getByRole('button', { name: 'Undo' }).click();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText('Unsaved changes')).toBeHidden();
 });

@@ -5,13 +5,19 @@ import { buildSystemPrompt, buildUserMessage } from './prompt';
 
 /** What the model must return (FR-7.2). */
 export const commandOutputSchema = z.object({
-  status: z.enum(['ok', 'clarify', 'unsupported']),
+  status: z.enum(['ok', 'clarify', 'unsupported', 'advice']),
   summary: z.string().max(1000),
   clarification: z.string().max(1000).nullable(),
+  /** Status "advice": up to three ready-to-run commands the owner can pick. */
+  // Lenient: extra or long suggestions are trimmed rather than failing the whole answer.
+  suggestions: z
+    .array(z.string())
+    .default([])
+    .transform((list) => list.slice(0, 3).map((s) => s.slice(0, 300))),
   patch: z
     .array(
       z.object({
-        op: z.enum(['replace', 'move', 'test']),
+        op: z.enum(['replace', 'move', 'test', 'add', 'remove']),
         path: z.string(),
         from: z.string().nullable(),
         value: z.union([z.string(), z.boolean(), z.number(), z.null()]),
@@ -25,11 +31,12 @@ export type CommandOutput = z.infer<typeof commandOutputSchema>;
 export const COMMAND_OUTPUT_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['status', 'summary', 'clarification', 'patch'],
+  required: ['status', 'summary', 'clarification', 'suggestions', 'patch'],
   properties: {
-    status: { type: 'string', enum: ['ok', 'clarify', 'unsupported'] },
+    status: { type: 'string', enum: ['ok', 'clarify', 'unsupported', 'advice'] },
     summary: { type: 'string' },
     clarification: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+    suggestions: { type: 'array', items: { type: 'string' } },
     patch: {
       type: 'array',
       items: {
@@ -37,7 +44,7 @@ export const COMMAND_OUTPUT_JSON_SCHEMA = {
         additionalProperties: false,
         required: ['op', 'path', 'from', 'value'],
         properties: {
-          op: { type: 'string', enum: ['replace', 'move', 'test'] },
+          op: { type: 'string', enum: ['replace', 'move', 'test', 'add', 'remove'] },
           path: { type: 'string' },
           from: { anyOf: [{ type: 'string' }, { type: 'null' }] },
           value: {
@@ -54,6 +61,8 @@ export interface LlmRequest {
   command: string;
   language: 'en' | 'ur';
   scope: CommandScope;
+  /** Why the previous answer was rejected, for the one corrective retry. */
+  feedback?: string;
 }
 
 export interface LlmResult {
@@ -118,7 +127,7 @@ export class AnthropicCommandLlm implements CommandLlm {
       });
   }
 
-  async propose({ config, command, language, scope }: LlmRequest): Promise<LlmResult> {
+  async propose({ config, command, language, scope, feedback }: LlmRequest): Promise<LlmResult> {
     const key = JSON.stringify(scope);
     let system = this.systemPrompts.get(key);
     if (!system) {
@@ -143,7 +152,9 @@ export class AnthropicCommandLlm implements CommandLlm {
           },
         },
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-        messages: [{ role: 'user', content: buildUserMessage(config, command, language) }],
+        messages: [
+          { role: 'user', content: buildUserMessage(config, command, language, feedback) },
+        ],
       });
     } catch (error) {
       if (error instanceof Anthropic.APIConnectionTimeoutError)
@@ -217,7 +228,7 @@ export class OpenRouterCommandLlm implements CommandLlm {
     this.fetchFn = options.fetch ?? fetch;
   }
 
-  async propose({ config, command, language, scope }: LlmRequest): Promise<LlmResult> {
+  async propose({ config, command, language, scope, feedback }: LlmRequest): Promise<LlmResult> {
     const key = JSON.stringify(scope);
     let system = this.systemPrompts.get(key);
     if (!system) {
@@ -242,7 +253,7 @@ export class OpenRouterCommandLlm implements CommandLlm {
             temperature: 0,
             messages: [
               { role: 'system', content: system },
-              { role: 'user', content: buildUserMessage(config, command, language) },
+              { role: 'user', content: buildUserMessage(config, command, language, feedback) },
             ],
             response_format: {
               type: 'json_schema',

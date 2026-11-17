@@ -6,7 +6,6 @@
  *   pnpm --filter @microstore/api eval:commands [model]
  */
 import {
-  DEFAULT_COMMAND_SCOPE,
   FALLBACK_LAYOUT_DEFAULTS,
   generateSiteConfig,
   onboardingInputSchema,
@@ -18,6 +17,7 @@ import {
   OpenRouterCommandLlm,
   type CommandLlm,
 } from '../src/commands/llm';
+import { COMMAND_SCOPE, toPatchOperation } from '../src/commands/command-service';
 import { COMMAND_FIXTURES } from './command-fixtures';
 
 const provider = process.env.COMMAND_LLM === 'openrouter' ? 'openrouter' : 'anthropic';
@@ -72,38 +72,56 @@ let passed = 0;
 let tokensIn = 0;
 let tokensOut = 0;
 
-for (const fixture of COMMAND_FIXTURES) {
+// EVAL_ONLY=<text> runs only fixtures whose command contains that text (debugging one case).
+const only = process.env.EVAL_ONLY?.toLowerCase();
+const fixtures = only
+  ? COMMAND_FIXTURES.filter((f) => f.command.toLowerCase().includes(only))
+  : COMMAND_FIXTURES;
+
+for (const fixture of fixtures) {
   const started = Date.now();
   let verdict = 'FAIL';
   let detail = '';
   try {
-    const result = await llm.propose({
-      config,
-      command: fixture.command,
-      language: 'en',
-      scope: DEFAULT_COMMAND_SCOPE,
-    });
-    tokensIn += result.promptTokens;
-    tokensOut += result.completionTokens;
-    const parsed = commandOutputSchema.safeParse(result.raw);
-    if (!parsed.success) {
-      detail = 'output did not match the schema';
-    } else if (parsed.data.status !== fixture.status) {
-      detail = `expected ${fixture.status}, got ${parsed.data.status}: ${parsed.data.summary || parsed.data.clarification}`;
-    } else if (fixture.status === 'ok') {
-      const ops = parsed.data.patch.map((op) =>
-        op.op === 'move'
-          ? { op: 'move', from: op.from ?? '', path: op.path }
-          : { op: op.op, path: op.path, value: op.value },
-      );
-      const checked = validateCommandPatch(config, ops, DEFAULT_COMMAND_SCOPE);
-      if (!checked.ok)
-        detail = `rejected by validator: ${checked.errors.map((e) => e.code).join(', ')}`;
-      else if (fixture.check && !fixture.check(checked.config))
-        detail = `change not as expected: ${JSON.stringify(ops)}`;
-      else verdict = 'PASS';
-    } else {
-      verdict = 'PASS';
+    // Mirrors CommandService: one corrective retry when the validator rejects the first patch.
+    let feedback: string | undefined;
+    for (let round = 0; round < 2; round++) {
+      const result = await llm.propose({
+        config,
+        command: fixture.command,
+        language: 'en',
+        scope: COMMAND_SCOPE,
+        ...(feedback ? { feedback } : {}),
+      });
+      tokensIn += result.promptTokens;
+      tokensOut += result.completionTokens;
+      const parsed = commandOutputSchema.safeParse(result.raw);
+      if (!parsed.success) {
+        detail = 'output did not match the schema';
+      } else if (parsed.data.status !== fixture.status) {
+        detail = `expected ${fixture.status}, got ${parsed.data.status}: ${parsed.data.summary || parsed.data.clarification}${feedback ? `\n      after: ${feedback.slice(0, 400)}` : ''}`;
+      } else if (fixture.status === 'ok') {
+        const ops = parsed.data.patch.map((op) => toPatchOperation(op, config));
+        const checked = validateCommandPatch(config, ops, COMMAND_SCOPE);
+        if (!checked.ok) {
+          const reasons = checked.errors
+            .map((e) => `${e.code}${e.path ? ` ${e.path}` : ''}: ${e.message}`)
+            .join('; ');
+          detail = `rejected by validator: ${reasons} · ${JSON.stringify(ops)}`;
+          if (round === 0) {
+            feedback = `${reasons}\nYour operations were: ${JSON.stringify(ops)}`;
+            continue;
+          }
+        } else if (fixture.check && !fixture.check(checked.config)) {
+          detail = `change not as expected: ${JSON.stringify(ops)}`;
+        } else {
+          verdict = 'PASS';
+          detail = round ? '(passed after one corrective retry)' : '';
+        }
+      } else {
+        verdict = 'PASS';
+      }
+      break;
     }
   } catch (error) {
     detail = error instanceof Error ? error.message : String(error);
@@ -115,6 +133,6 @@ for (const fixture of COMMAND_FIXTURES) {
 }
 
 console.log(
-  `\n${passed}/${COMMAND_FIXTURES.length} passed · tokens in ${tokensIn}, out ${tokensOut} · model ${llm.model}`,
+  `\n${passed}/${fixtures.length} passed · tokens in ${tokensIn}, out ${tokensOut} · model ${llm.model}`,
 );
-process.exit(passed === COMMAND_FIXTURES.length ? 0 : 1);
+process.exit(passed === fixtures.length ? 0 : 1);

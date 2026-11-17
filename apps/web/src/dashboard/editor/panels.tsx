@@ -5,6 +5,7 @@ import {
   BUTTON_STYLES,
   contrastRatio,
   FONT_WHITELIST,
+  FOOTER_ALIGNS,
   FOOTER_STYLES,
   HEX_COLOR_REGEX,
   NAVBAR_STYLES,
@@ -225,27 +226,80 @@ export function HeaderSettings({ config, update }: { config: SiteConfig; update:
 }
 
 export function FooterSettings({ config, update }: { config: SiteConfig; update: Update }) {
+  const setFooter = (patch: Partial<SiteConfig['footer']>) =>
+    update((c) => ({ ...c, footer: { ...c.footer, ...patch } }));
   return (
-    <Group title="Footer">
-      <Segmented
-        label="Style"
-        value={config.footer.style}
-        options={FOOTER_STYLES}
-        onChange={(v) => update((c) => ({ ...c, footer: { ...c.footer, style: v } }))}
-      />
-      <Field label="Footer text">
-        {(p) => (
-          <Input
-            {...p}
-            value={config.footer.text}
-            maxLength={200}
-            onChange={(e) =>
-              update((c) => ({ ...c, footer: { ...c.footer, text: e.target.value } }))
-            }
-          />
-        )}
-      </Field>
-    </Group>
+    <>
+      <Group title="Style">
+        <Segmented
+          label="Layout"
+          value={config.footer.style}
+          options={FOOTER_STYLES}
+          onChange={(v) => setFooter({ style: v })}
+        />
+        <p className="text-xs text-neutral-500">
+          Columns shows your brand, pages, help links and contact details side by side.
+        </p>
+      </Group>
+      <Group title="Brand">
+        <Field
+          label="About your brand"
+          hint={`Shown under your store name. ${300 - (config.footer.about ?? '').length} characters left.`}
+        >
+          {(p) => (
+            <Textarea
+              {...p}
+              rows={4}
+              value={config.footer.about ?? ''}
+              maxLength={300}
+              placeholder={
+                config.business.tagline || 'e.g. Handmade leather goods from Lahore since 2015.'
+              }
+              onChange={(e) => setFooter({ about: e.target.value })}
+            />
+          )}
+        </Field>
+        {!config.footer.about && config.business.tagline ? (
+          <p className="text-xs text-neutral-500">
+            Empty: your tagline “{config.business.tagline}” is shown instead.
+          </p>
+        ) : null}
+      </Group>
+      <Group title="Bottom line">
+        <Field label="Footer text" hint="e.g. © 2026 Your Store. All rights reserved.">
+          {(p) => (
+            <Input
+              {...p}
+              value={config.footer.text}
+              maxLength={200}
+              onChange={(e) => setFooter({ text: e.target.value })}
+            />
+          )}
+        </Field>
+        <Segmented
+          label="Alignment"
+          value={config.footer.bottomAlign}
+          options={FOOTER_ALIGNS}
+          onChange={(v) => setFooter({ bottomAlign: v })}
+        />
+        <p className="text-xs text-neutral-500">
+          Auto uses the footer style’s own alignment. Left and right swap for right-to-left stores.
+        </p>
+      </Group>
+      <Group title="Also in the footer">
+        <ul className="list-disc space-y-1 ps-5 text-sm text-neutral-600">
+          <li>Links to your pages, in menu order (rename them in Page settings).</li>
+          <li>“Track your order” and cart links.</li>
+          <li>
+            Phone, WhatsApp, email, address and social links from{' '}
+            <a href="/dashboard/settings" className="font-medium text-indigo-700 underline">
+              Settings → Business details
+            </a>
+            .
+          </li>
+        </ul>
+      </Group>
+    </>
   );
 }
 

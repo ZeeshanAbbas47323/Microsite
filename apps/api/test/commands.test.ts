@@ -184,7 +184,25 @@ describe('command box: apply, undo, discard (FR-7.1, FR-8)', () => {
 
 /** Patches the "model" could return that the server must reject (Phase 2: ≥ 30 adversarial cases). */
 const ADVERSARIAL: [string, unknown][] = [
-  ['change layout', [{ op: 'replace', path: '/layoutId', from: null, value: 'classic-01' }]],
+  [
+    'switch to an unknown layout',
+    [{ op: 'replace', path: '/layoutId', from: null, value: 'evil-01' }],
+  ],
+  [
+    'button link to another website',
+    [
+      {
+        op: 'replace',
+        path: '/pages/0/sections/0/props/ctaLink',
+        from: null,
+        value: 'https://evil.example',
+      },
+    ],
+  ],
+  [
+    'add a section as raw markup',
+    [{ op: 'add', path: '/pages/0/sections/0', from: null, value: '<script>alert(1)</script>' }],
+  ],
   [
     'change phone',
     [{ op: 'replace', path: '/business/contact/phone', from: null, value: '+923001111111' }],
@@ -235,7 +253,21 @@ const ADVERSARIAL: [string, unknown][] = [
     [{ op: 'replace', path: '/pages/0/sections/0/type', from: null, value: 'banner' }],
   ],
   ['page slug', [{ op: 'replace', path: '/pages/2/slug', from: null, value: 'checkout' }]],
-  ['seo', [{ op: 'replace', path: '/pages/0/seo/title', from: null, value: 'x' }]],
+  [
+    'seo on a page that does not exist',
+    [{ op: 'replace', path: '/pages/9/seo/title', from: null, value: 'x' }],
+  ],
+  [
+    'write a customer testimonial',
+    [
+      {
+        op: 'replace',
+        path: '/pages/0/sections/0/props/items/0/quote',
+        from: null,
+        value: 'Best!',
+      },
+    ],
+  ],
   [
     'grid limit',
     [{ op: 'replace', path: '/pages/0/sections/1/props/limit', from: null, value: 1000 }],
@@ -248,7 +280,7 @@ const ADVERSARIAL: [string, unknown][] = [
     [{ op: 'replace', path: '/theme/constructor/prototype/x', from: null, value: 1 }],
   ],
   ['add op', [{ op: 'add', path: '/theme/customCss', from: null, value: 'body{}' }]],
-  ['remove op', [{ op: 'remove', path: '/pages/0/sections/0', from: null, value: null }]],
+  ['remove a whole page', [{ op: 'remove', path: '/pages/2', from: null, value: null }]],
   [
     'copy op',
     [{ op: 'copy', from: '/pages/0/sections/0', path: '/pages/0/sections/1', value: null }],
@@ -328,6 +360,54 @@ const ADVERSARIAL: [string, unknown][] = [
   ],
   ['empty pointer', [{ op: 'replace', path: '', from: null, value: '{}' }]],
 ];
+
+describe('command box: corrective retry', () => {
+  it('sends the validator errors back once and accepts the corrected patch', async () => {
+    const requests: { feedback?: string }[] = [];
+    const answers = [
+      // A model slip: a page slug instead of its index is fine, but /business is not allowed.
+      [
+        {
+          op: 'replace',
+          path: '/pages/home/sections/0/props/title',
+          from: null,
+          value: 'Eid Sale',
+        },
+        { op: 'replace', path: '/business/name', from: null, value: 'Hacked' },
+      ],
+      [
+        {
+          op: 'replace',
+          path: '/pages/home/sections/0/props/title',
+          from: null,
+          value: 'Eid Sale',
+        },
+      ],
+    ];
+    const flaky: CommandLlm = {
+      model: 'flaky',
+      propose: async (request) => {
+        requests.push({ feedback: request.feedback });
+        return {
+          raw: { status: 'ok', summary: 'Done', clarification: null, patch: answers.shift() },
+          model: 'flaky',
+          promptTokens: 100,
+          completionTokens: 10,
+        };
+      },
+    };
+    await resetDb();
+    await setup({ commandLlm: flaky });
+    const res = await propose('Change the main heading to Eid Sale');
+    expect(res.json()).toMatchObject({ status: 'ok' });
+    expect(res.json().previewConfig.pages[0].sections[0].props.title).toBe('Eid Sale');
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.feedback).toBeUndefined();
+    expect(requests[1]?.feedback).toContain('path_not_allowed /business/name');
+    const log = await testDb().commandLog.findFirstOrThrow({ where: { storeId } });
+    expect(log).toMatchObject({ status: 'proposed', promptTokens: 200, completionTokens: 20 });
+  });
+});
 
 describe('command box: server-side enforcement (FR-7.4, FR-7.6)', () => {
   it('has at least 30 adversarial cases', () =>

@@ -1,4 +1,5 @@
 import { FONT_WHITELIST, type SiteConfig } from '@microstore/site-schema';
+import { COMMAND_SCOPE } from './command-service';
 import type { CommandLlm, CommandOutput, LlmRequest, LlmResult } from './llm';
 
 /**
@@ -46,6 +47,8 @@ const COLORS: [RegExp, string][] = [
 
 const SECTION_WORDS: [RegExp, string][] = [
   [/testimonial|reviews?/, 'testimonials'],
+  [/\bfeatures?\b|khoobiyan/, 'features'],
+  [/categor/, 'categoryGrid'],
   [/faq|questions|sawal/, 'faq'],
   [/banner|announcement|elaan/, 'banner'],
   [/hero|top banner|main image/, 'hero'],
@@ -55,7 +58,17 @@ const SECTION_WORDS: [RegExp, string][] = [
 ];
 
 const UNSUPPORTED =
-  /layout|price|qeemat|checkout|cart page|payment|add (a |new )?(section|page)|naya section|logo|link|url|phone|number|address|delete|ignore|system prompt|instructions|<|script|html|css|javascript|admin|product name/;
+  /price|qeemat|checkout|cart page|payment|add (a |new )?page|naya page|logo|url|phone|number|address|ignore|system prompt|instructions|<|script|html|css|javascript|admin|product name/;
+
+/** Links to other websites are never set by commands. */
+const EXTERNAL = /https?:|www\.|\.(com|pk|net|org)\b/;
+
+const PAGE_WORDS: [RegExp, string, string][] = [
+  [/about/, 'about', '/about'],
+  [/contact|rabta/, 'contact', '/contact'],
+  [/products?|shop|dukaan/, 'products', '/products'],
+  [/home/, 'home', '/'],
+];
 
 function onColor(hex: string) {
   const n = parseInt(hex.slice(1), 16);
@@ -71,13 +84,18 @@ function quoted(text: string) {
   return /["“](.+?)["”]/.exec(text)?.[1] ?? null;
 }
 
+function allQuoted(text: string) {
+  return [...text.matchAll(/["“](.+?)["”]/g)].map((m) => m[1] as string);
+}
+
 function out(
   status: CommandOutput['status'],
   summary: string,
   patch: CommandOutput['patch'] = [],
   clarification: string | null = null,
+  suggestions: string[] = [],
 ): CommandOutput {
-  return { status, summary, clarification, patch };
+  return { status, summary, clarification, suggestions, patch };
 }
 
 function interpret({ config, command, language }: LlmRequest): CommandOutput {
@@ -88,6 +106,178 @@ function interpret({ config, command, language }: LlmRequest): CommandOutput {
   const patch: CommandOutput['patch'] = [];
   const replace = (path: string, value: string | boolean) =>
     patch.push({ op: 'replace', path, from: null, value });
+
+  if (EXTERNAL.test(c)) {
+    return out(
+      'unsupported',
+      say("I can't link buttons to other websites, only to your store's pages."),
+    );
+  }
+  const text = quoted(command);
+  const sectionAt = (
+    type: string,
+    where?: (s: SiteConfig['pages'][number]['sections'][number]) => boolean,
+  ) => config.pages[0]?.sections.findIndex((s) => s.type === type && (!where || where(s))) ?? -1;
+
+  // Level 3: advice, no fake reviews, styles, copy, Urdu
+  if (/kaisa lag|how does .* look|mashwara|kya behtar|any (ideas|suggestions)/.test(c)) {
+    return out(
+      'advice',
+      say(
+        'Your store is clean and easy to shop. A few changes could help customers trust it more.',
+      ),
+      [],
+      null,
+      [
+        'FAQ mein sawal add karo: "Kya exchange hota hai?" jawab: "Haan, 7 din ke andar."',
+        'About section ke liye achi si kahani likho',
+        'home page ka Google title behtar likho',
+      ],
+    );
+  }
+  if (/testimonial|review/.test(c) && /likh|write/.test(c)) {
+    return out(
+      'unsupported',
+      say("I can't write customer reviews. Please add real quotes in the editor."),
+    );
+  }
+  if (/luxury|premium|elegant/.test(c)) {
+    replace('/theme/primaryColor', '#1c1917');
+    replace('/theme/secondaryColor', '#d6c7a1');
+    replace('/theme/backgroundColor', '#fafaf9');
+    replace('/theme/textColor', '#1c1917');
+    replace('/theme/fontFamily', 'Playfair Display');
+    replace('/theme/buttonStyle', 'square');
+    replace('/theme/borderRadius', 'none');
+    return out(
+      'ok',
+      say('Gives the store a luxury look: deep black, soft gold, a serif font and sharp buttons.'),
+      patch,
+    );
+  }
+  if (/\beid\b/.test(c) && /theme|lagao|rang/.test(c)) {
+    replace('/theme/primaryColor', '#15803d');
+    const banner = sectionAt('banner');
+    if (text && banner >= 0) replace(`/pages/0/sections/${banner}/props/title`, text);
+    return out('ok', say('Eid theme: green brand color and an Eid message in the banner.'), patch);
+  }
+  if (/kahani|story/.test(c) && /likh|write/.test(c)) {
+    const story = sectionAt('imageText');
+    if (story >= 0) {
+      const { name, contact } = config.business;
+      replace(
+        `/pages/0/sections/${story}/props/body`,
+        `${name} started${contact.city ? ` in ${contact.city}` : ''} with a simple idea: carefully chosen products, fair prices and friendly service. Every order is packed with care, and we are always happy to help on the phone or WhatsApp.`,
+      );
+      return out('ok', say('Writes a short story for your About section.'), patch);
+    }
+  }
+  if (/urdu/.test(c) && /heading|title|headline/.test(c)) {
+    const hero = sectionAt('hero');
+    if (hero >= 0) {
+      replace(`/pages/0/sections/${hero}/props/title`, 'ہمارے اسٹور میں خوش آمدید');
+      replace('/theme/fontFamily', 'Noto Nastaliq Urdu');
+      return out(
+        'ok',
+        say('Writes the main heading in Urdu. Turn on right-to-left in Settings.'),
+        patch,
+      );
+    }
+  }
+
+  // Level 2: FAQ / feature items, grids, search engines
+  const quotes = allQuoted(command);
+  if (/faq/.test(c) && /sawal|question/.test(c) && /add/.test(c) && quotes.length >= 2) {
+    const faq = sectionAt('faq');
+    if (faq >= 0) {
+      const count = (config.pages[0]?.sections[faq]?.props as { items: unknown[] }).items.length;
+      patch.push({
+        op: 'add',
+        path: `/pages/0/sections/${faq}/props/items/-`,
+        from: null,
+        value: quotes[0] as string,
+      });
+      replace(`/pages/0/sections/${faq}/props/items/${count}/answer`, quotes[1] as string);
+      return out('ok', say('Adds a question and answer to the FAQ.'), patch);
+    }
+  }
+  if (/features?\b/.test(c) && /\badd\b/.test(c) && text && !/section/.test(c)) {
+    const features = sectionAt('features');
+    if (features >= 0) {
+      patch.push({
+        op: 'add',
+        path: `/pages/0/sections/${features}/props/items/-`,
+        from: null,
+        value: text,
+      });
+      return out('ok', say(`Adds “${text}” to the features.`), patch);
+    }
+  }
+  const howMany = /(\d{1,2})\s*products/.exec(c);
+  if (howMany) {
+    const source = /featured/.test(c) ? 'featured' : /naye|new|latest/.test(c) ? 'latest' : null;
+    const grid = sectionAt(
+      'productGrid',
+      (s) => !source || (s.props as { source: string }).source === source,
+    );
+    if (grid >= 0) {
+      patch.push({
+        op: 'replace',
+        path: `/pages/0/sections/${grid}/props/limit`,
+        from: null,
+        value: Number(howMany[1]),
+      });
+      return out('ok', say(`Shows ${howMany[1]} products in that section.`), patch);
+    }
+  }
+  if (text && /google|seo|search/.test(c)) {
+    replace('/pages/0/seo/title', text);
+    return out('ok', say(`Sets the home page title in Google to “${text}”.`), patch);
+  }
+
+  // Layout switch
+  const layout = COMMAND_SCOPE.layouts?.find((l) => c.includes(l.name.toLowerCase()));
+  if (/layout|design badal/.test(c) && layout) {
+    replace('/layoutId', layout.id);
+    return out('ok', say(`Switches to the ${layout.name} layout.`), patch);
+  }
+
+  // Add or delete a section on the home page
+  const typeWord = SECTION_WORDS.find(([re]) => re.test(c))?.[1];
+  if (typeWord && /\badd\b|naya|daal|laga/.test(c) && /section/.test(c)) {
+    patch.push({ op: 'add', path: '/pages/0/sections/-', from: null, value: typeWord });
+    return out('ok', say(`Adds a ${typeWord} section at the end of the home page.`), patch);
+  }
+  if (typeWord && /delete|mita/.test(c)) {
+    const idx = homeSectionIndex(config, typeWord);
+    if (idx >= 0) {
+      patch.push({ op: 'remove', path: `/pages/0/sections/${idx}`, from: null, value: null });
+      return out('ok', say(`Deletes the ${typeWord} section from the home page.`), patch);
+    }
+  }
+
+  // Hero extras, page names and button links
+  const hero = homeSectionIndex(config, 'hero');
+  if (text && hero >= 0 && /chhoti line|small line|eyebrow|upar (wali |chhoti )?line/.test(c)) {
+    replace(`/pages/0/sections/${hero}/props/eyebrow`, text);
+    return out('ok', say(`Adds “${text}” above the main heading.`), patch);
+  }
+  const pageWord = PAGE_WORDS.find(([re]) => re.test(c));
+  if (text && pageWord && /naam|name|rename|menu/.test(c)) {
+    const idx = config.pages.findIndex((p) => p.slug === pageWord[1]);
+    if (idx >= 0) {
+      replace(`/pages/${idx}/title`, text);
+      return out('ok', say(`Renames the ${pageWord[1]} page to “${text}” in the menu.`), patch);
+    }
+  }
+  if (hero >= 0 && /button/.test(c) && /le jao|link|point|bhejo/.test(c)) {
+    // The button's own label ("Shop now") is not the destination; look after it.
+    const target = PAGE_WORDS.filter(([, slug]) => slug !== 'products').find(([re]) => re.test(c));
+    if (target) {
+      replace(`/pages/0/sections/${hero}/props/ctaLink`, target[2]);
+      return out('ok', say(`Points the main button to ${target[2]}.`), patch);
+    }
+  }
 
   if (UNSUPPORTED.test(c)) {
     return out(
@@ -140,7 +330,10 @@ function interpret({ config, command, language }: LlmRequest): CommandOutput {
   }
 
   // Text
-  const text = quoted(command);
+  if (text && /footer/.test(c) && /about|brand|description|bare/.test(c)) {
+    replace('/footer/about', text);
+    return out('ok', say(`Sets the footer brand description to “${text}”.`), patch);
+  }
   if (text && /footer/.test(c)) {
     replace('/footer/text', text);
     return out('ok', say(`Sets the footer text to “${text}”.`), patch);
@@ -211,6 +404,21 @@ function interpret({ config, command, language }: LlmRequest): CommandOutput {
     }
     replace('/theme/primaryColor', color);
     return out('ok', say(`Changes the main brand color to ${color}.`), patch);
+  }
+
+  // Footer bottom line alignment
+  if (/footer/.test(c)) {
+    const align = /cent(er|re)|beech|darmiyan/.test(c)
+      ? 'center'
+      : /\bleft\b|baen|bayen/.test(c)
+        ? 'left'
+        : /\bright\b|daen|dayen/.test(c)
+          ? 'right'
+          : null;
+    if (align) {
+      replace('/footer/bottomAlign', align);
+      return out('ok', say(`Aligns the footer bottom line to the ${align}.`), patch);
+    }
   }
 
   // Footer style

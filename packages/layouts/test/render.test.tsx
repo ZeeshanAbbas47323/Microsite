@@ -7,6 +7,7 @@ import {
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  Footer,
   formatMoney,
   onColor,
   ProductDetail,
@@ -117,6 +118,26 @@ describe('layout rendering', () => {
     },
   );
 
+  it('aligns the footer bottom line as chosen', () => {
+    for (const style of ['simple', 'columns', 'minimal'] as const) {
+      for (const [bottomAlign, cls] of [
+        ['left', 'text-start'],
+        ['center', 'text-center'],
+        ['right', 'text-end'],
+      ] as const) {
+        const c = ctx({ config: { ...config, footer: { ...config.footer, style, bottomAlign } } });
+        const html = renderToStaticMarkup(<Footer ctx={c} />);
+        if (style === 'simple')
+          expect(html).toContain(
+            { left: 'sm:justify-start', center: 'sm:justify-center', right: 'sm:justify-end' }[
+              bottomAlign
+            ],
+          );
+        else expect(html).toContain(cls);
+      }
+    }
+  });
+
   it('honours navbar and footer styles (FR-3.3)', () => {
     for (const style of ['centered', 'left', 'split', 'minimal'] as const) {
       for (const footer of ['simple', 'columns', 'minimal'] as const) {
@@ -124,7 +145,7 @@ describe('layout rendering', () => {
           config: {
             ...config,
             navbar: { ...config.navbar, style, sticky: style === 'left' },
-            footer: { ...config.footer, style: footer },
+            footer: { ...config.footer, style: footer, about: 'Handmade with care in Lahore.' },
           },
         });
         const html = renderToStaticMarkup(
@@ -134,6 +155,7 @@ describe('layout rendering', () => {
         );
         expect(html).toContain('aria-label="Main"');
         expect(html).toContain(config.footer.text.replace('&', '&amp;'));
+        expect(html).toContain('Handmade with care in Lahore.');
         expect(html.includes('sticky top-0')).toBe(style === 'left');
       }
     }

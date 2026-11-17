@@ -527,6 +527,8 @@ export function generateSiteConfig(
     footer: {
       style: layout.footer.style,
       text: clip(`© ${now.getUTCFullYear()} ${name}`, L.footerText),
+      about: clip(business.description, L.footerAbout, true),
+      bottomAlign: 'auto',
     },
     business: {
       name,
@@ -560,11 +562,14 @@ export function switchLayout(config: SiteConfig, layoutId: string): SiteConfig {
 /** Starter content for a section added in the editor. Every result passes `sectionSchema`. */
 const NEW_SECTION_PROPS: { [T in SectionType]: Extract<Section, { type: T }>['props'] } = {
   hero: {
+    eyebrow: '',
     title: 'Your headline here',
     subtitle: 'A short line about what makes your store special.',
     imageUrl: '',
     ctaLabel: 'Shop now',
     ctaLink: '/products',
+    secondaryCtaLabel: '',
+    secondaryCtaLink: '',
   },
   productGrid: { title: 'Our products', limit: 8, source: 'featured' },
   richText: { title: 'A few words', paragraphs: ['Write something for your customers here.'] },
@@ -583,7 +588,14 @@ const NEW_SECTION_PROPS: { [T in SectionType]: Extract<Section, { type: T }>['pr
   },
   testimonials: {
     title: 'What customers say',
-    items: [{ quote: 'Lovely quality and quick delivery.', author: 'Happy customer', role: '' }],
+    // Obviously a placeholder: a made-up review must never look real on a live store.
+    items: [
+      {
+        quote: 'Add a real quote from one of your customers here.',
+        author: 'Customer name',
+        role: '',
+      },
+    ],
   },
   banner: {
     title: 'Free delivery on orders over Rs 3,000',
