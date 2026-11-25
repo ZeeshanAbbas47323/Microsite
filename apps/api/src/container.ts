@@ -21,6 +21,7 @@ import { TurnstileVerifier } from './orders/captcha';
 import { CheckoutService } from './orders/checkout-service';
 import { OrderTrackingService } from './orders/order-tracking';
 import { AnalyticsService } from './stores/analytics';
+import { MagicStoreService } from './stores/magic';
 import { MerchantOrderService } from './orders/merchant-orders';
 import { BullOrderSyncQueue, OrderSyncService, type Alert } from './orders/order-sync';
 import { HttpSiteRevalidator } from './stores/http-revalidator';
@@ -132,6 +133,7 @@ export function createContainer(
     ),
     tracking: new OrderTrackingService(db, getorio, cache),
     analytics: new AnalyticsService(db, stores),
+    magic: new MagicStoreService(stores, commandLlm, cache),
     checkout: new CheckoutService(db, catalog, queue, {
       notifications,
       onOrderPlaced: () => metrics.ordersPlaced.inc(),

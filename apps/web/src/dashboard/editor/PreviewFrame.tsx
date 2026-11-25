@@ -25,6 +25,7 @@ export function PreviewFrame({
   hoverId,
   onSelect,
   onNavigate,
+  revealSignal = 0,
 }: {
   src: string | null;
   device: Device;
@@ -34,6 +35,8 @@ export function PreviewFrame({
   onSelect: (id: string) => void;
   /** The preview moved to another page (a link was followed inside it). */
   onNavigate: (path: string) => void;
+  /** Bump to play the build-up animation on the next version that loads. */
+  revealSignal?: number;
 }) {
   const [slots, setSlots] = useState<[Slot | null, Slot | null]>([null, null]);
   const [active, setActive] = useState<0 | 1>(0);
@@ -44,6 +47,10 @@ export function PreviewFrame({
   const latest = useRef({ selectedId, hoverId, active, onSelect, onNavigate });
   latest.current = { selectedId, hoverId, active, onSelect, onNavigate };
   const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReveal = useRef(false);
+  useEffect(() => {
+    if (revealSignal) pendingReveal.current = true;
+  }, [revealSignal]);
 
   // Swap a loaded frame in once it has painted (its bridge says "ready"), not on bare `load`.
   const reveal = useCallback((index: 0 | 1) => {
@@ -104,6 +111,11 @@ export function PreviewFrame({
         if (index === latest.current.active) {
           if (data.path) latest.current.onNavigate(data.path);
         } else {
+          // Start the build-up while this frame is still behind, so it never flashes complete.
+          if (pendingReveal.current) {
+            pendingReveal.current = false;
+            send(index as 0 | 1, { type: 'reveal' });
+          }
           reveal(index as 0 | 1);
         }
       } else if (data.type === 'select' && index === latest.current.active && data.id) {

@@ -1,6 +1,6 @@
 import { FONT_WHITELIST, type SiteConfig } from '@microstore/site-schema';
 import { COMMAND_SCOPE } from './command-service';
-import type { CommandLlm, CommandOutput, LlmRequest, LlmResult } from './llm';
+import type { CommandLlm, CommandOutput, GenerateRequest, LlmRequest, LlmResult } from './llm';
 
 /**
  * Deterministic stand-in for the model (requirements §12: tests use a stub). Understands a fixed
@@ -18,6 +18,137 @@ export class StubCommandLlm implements CommandLlm {
       : interpret(request);
     return { raw, model: this.model, promptTokens: 0, completionTokens: 0 };
   }
+
+  /** Magic store brief from keywords in the owner's description. */
+  async generate(request: GenerateRequest): Promise<LlmResult> {
+    return {
+      raw: stubBrief(request.user),
+      model: this.model,
+      promptTokens: 0,
+      completionTokens: 0,
+    };
+  }
+}
+
+const STYLES: [
+  RegExp,
+  {
+    category: string;
+    layoutId: string;
+    primary: string;
+    secondary: string;
+    font: string;
+    what: string;
+  },
+][] = [
+  [
+    /leather|bag|wallet|handmade|craft/,
+    {
+      category: 'handmade',
+      layoutId: 'boutique-01',
+      primary: '#7c2d12',
+      secondary: '#fcd9b8',
+      font: 'Playfair Display',
+      what: 'handmade leather goods',
+    },
+  ],
+  [
+    /cloth|fashion|dress|kurta|lawn|shoe/,
+    {
+      category: 'fashion',
+      layoutId: 'minimal-01',
+      primary: '#111827',
+      secondary: '#f9a8d4',
+      font: 'Montserrat',
+      what: 'clothing',
+    },
+  ],
+  [
+    /food|cake|bake|biryani|sweet|mithai/,
+    {
+      category: 'food',
+      layoutId: 'bold-01',
+      primary: '#c2410c',
+      secondary: '#fde68a',
+      font: 'Nunito',
+      what: 'homemade food',
+    },
+  ],
+  [
+    /phone|mobile|gadget|electronic|charger/,
+    {
+      category: 'electronics',
+      layoutId: 'market-01',
+      primary: '#1d4ed8',
+      secondary: '#facc15',
+      font: 'Inter',
+      what: 'electronics and accessories',
+    },
+  ],
+];
+
+function stubBrief(user: string) {
+  const text = user.toLowerCase();
+  const style = STYLES.find(([re]) => re.test(text))?.[1] ?? {
+    category: 'general',
+    layoutId: 'classic-01',
+    primary: '#0f766e',
+    secondary: '#f5f5f4',
+    font: 'Lato',
+    what: 'quality products',
+  };
+  const brand = /brand colors from the logo: (#[0-9a-f]{6})/i.exec(user)?.[1];
+  const city = /city: ([^\n]+)/i.exec(user)?.[1]?.trim();
+  const where = city && city !== 'not given' ? ` in ${city}` : '';
+  return {
+    business: {
+      tagline: `Beautiful ${style.what}${where}`,
+      description: `We sell ${style.what}${where}.`,
+      category: style.category,
+    },
+    layoutId: style.layoutId,
+    theme: {
+      primaryColor: brand ?? style.primary,
+      secondaryColor: style.secondary,
+      backgroundColor: '#ffffff',
+      textColor: '#1c1917',
+      fontFamily: style.font,
+      buttonStyle: 'rounded',
+      borderRadius: 'md',
+    },
+    navbar: { backgroundColor: '#ffffff', textColor: '#1c1917' },
+    hero: {
+      eyebrow: `Cash on delivery${where}`,
+      title: `Discover our ${style.what}`,
+      subtitle: `Chosen with care and delivered to your door.`,
+      ctaLabel: 'Shop now',
+    },
+    features: [
+      { icon: 'cash', title: 'Cash on delivery', text: 'Pay when your order arrives.' },
+      { icon: 'truck', title: 'Delivery across Pakistan', text: 'Charges are shown at checkout.' },
+      { icon: 'clock', title: 'Track your order', text: 'Use your order number and phone.' },
+    ],
+    featuredTitle: 'Our favourites',
+    banner: 'Order today, pay on delivery',
+    about: { title: 'About us', body: `We are a small business selling ${style.what}${where}.` },
+    story: `We started with a simple idea: ${style.what} you can trust, at a fair price. Have a look around and order with cash on delivery.`,
+    faq: [
+      { question: 'How do I pay?', answer: 'Cash on delivery: you pay when your order arrives.' },
+      {
+        question: 'Do you deliver to my city?',
+        answer: 'We deliver across Pakistan. The charge is shown at checkout.',
+      },
+      {
+        question: 'How can I track my order?',
+        answer: 'Open Track your order and enter your order number and phone.',
+      },
+    ],
+    seo: {
+      title: `Shop ${style.what}`,
+      description: `Order ${style.what}${where} with cash on delivery.`,
+    },
+    footerAbout: `${style.what[0]?.toUpperCase()}${style.what.slice(1)}${where}, with cash on delivery.`,
+  };
 }
 
 function safeJson(text: string): unknown {

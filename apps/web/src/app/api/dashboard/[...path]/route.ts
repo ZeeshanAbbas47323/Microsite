@@ -36,7 +36,8 @@ async function forward(request: Request, { params }: { params: Promise<{ path: s
       body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer(),
       cache: 'no-store',
       redirect: 'manual',
-      signal: AbortSignal.timeout(20_000),
+      // The AI designer writes a whole store and can take up to a minute.
+      signal: AbortSignal.timeout(path.endsWith('/magic-build') ? 75_000 : 20_000),
     });
   } catch {
     return Response.json(

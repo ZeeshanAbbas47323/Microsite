@@ -18,6 +18,8 @@ export function PreviewScrollKeeper() {
       // storage blocked: start at the top
     }
     const restore = () => {
+      // The editor's "magic store" build-up starts at the top; don't pull the page back down.
+      if (document.documentElement.dataset.msReveal) return;
       if (saved > 0 && window.scrollY < saved) window.scrollTo({ top: saved, behavior: 'instant' });
     };
     restore();

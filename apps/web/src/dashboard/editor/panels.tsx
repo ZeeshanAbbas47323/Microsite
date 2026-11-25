@@ -28,6 +28,7 @@ import {
 import { api } from '../api';
 import { LayoutThumb } from '../OnboardingWizard';
 import { formatDate } from '../Overview';
+import { extractPalette } from './palette';
 
 export type Update = (fn: (c: SiteConfig) => SiteConfig) => void;
 
@@ -139,6 +140,25 @@ export function ThemeSettings({ config, update }: { config: SiteConfig; update: 
           />
         </div>
         <ContrastHint fg={t.textColor} bg={t.backgroundColor} />
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 px-3 py-2.5 text-sm font-medium text-neutral-700 hover:border-indigo-400 hover:bg-indigo-50/40 focus-within:ring-2 focus-within:ring-indigo-300">
+          <span aria-hidden="true">🎨</span> Colors from a logo or photo
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="sr-only"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (!file) return;
+              const [primary, secondary] = await extractPalette(file, 2).catch(() => []);
+              if (primary)
+                setTheme({
+                  primaryColor: primary,
+                  ...(secondary ? { secondaryColor: secondary } : {}),
+                });
+            }}
+          />
+        </label>
       </Group>
       <Group title="Typography">
         <Field label="Font">

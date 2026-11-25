@@ -31,6 +31,8 @@ import {
 import { PreviewFrame, type Device } from './PreviewFrame';
 import { SectionSettings, sectionTitle } from './SectionSettings';
 import { reorder, SectionTree, type Selection } from './SectionTree';
+import { ShareKit } from '../ShareKit';
+import { MagicBuilder } from './MagicBuilder';
 
 const HISTORY_LIMIT = 60;
 /** Edits closer together than this (typing) become one undo step. */
@@ -117,6 +119,9 @@ export function ThemeEditor() {
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>('desktop');
   const [drawer, setDrawer] = useState<'ai' | 'history' | null>(null);
+  const [magicOpen, setMagicOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [revealSignal, setRevealSignal] = useState(0);
   const [addingPage, setAddingPage] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
   const [saving, setSaving] = useState(false);
@@ -589,6 +594,21 @@ export function ThemeEditor() {
           </IconButton>
           <button
             type="button"
+            onClick={() => setMagicOpen(true)}
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-[linear-gradient(120deg,#4f46e5,#7c3aed_50%,#db2777)] px-3 text-sm font-semibold text-white shadow-sm hover:brightness-110"
+          >
+            <span aria-hidden="true">✨</span> <span className="hidden md:inline">Magic Store</span>
+            <span className="sr-only md:hidden">Magic Store</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShareOpen(true)}
+            className="hidden h-9 rounded-lg px-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 lg:block"
+          >
+            {t('Share')}
+          </button>
+          <button
+            type="button"
             onClick={() => setDrawer(drawer === 'ai' ? null : 'ai')}
             aria-pressed={drawer === 'ai'}
             className="hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 aria-pressed:bg-indigo-50 sm:flex"
@@ -786,6 +806,7 @@ export function ThemeEditor() {
               );
             }}
             onNavigate={onPreviewNavigate}
+            revealSignal={revealSignal}
           />
 
           {drawer ? (
@@ -852,6 +873,43 @@ export function ThemeEditor() {
           ) : null}
         </main>
       </div>
+      {magicOpen ? (
+        <MagicBuilder
+          storeId={store.id}
+          onClose={() => setMagicOpen(false)}
+          onBuilt={(next) => {
+            // One undo step; nothing is saved until the owner presses Save.
+            update(() => next);
+            setPageIndex(0);
+            setSelection(null);
+            setTab('sections');
+            setRevealSignal((n) => n + 1);
+            setMagicOpen(false);
+            setToast({
+              tone: 'success',
+              text: 'Your new store is ready. Look around, tweak anything, then Save. Undo brings back the old design.',
+            });
+          }}
+        />
+      ) : null}
+      {shareOpen ? (
+        <ShareKit
+          onClose={() => setShareOpen(false)}
+          info={{
+            name: config.business.name,
+            tagline: config.business.tagline,
+            url: store.url,
+            live: store.status === 'published',
+            city: config.business.contact.city,
+            category: config.business.category,
+            colors: {
+              primary: config.theme.primaryColor,
+              secondary: config.theme.secondaryColor,
+              background: config.theme.backgroundColor,
+            },
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -99,6 +99,16 @@ export async function storeRoutes(app: FastifyInstance, deps: AppDeps) {
       return { store: await stores.unpublish(authOf(request), id) };
     });
 
+    // "Magic store": one sentence to a full design (not saved; the editor shows it as unsaved).
+    authed.post(
+      '/stores/:id/magic-build',
+      { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+      async (request) => {
+        const { id } = storeParams.parse(request.params);
+        return deps.magic.build(authOf(request), id, request.body);
+      },
+    );
+
     authed.get('/stores/:id/analytics', async (request) => {
       const { id } = storeParams.parse(request.params);
       const { days } = z

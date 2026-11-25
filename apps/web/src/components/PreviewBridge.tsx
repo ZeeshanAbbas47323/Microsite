@@ -83,6 +83,35 @@ export function PreviewBridge() {
       chip.style.top = sel && sel.getBoundingClientRect().top + window.scrollY < 26 ? '0' : '-26px';
     };
 
+    // "Magic store": header, sections and footer rise into place one after another.
+    const playReveal = () => {
+      const blocks = [...document.querySelectorAll<HTMLElement>('[data-ms-section]')];
+      document.documentElement.dataset.msReveal = '1';
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      for (const el of blocks) {
+        el.style.transition = 'none';
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(28px)';
+      }
+      blocks.forEach((el, i) => {
+        setTimeout(
+          () => {
+            el.style.transition =
+              'opacity 0.6s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1)';
+            el.style.opacity = '1';
+            el.style.transform = 'none';
+            setTimeout(() => {
+              el.style.removeProperty('transition');
+              el.style.removeProperty('opacity');
+              el.style.removeProperty('transform');
+              schedule();
+            }, 800);
+          },
+          350 + i * 220,
+        );
+      });
+    };
+
     const sectionOf = (target: EventTarget | null) =>
       target instanceof Element ? target.closest<HTMLElement>('[data-ms-section]') : null;
 
@@ -110,6 +139,10 @@ export function PreviewBridge() {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== origin || e.data?.source !== EDITOR_MESSAGE_SOURCE) return;
       const { type, id, scroll } = e.data as { type: string; id: string | null; scroll?: boolean };
+      if (type === 'reveal') {
+        playReveal();
+        return;
+      }
       if (type === 'select') {
         const changed = id !== selected;
         selected = id;

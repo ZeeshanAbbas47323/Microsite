@@ -85,10 +85,25 @@ export class LlmError extends Error {
   }
 }
 
+/** One structured-output call: a system prompt, a user message and the JSON schema to follow. */
+export interface GenerateRequest {
+  system: string;
+  user: string;
+  schema: Record<string, unknown>;
+  /** Short name of the schema (some providers require one). */
+  name: string;
+  maxTokens?: number;
+  timeoutMs?: number;
+  /** Less thinking = much faster and cheaper; enough for well-specified writing tasks. */
+  reasoningEffort?: 'low' | 'medium' | 'high';
+}
+
 /** The model behind the command box. Tests use a deterministic stub (requirements §12). */
 export interface CommandLlm {
   readonly model: string;
   propose(request: LlmRequest): Promise<LlmResult>;
+  /** Any other structured task (e.g. the magic store brief). */
+  generate?(request: GenerateRequest): Promise<LlmResult>;
 }
 
 /** Models that accept the server-side refusal fallback (`fallbacks: "default"`). */
@@ -134,28 +149,38 @@ export class AnthropicCommandLlm implements CommandLlm {
       system = buildSystemPrompt(scope);
       this.systemPrompts.set(key, system);
     }
+    return this.generate({
+      system,
+      user: buildUserMessage(config, command, language, feedback),
+      schema: COMMAND_OUTPUT_JSON_SCHEMA as unknown as Record<string, unknown>,
+      name: 'command_patch',
+    });
+  }
+
+  async generate({
+    system,
+    user,
+    schema,
+    maxTokens,
+    timeoutMs,
+  }: GenerateRequest): Promise<LlmResult> {
     const withFallback = FALLBACK_MODELS.has(this.model);
 
     let response: Anthropic.Beta.BetaMessage;
     try {
-      response = await this.client.beta.messages.create({
-        model: this.model,
-        max_tokens: 8000,
-        ...(withFallback
-          ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }
-          : {}),
-        output_config: {
-          effort: 'low',
-          format: {
-            type: 'json_schema',
-            schema: COMMAND_OUTPUT_JSON_SCHEMA as unknown as Record<string, unknown>,
-          },
+      response = await this.client.beta.messages.create(
+        {
+          model: this.model,
+          max_tokens: maxTokens ?? 8000,
+          ...(withFallback
+            ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }
+            : {}),
+          output_config: { effort: 'low', format: { type: 'json_schema', schema } },
+          system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+          messages: [{ role: 'user', content: user }],
         },
-        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-        messages: [
-          { role: 'user', content: buildUserMessage(config, command, language, feedback) },
-        ],
-      });
+        timeoutMs ? { timeout: timeoutMs } : undefined,
+      );
     } catch (error) {
       if (error instanceof Anthropic.APIConnectionTimeoutError)
         throw new LlmError('timeout', 'The AI took too long to answer');
@@ -235,7 +260,23 @@ export class OpenRouterCommandLlm implements CommandLlm {
       system = buildSystemPrompt(scope);
       this.systemPrompts.set(key, system);
     }
+    return this.generate({
+      system,
+      user: buildUserMessage(config, command, language, feedback),
+      schema: COMMAND_OUTPUT_JSON_SCHEMA as unknown as Record<string, unknown>,
+      name: 'command_patch',
+    });
+  }
 
+  async generate({
+    system,
+    user,
+    schema,
+    name,
+    maxTokens,
+    timeoutMs,
+    reasoningEffort,
+  }: GenerateRequest): Promise<LlmResult> {
     let res: Response;
     try {
       res = await this.fetchFn(
@@ -249,23 +290,20 @@ export class OpenRouterCommandLlm implements CommandLlm {
           },
           body: JSON.stringify({
             model: this.model,
-            max_tokens: 4000,
+            max_tokens: maxTokens ?? 4000,
             temperature: 0,
             messages: [
               { role: 'system', content: system },
-              { role: 'user', content: buildUserMessage(config, command, language, feedback) },
+              { role: 'user', content: user },
             ],
             response_format: {
               type: 'json_schema',
-              json_schema: {
-                name: 'command_patch',
-                strict: true,
-                schema: COMMAND_OUTPUT_JSON_SCHEMA,
-              },
+              json_schema: { name, strict: true, schema },
             },
             provider: { require_parameters: true },
+            ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
           }),
-          signal: AbortSignal.timeout(this.options.timeoutMs ?? 20_000),
+          signal: AbortSignal.timeout(timeoutMs ?? this.options.timeoutMs ?? 20_000),
         },
       );
     } catch (error) {
