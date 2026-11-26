@@ -11,7 +11,7 @@ import {
   type SectionType,
   type SiteConfig,
 } from '@microstore/site-schema';
-import { FOOTER_ID, HEADER_ID } from '@microstore/layouts/react';
+import { ANNOUNCEMENT_ID, FOOTER_ID, HEADER_ID } from '@microstore/layouts/react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -30,6 +30,7 @@ import { useT } from '../i18n';
 import { useDashboard } from '../session';
 import { useStoreActions } from '../useStoreActions';
 import {
+  AnnouncementSettings,
   FooterSettings,
   HeaderSettings,
   HistoryPanel,
@@ -590,6 +591,11 @@ export function ThemeEditor() {
         </button>
       ),
     };
+  } else if (selection?.kind === 'announcement') {
+    drill = {
+      title: 'Announcement bar',
+      body: <AnnouncementSettings config={config} update={update} />,
+    };
   } else if (selection?.kind === 'header') {
     drill = { title: 'Header', body: <HeaderSettings config={config} update={update} /> };
   } else if (selection?.kind === 'footer') {
@@ -913,6 +919,10 @@ export function ThemeEditor() {
               ) : (
                 <SectionTree
                   page={page}
+                  announcement={{
+                    enabled: config.announcement.enabled,
+                    count: config.announcement.messages.length,
+                  }}
                   selectedId={null}
                   onSelect={setSelection}
                   onHover={setHoverId}
@@ -943,9 +953,11 @@ export function ThemeEditor() {
             selectedId={
               selection?.kind === 'header'
                 ? HEADER_ID
-                : selection?.kind === 'footer'
-                  ? FOOTER_ID
-                  : (selectedSection?.id ?? null)
+                : selection?.kind === 'announcement'
+                  ? ANNOUNCEMENT_ID
+                  : selection?.kind === 'footer'
+                    ? FOOTER_ID
+                    : (selectedSection?.id ?? null)
             }
             hoverId={hoverId}
             onSelect={(id) => {
@@ -954,9 +966,11 @@ export function ThemeEditor() {
               setSelection(
                 id === HEADER_ID
                   ? { kind: 'header' }
-                  : id === FOOTER_ID
-                    ? { kind: 'footer' }
-                    : { kind: 'section', id },
+                  : id === ANNOUNCEMENT_ID
+                    ? { kind: 'announcement' }
+                    : id === FOOTER_ID
+                      ? { kind: 'footer' }
+                      : { kind: 'section', id },
               );
             }}
             onNavigate={onPreviewNavigate}

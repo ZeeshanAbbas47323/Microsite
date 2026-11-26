@@ -9,6 +9,7 @@ import {
   type Page,
   type SiteConfig,
   type Theme,
+  DEFAULT_ANNOUNCEMENT,
 } from './config';
 import {
   emailSchema,
@@ -529,6 +530,11 @@ export function generateSiteConfig(
       text: clip(`© ${now.getUTCFullYear()} ${name}`, L.footerText),
       about: clip(business.description, L.footerAbout, true),
       bottomAlign: 'auto',
+    },
+    // Off until the merchant turns it on; a ready message makes switching it on a one-click job.
+    announcement: {
+      ...DEFAULT_ANNOUNCEMENT,
+      messages: [{ text: 'Cash on delivery all over Pakistan', link: '' }],
     },
     business: {
       name,

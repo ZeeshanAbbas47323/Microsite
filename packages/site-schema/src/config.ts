@@ -8,6 +8,8 @@ import {
   FONT_WHITELIST,
   FOOTER_ALIGNS,
   FOOTER_STYLES,
+  ANNOUNCEMENT_SPEEDS,
+  MAX_ANNOUNCEMENTS,
   MAX_CONTENT_PAGES,
   MAX_SECTIONS_PER_PAGE,
   MIN_CONTENT_PAGES,
@@ -21,6 +23,7 @@ import {
   hexColorSchema,
   imageUrlSchema,
   instagramUrlSchema,
+  linkSchema,
   optionalString,
   pageSlugSchema,
   pkPhoneSchema,
@@ -56,6 +59,31 @@ export const footerSchema = z.strictObject({
   about: plainText(L.footerAbout, { multiline: true }).default(''),
   bottomAlign: z.enum(FOOTER_ALIGNS).default('auto'),
 });
+
+export const announcementMessageSchema = z.strictObject({
+  text: plainText(L.announcement, { min: 1 }),
+  /** Optional: the whole message becomes a link (a store path like /products or an http(s) URL). */
+  link: optionalString(linkSchema).default(''),
+});
+
+/** The thin bar above the header. Several messages rotate like a carousel. */
+export const announcementSchema = z.strictObject({
+  enabled: z.boolean(),
+  messages: z.array(announcementMessageSchema).max(MAX_ANNOUNCEMENTS),
+  backgroundColor: hexColorSchema,
+  textColor: hexColorSchema,
+  /** Seconds each message stays before the next one slides in. */
+  speed: z.literal(ANNOUNCEMENT_SPEEDS).default(5),
+});
+
+/** Stores created before the announcement bar existed get it switched off. */
+export const DEFAULT_ANNOUNCEMENT: z.infer<typeof announcementSchema> = {
+  enabled: false,
+  messages: [],
+  backgroundColor: '#111111',
+  textColor: '#ffffff',
+  speed: 5,
+};
 
 export const contactSchema = z.strictObject({
   phone: optionalString(pkPhoneSchema),
@@ -121,6 +149,7 @@ export const siteConfigSchema = z
     theme: themeSchema,
     navbar: navbarSchema,
     footer: footerSchema,
+    announcement: announcementSchema.default(DEFAULT_ANNOUNCEMENT),
     business: businessSchema,
     pages: z.array(pageSchema).min(MIN_CONTENT_PAGES).max(MAX_CONTENT_PAGES),
   })
@@ -174,6 +203,8 @@ export const siteConfigSchema = z
 export type Theme = z.infer<typeof themeSchema>;
 export type Navbar = z.infer<typeof navbarSchema>;
 export type Footer = z.infer<typeof footerSchema>;
+export type Announcement = z.infer<typeof announcementSchema>;
+export type AnnouncementMessage = z.infer<typeof announcementMessageSchema>;
 export type Business = z.infer<typeof businessSchema>;
 export type Page = z.infer<typeof pageSchema>;
 export type SiteConfig = z.infer<typeof siteConfigSchema>;

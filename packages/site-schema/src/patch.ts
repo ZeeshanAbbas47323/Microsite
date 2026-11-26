@@ -174,6 +174,23 @@ const VALUE_RULES: readonly ValueRule[] = [
     description: `plain text brand description shown in the footer, max ${TEXT_LIMITS.footerAbout} chars`,
   },
   {
+    pattern: ['announcement', 'enabled'],
+    schema: z.boolean(),
+    description: 'boolean (shows the announcement bar above the header)',
+  },
+  {
+    pattern: ['announcement', 'messages', '#', 'text'],
+    schema: plainText(TEXT_LIMITS.announcement, { min: 1 }),
+    textMaxLength: TEXT_LIMITS.announcement,
+    description: `plain text, max ${TEXT_LIMITS.announcement} chars (one announcement bar message)`,
+  },
+  {
+    pattern: ['announcement', 'backgroundColor'],
+    schema: hexColorSchema,
+    description: 'hex color',
+  },
+  { pattern: ['announcement', 'textColor'], schema: hexColorSchema, description: 'hex color' },
+  {
     pattern: ['pages', '#', 'sections', '#', 'visible'],
     schema: z.boolean(),
     description: 'boolean',
@@ -408,10 +425,11 @@ function resolveParent(
 const CONTRAST_PAIRS: readonly [string, string][] = [
   ['/theme/textColor', '/theme/backgroundColor'],
   ['/navbar/textColor', '/navbar/backgroundColor'],
+  ['/announcement/textColor', '/announcement/backgroundColor'],
 ];
 
 function readColor(config: SiteConfig, path: string): string {
-  const [, group, key] = path.split('/') as [string, 'theme' | 'navbar', string];
+  const [, group, key] = path.split('/') as [string, 'theme' | 'navbar' | 'announcement', string];
   return (config[group] as Record<string, string>)[key] as string;
 }
 

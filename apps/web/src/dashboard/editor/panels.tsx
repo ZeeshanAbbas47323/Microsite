@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  ANNOUNCEMENT_SPEEDS,
   BORDER_RADII,
   BUTTON_STYLES,
   contrastRatio,
@@ -8,6 +9,8 @@ import {
   FOOTER_ALIGNS,
   FOOTER_STYLES,
   HEX_COLOR_REGEX,
+  MAX_ANNOUNCEMENTS,
+  TEXT_LIMITS,
   NAVBAR_STYLES,
   type Page,
   type SiteConfig,
@@ -240,6 +243,166 @@ export function HeaderSettings({ config, update }: { config: SiteConfig; update:
         <p className="text-sm text-neutral-600">
           The menu lists your pages in order. Rename a page in its page settings.
         </p>
+      </Group>
+    </>
+  );
+}
+
+const isOkLink = (v: string) => v === '' || v.startsWith('/') || /^https?:\/\/\S+$/i.test(v);
+
+/** Announcement bar above the header: on/off, up to five rotating messages, colours and speed. */
+export function AnnouncementSettings({ config, update }: { config: SiteConfig; update: Update }) {
+  const a = config.announcement;
+  const set = (patch: Partial<SiteConfig['announcement']>) =>
+    update((c) => ({ ...c, announcement: { ...c.announcement, ...patch } }));
+  const setMessage = (i: number, patch: Partial<SiteConfig['announcement']['messages'][number]>) =>
+    set({ messages: a.messages.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
+  const move = (i: number, to: number) => {
+    const next = [...a.messages];
+    const [m] = next.splice(i, 1);
+    if (m) next.splice(to, 0, m);
+    set({ messages: next });
+  };
+  const max = TEXT_LIMITS.announcement;
+
+  return (
+    <>
+      <Group title="Bar">
+        <Toggle
+          label="Show announcement bar"
+          description="A thin strip above the header on every page."
+          checked={a.enabled}
+          onChange={(v) =>
+            set(
+              v && a.messages.length === 0
+                ? {
+                    enabled: true,
+                    messages: [{ text: 'Cash on delivery all over Pakistan', link: '' }],
+                  }
+                : { enabled: v },
+            )
+          }
+        />
+      </Group>
+
+      <Group title={`Messages (${a.messages.length}/${MAX_ANNOUNCEMENTS})`}>
+        {a.messages.length > 1 ? (
+          <p className="text-xs text-neutral-600">
+            Messages take turns like a carousel. They pause while a visitor hovers over the bar.
+          </p>
+        ) : null}
+        <ol className="space-y-3">
+          {a.messages.map((m, i) => {
+            const textError = m.text.trim() === '' ? 'Write a message or remove it.' : undefined;
+            const linkError = isOkLink(m.link.trim())
+              ? undefined
+              : 'Use a store path like /products or a full https:// link.';
+            return (
+              <li key={i} className="rounded-lg border border-neutral-200 p-3">
+                <div className="mb-2 flex items-center gap-1">
+                  <span className="flex-1 text-xs font-semibold text-neutral-600">
+                    Message {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Move message ${i + 1} up`}
+                    disabled={i === 0}
+                    onClick={() => move(i, i - 1)}
+                    className="rounded-md px-1.5 py-0.5 text-sm text-neutral-600 hover:bg-neutral-100 disabled:opacity-30"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Move message ${i + 1} down`}
+                    disabled={i === a.messages.length - 1}
+                    onClick={() => move(i, i + 1)}
+                    className="rounded-md px-1.5 py-0.5 text-sm text-neutral-600 hover:bg-neutral-100 disabled:opacity-30"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Remove message ${i + 1}`}
+                    onClick={() => set({ messages: a.messages.filter((_, j) => j !== i) })}
+                    className="rounded-md px-1.5 py-0.5 text-sm text-red-700 hover:bg-red-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <Field
+                    label="Text"
+                    hint={`${max - m.text.length} characters left`}
+                    error={textError}
+                  >
+                    {(p) => (
+                      <Input
+                        {...p}
+                        value={m.text}
+                        maxLength={max}
+                        placeholder="e.g. Free delivery on orders over Rs 3,000"
+                        onChange={(e) => setMessage(i, { text: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Link" optional error={linkError}>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        value={m.link}
+                        placeholder="/products"
+                        onChange={(e) => setMessage(i, { link: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={a.messages.length >= MAX_ANNOUNCEMENTS}
+          onClick={() => set({ messages: [...a.messages, { text: '', link: '' }] })}
+        >
+          + Add message
+        </Button>
+      </Group>
+
+      <Group title="Rotation">
+        <Segmented
+          label="Each message shows for"
+          value={String(a.speed)}
+          options={ANNOUNCEMENT_SPEEDS.map((n) => `${n}`)}
+          onChange={(v) => set({ speed: Number(v) as SiteConfig['announcement']['speed'] })}
+        />
+        <p className="text-xs text-neutral-600">Seconds. Only used with two or more messages.</p>
+      </Group>
+
+      <Group title="Colors">
+        <div className="grid grid-cols-2 gap-4">
+          <ColorInput
+            label="Background"
+            value={a.backgroundColor}
+            onChange={(v) => set({ backgroundColor: v })}
+          />
+          <ColorInput label="Text" value={a.textColor} onChange={(v) => set({ textColor: v })} />
+        </div>
+        <ContrastHint fg={a.textColor} bg={a.backgroundColor} />
+        <button
+          type="button"
+          onClick={() =>
+            set({
+              backgroundColor: config.theme.primaryColor,
+              textColor: config.navbar.backgroundColor,
+            })
+          }
+          className="text-xs font-medium text-brand-700 hover:underline"
+        >
+          Use my brand colours
+        </button>
       </Group>
     </>
   );

@@ -131,10 +131,15 @@ export const TEXT_LIMITS = {
   shortBody: 600,
   footerText: 200,
   footerAbout: 300,
+  announcement: 100,
   address: 250,
   city: 80,
   author: 80,
 } as const;
+
+/** Announcement bar above the header: how many messages and how fast they rotate. */
+export const MAX_ANNOUNCEMENTS = 5;
+export const ANNOUNCEMENT_SPEEDS = [3, 5, 7, 10] as const;
 
 /** Subdomain rules (FR-1.4). */
 export const SUBDOMAIN_MIN_LENGTH = 3;

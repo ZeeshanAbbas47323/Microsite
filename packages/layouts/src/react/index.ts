@@ -4,6 +4,7 @@ export * from './variants';
 export * from './links';
 export { Navbar } from './Navbar';
 export { Footer } from './Footer';
+export { AnnouncementBar } from './AnnouncementBar';
 export { SiteShell, PageHeader } from './SiteShell';
 export { ProductCard, ProductList } from './ProductCard';
 export { ProductDetail } from './ProductDetail';

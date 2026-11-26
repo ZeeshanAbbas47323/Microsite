@@ -39,6 +39,7 @@ export function whatsappHref(phone: string): string {
 /** Ids the theme editor uses for the header and footer (they are not page sections). */
 export const HEADER_ID = '__header';
 export const FOOTER_ID = '__footer';
+export const ANNOUNCEMENT_ID = '__announcement';
 
 /** Marks a block as selectable in the theme editor preview (`ctx.editable`). */
 export function editableAttrs(ctx: RenderContext, id: string, label: string) {

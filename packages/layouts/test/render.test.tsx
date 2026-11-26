@@ -216,3 +216,42 @@ describe('layout rendering', () => {
     expect(formatMoney('99.5', 'PKR')).toMatch(/^Rs\s99\.50$/);
   });
 });
+
+describe('announcement bar', () => {
+  const bar = (announcement: Partial<SiteConfig['announcement']>) =>
+    renderToStaticMarkup(
+      <SiteShell
+        ctx={ctx({
+          config: { ...config, announcement: { ...config.announcement, ...announcement } },
+        })}
+      >
+        <p>Body</p>
+      </SiteShell>,
+    );
+
+  it('is hidden while switched off', () => {
+    expect(bar({ enabled: false })).not.toContain('Announcements');
+  });
+
+  it('shows one message still, with its link', () => {
+    const html = bar({ enabled: true, messages: [{ text: 'Free delivery', link: '/products' }] });
+    expect(html).toContain('aria-label="Announcements"');
+    expect(html).toContain('href="/products"');
+    expect(html).not.toContain('@keyframes');
+  });
+
+  it('rotates several messages and escapes their text', () => {
+    const html = bar({
+      enabled: true,
+      speed: 3,
+      messages: [
+        { text: 'One <b>bold</b>', link: '' },
+        { text: 'Two', link: 'https://example.com' },
+      ],
+    });
+    expect(html).toContain('@keyframes ms-ann-2');
+    expect(html).toContain('ms-ann-2 6s 3s infinite');
+    expect(html).toContain('One &lt;b&gt;bold&lt;/b&gt;');
+    expect(html).toContain('prefers-reduced-motion');
+  });
+});

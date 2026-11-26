@@ -14,6 +14,7 @@ import { sectionTitle } from './SectionSettings';
 
 export type Selection =
   | { kind: 'section'; id: string }
+  | { kind: 'announcement' }
   | { kind: 'header' }
   | { kind: 'footer' }
   | { kind: 'page' }
@@ -28,11 +29,14 @@ function FixedRow({
   label,
   hint,
   icon,
+  muted = false,
   onClick,
 }: {
   label: string;
   hint: string;
   icon: string;
+  /** Greyed out, e.g. a bar that is switched off. */
+  muted?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -40,7 +44,7 @@ function FixedRow({
       type="button"
       onClick={onClick}
       title={hint}
-      className="group flex h-9 w-full items-center gap-2.5 rounded-lg ps-3 pe-2 text-start text-sm text-neutral-800 hover:bg-neutral-100"
+      className={`group flex h-9 w-full items-center gap-2.5 rounded-lg ps-3 pe-2 text-start text-sm hover:bg-neutral-100 ${muted ? 'text-neutral-500' : 'text-neutral-800'}`}
     >
       <span className="text-neutral-500">
         <Icon d={icon} className="h-4 w-4" />
@@ -80,6 +84,7 @@ function AddRow({
 
 export function SectionTree({
   page,
+  announcement,
   selectedId,
   onSelect,
   onHover,
@@ -88,6 +93,8 @@ export function SectionTree({
   onAdd,
 }: {
   page: Page;
+  /** Shown as the first row of the header group. */
+  announcement: { enabled: boolean; count: number };
   selectedId: string | null;
   onSelect: (selection: Selection) => void;
   onHover: (id: string | null) => void;
@@ -156,6 +163,17 @@ export function SectionTree({
     <div className="px-2 pb-4">
       <section aria-label="Header group">
         <GroupLabel>Header</GroupLabel>
+        <FixedRow
+          label="Announcement bar"
+          hint={
+            announcement.enabled
+              ? `${announcement.count} message${announcement.count === 1 ? '' : 's'}`
+              : 'Off'
+          }
+          icon={PATHS.megaphone}
+          muted={!announcement.enabled}
+          onClick={() => onSelect({ kind: 'announcement' })}
+        />
         <FixedRow
           label="Header"
           hint="Logo, menu and cart"
