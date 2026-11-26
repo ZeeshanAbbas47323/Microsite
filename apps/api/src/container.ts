@@ -26,6 +26,9 @@ import { MerchantOrderService } from './orders/merchant-orders';
 import { BullOrderSyncQueue, OrderSyncService, type Alert } from './orders/order-sync';
 import { HttpSiteRevalidator } from './stores/http-revalidator';
 import { createDnsLookup, DomainService } from './stores/domains';
+import { CustomerAccountService } from './customers/customer-accounts';
+import { CustomerService } from './customers/customer-service';
+import { DiscountService } from './discounts/discount-service';
 import { noopRevalidator, StoreService } from './stores/store-service';
 
 /** Wires production dependencies from the environment. Shared by the API server and the worker. */
@@ -110,7 +113,11 @@ export function createContainer(
         )
       : undefined;
 
+  const accounts = new CustomerAccountService(db, cache);
   const deps: AppDeps = {
+    accounts,
+    customers: new CustomerService(db, stores),
+    discounts: new DiscountService(db, stores),
     db,
     redis,
     sessions: new SessionManager(new RedisSessionStore(redis, env.SESSION_SECRET)),
@@ -143,6 +150,7 @@ export function createContainer(
     magic: new MagicStoreService(stores, commandLlm, cache),
     checkout: new CheckoutService(db, catalog, queue, {
       notifications,
+      accounts,
       onOrderPlaced: () => metrics.ordersPlaced.inc(),
       ...(env.TURNSTILE_SECRET ? { captcha: new TurnstileVerifier(env.TURNSTILE_SECRET) } : {}),
     }),

@@ -1,3 +1,6 @@
+import { CustomerAccountService } from '../src/customers/customer-accounts';
+import { CustomerService } from '../src/customers/customer-service';
+import { DiscountService } from '../src/discounts/discount-service';
 import type { Queue } from 'bullmq';
 import {
   InMemoryGetorioClient,
@@ -43,6 +46,9 @@ export function testDb(): Db {
 const TABLES = [
   'order_items',
   'orders',
+  'discounts',
+  'customer_addresses',
+  'customers',
   'audit_logs',
   'command_logs',
   'store_products',
@@ -132,6 +138,7 @@ export async function createTestApp(
   const commands = new CommandService(d, stores, commandLlm, {
     dailyLimit: options.commandLimit ?? 30,
   });
+  const accounts = new CustomerAccountService(d, cache);
   const app = await buildApp({
     db: d,
     sessions: new SessionManager(new MemorySessionStore(options.now), options.now),
@@ -157,7 +164,11 @@ export async function createTestApp(
       storefrontUrlTemplate: 'https://{host}',
     }),
     magic: new MagicStoreService(stores, commandLlm, cache),
+    accounts,
+    customers: new CustomerService(d, stores, () => new Date(options.now?.() ?? Date.now())),
+    discounts: new DiscountService(d, stores),
     checkout: new CheckoutService(d, catalog, queue, {
+      accounts,
       onOrderPlaced: () => metrics.ordersPlaced.inc(),
     }),
     revalidator,

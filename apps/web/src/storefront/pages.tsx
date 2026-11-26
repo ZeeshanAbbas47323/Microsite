@@ -10,7 +10,8 @@ import type { Page } from '@microstore/site-schema';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
+import { AccountApp } from '@/components/account/AccountApp';
 import { AddToCart } from '@/components/cart/AddToCart';
 import { CartView } from '@/components/cart/CartView';
 import { CheckoutForm } from '@/components/cart/CheckoutForm';
@@ -491,8 +492,40 @@ export async function CheckoutPage({ params }: Props) {
                 currency={data.store.currency}
                 orderHref={href('/order/{ref}')}
                 cartHref={href('/cart')}
+                accountHref={href('/account')}
                 turnstileSiteKey={serverEnv.turnstileSiteKey}
               />
+            )}
+          </div>
+        </>
+      )}
+    </Shell>
+  );
+}
+
+export async function AccountPage({ params }: Props) {
+  const mode = modeOf(await params);
+  const data = await loadStore(mode);
+  const href = hrefBuilder(mode);
+  return (
+    <Shell mode={mode} data={data} currentPath="/account">
+      {(ctx) => (
+        <>
+          <PageHeader ctx={ctx} title="My account" />
+          <div className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
+            {mode.preview ? (
+              <p className="py-10 text-center text-[var(--ms-muted)]">
+                Customer accounts are not available in preview.
+              </p>
+            ) : (
+              <Suspense>
+                <AccountApp
+                  storeName={data.store.name}
+                  currency={data.store.currency}
+                  homeHref={href('/products')}
+                  trackHref={href('/track')}
+                />
+              </Suspense>
             )}
           </div>
         </>

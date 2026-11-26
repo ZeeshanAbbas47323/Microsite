@@ -1,3 +1,4 @@
+import { customerTokenOf } from '@/lib/customer-session';
 import { serverEnv } from '@/lib/env';
 
 /**
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
     );
   }
   const forwardedFor = request.headers.get('x-forwarded-for') ?? '';
+  // Signed-in customers: the order is linked to their account.
+  const token = customerTokenOf(request);
   try {
     const res = await fetch(`${serverEnv.apiUrl}/api/v1/public/checkout`, {
       method: 'POST',
@@ -21,6 +24,7 @@ export async function POST(request: Request) {
         'content-type': 'application/json',
         'x-store-host': host,
         'idempotency-key': request.headers.get('idempotency-key') ?? '',
+        ...(token ? { 'x-customer-token': token } : {}),
         ...(forwardedFor ? { 'x-forwarded-for': forwardedFor } : {}),
       },
       body,

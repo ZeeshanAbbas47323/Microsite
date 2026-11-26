@@ -11,6 +11,10 @@ import { normalizeHost, resolveStoreByHost, type ResolvedStore } from '../public
 import { storeSettingsSchema } from '../stores/settings';
 
 export const STORE_HOST_HEADER = 'x-store-host';
+/** Customer session token, forwarded by the web app from its httpOnly cookie. */
+export const CUSTOMER_TOKEN_HEADER = 'x-customer-token';
+const tokenOf = (request: FastifyRequest) =>
+  (request.headers[CUSTOMER_TOKEN_HEADER] as string | undefined) || undefined;
 
 const previewQuery = z.object({
   preview: z.string().max(300).optional(),
@@ -150,10 +154,93 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
         request.body,
         key,
         request.ip,
+        tokenOf(request),
       );
       return reply.status(created ? 201 : 200).send({ order });
     },
   );
+
+  // Discount code "Apply" on the checkout page.
+  app.post(
+    '/public/discounts/quote',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const { store } = await viewable(request, { allowPreview: false });
+      reply.header('cache-control', 'no-store');
+      return deps.checkout.quote(store, request.body);
+    },
+  );
+
+  // ---- Customer accounts (email or phone + password) ----
+  const authLimit = { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } };
+  const accountLimit = { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } };
+  const signedIn = async (request: FastifyRequest) => {
+    const { store } = await viewable(request, { allowPreview: false });
+    return { store, customer: await deps.accounts.require(store, tokenOf(request)) };
+  };
+
+  app.post('/public/account/register', authLimit, async (request, reply) => {
+    const { store } = await viewable(request, { allowPreview: false });
+    reply.header('cache-control', 'no-store');
+    return reply.status(201).send(await deps.accounts.register(store, request.body));
+  });
+
+  app.post('/public/account/login', authLimit, async (request, reply) => {
+    const { store } = await viewable(request, { allowPreview: false });
+    reply.header('cache-control', 'no-store');
+    return deps.accounts.login(store, request.body);
+  });
+
+  app.post('/public/account/logout', accountLimit, async (request, reply) => {
+    await deps.accounts.logout(tokenOf(request));
+    return reply.status(204).send();
+  });
+
+  app.get('/public/account', accountLimit, async (request, reply) => {
+    const { customer } = await signedIn(request);
+    reply.header('cache-control', 'no-store');
+    return { customer: await deps.accounts.me(customer.id) };
+  });
+
+  app.patch('/public/account', accountLimit, async (request) => {
+    const { customer } = await signedIn(request);
+    return { customer: await deps.accounts.updateProfile(customer, request.body) };
+  });
+
+  app.post('/public/account/password', authLimit, async (request, reply) => {
+    const { customer } = await signedIn(request);
+    await deps.accounts.changePassword(customer, request.body);
+    return reply.status(204).send();
+  });
+
+  app.get('/public/account/orders', accountLimit, async (request, reply) => {
+    const { customer } = await signedIn(request);
+    const { page } = z
+      .object({ page: z.coerce.number().int().min(1).max(1000).default(1) })
+      .parse(request.query);
+    reply.header('cache-control', 'no-store');
+    return deps.accounts.orders(customer, page);
+  });
+
+  app.post('/public/account/addresses', accountLimit, async (request, reply) => {
+    const { customer } = await signedIn(request);
+    return reply
+      .status(201)
+      .send({ customer: await deps.accounts.addAddress(customer, request.body) });
+  });
+
+  const addressParams = z.object({ aid: z.uuid() });
+  app.patch('/public/account/addresses/:aid', accountLimit, async (request) => {
+    const { customer } = await signedIn(request);
+    const { aid } = addressParams.parse(request.params);
+    return { customer: await deps.accounts.updateAddress(customer, aid, request.body) };
+  });
+
+  app.delete('/public/account/addresses/:aid', accountLimit, async (request) => {
+    const { customer } = await signedIn(request);
+    const { aid } = addressParams.parse(request.params);
+    return { customer: await deps.accounts.removeAddress(customer, aid) };
+  });
 
   // Phase 3 analytics beacon: counts a page view (and a visit for a new session). Nothing about
   // the visitor is stored; bots are ignored.

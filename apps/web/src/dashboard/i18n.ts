@@ -9,6 +9,8 @@ const UR: Record<string, string> = {
   // Shell
   Overview: 'جائزہ',
   Domains: 'ڈومینز',
+  Customers: 'کسٹمرز',
+  Discounts: 'ڈسکاؤنٹس',
   Design: 'ڈیزائن',
   Products: 'پروڈکٹس',
   Orders: 'آرڈرز',

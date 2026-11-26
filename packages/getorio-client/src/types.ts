@@ -123,6 +123,11 @@ export const microstoreOrderPayloadSchema = z.object({
   items: z.array(orderItemSchema).min(1).max(100),
   subtotal: moneySchema,
   shippingFee: moneySchema,
+  /** Coupon applied at checkout; `total` already has it taken off. */
+  discount: z
+    .object({ code: z.string().max(32), amount: moneySchema })
+    .nullable()
+    .optional(),
   total: moneySchema,
   currency: currencySchema,
   paymentMethod: z.literal('cod'),

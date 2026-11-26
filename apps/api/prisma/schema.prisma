@@ -51,6 +51,12 @@ enum CommandStatus {
   error
 }
 
+enum DiscountType {
+  percentage
+  fixed
+  free_shipping
+}
+
 enum OrderStatus {
   pending_sync
   synced
@@ -103,6 +109,8 @@ model Store {
   assets        Asset[]
   auditLogs     AuditLog[]
   dailyStats    StoreDailyStat[]
+  customers     Customer[]
+  discounts     Discount[]
 
   @@index([ownerUserId])
   @@map("stores")
@@ -218,6 +226,14 @@ model Order {
   paymentMethod   String      @map("payment_method") @db.VarChar(20)
   /// Set when checkout used cached stock because Getorio was unreachable (§9.3).
   stockUnverified Boolean     @default(false) @map("stock_unverified")
+  /// Coupon applied at checkout (code and amount are snapshots).
+  discountId      String?     @map("discount_id") @db.Char(36)
+  discountCode    String?     @map("discount_code") @db.VarChar(32)
+  discountTotal   Decimal     @default(0) @map("discount_total") @db.Decimal(12, 2)
+  /// Linked by account or by phone; drives the merchant's customer profiles.
+  customerId      String?     @map("customer_id") @db.Char(36)
+  /// True when placed while signed in: only these show in the customer's own account.
+  viaAccount      Boolean     @default(false) @map("via_account")
   getorioOrderId  String?     @map("getorio_order_id") @db.VarChar(64)
   syncAttempts    Int         @default(0) @map("sync_attempts")
   lastSyncError   String?     @map("last_sync_error") @db.VarChar(500)
@@ -225,13 +241,17 @@ model Order {
   createdAt       DateTime    @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.DateTime(3)
 
-  store Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  items OrderItem[]
+  store    Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items    OrderItem[]
+  customer Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  discount Discount?   @relation(fields: [discountId], references: [id], onDelete: SetNull)
 
   /// Idempotency keys come from browsers, so they are unique per store, not globally.
   @@unique([storeId, idempotencyKey])
   @@index([storeId, createdAt])
   @@index([status, updatedAt])
+  @@index([customerId, createdAt])
+  @@index([discountId])
   @@map("orders")
 }
 
@@ -305,4 +325,93 @@ model StoreDailyStat {
 
   @@id([storeId, day])
   @@map("store_daily_stats")
+}
+
+/// A store's customer. Created on first order (guest) or at sign-up; one per phone / email per
+/// store. Guests have no password. Order counters are kept up to date at checkout.
+model Customer {
+  id               String    @id @db.Char(36)
+  storeId          String    @map("store_id") @db.Char(36)
+  getorioTenantId  String    @map("getorio_tenant_id") @db.VarChar(64)
+  name             String    @db.VarChar(120)
+  /// +923XXXXXXXXX
+  phone            String?   @db.VarChar(20)
+  /// Lower-cased.
+  email            String?   @db.VarChar(254)
+  /// scrypt; null for guests who never signed up.
+  passwordHash     String?   @map("password_hash") @db.VarChar(255)
+  acceptsMarketing Boolean   @default(false) @map("accepts_marketing")
+  /// Merchant-only.
+  notes            String?   @db.VarChar(1000)
+  /// Merchant-only labels, e.g. ["VIP"]. Never filtered on in SQL.
+  tags             Json?
+  ordersCount      Int       @default(0) @map("orders_count")
+  totalSpent       Decimal   @default(0) @map("total_spent") @db.Decimal(12, 2)
+  firstOrderAt     DateTime? @map("first_order_at") @db.DateTime(3)
+  lastOrderAt      DateTime? @map("last_order_at") @db.DateTime(3)
+  lastCity         String?   @map("last_city") @db.VarChar(80)
+  registeredAt     DateTime? @map("registered_at") @db.DateTime(3)
+  lastLoginAt      DateTime? @map("last_login_at") @db.DateTime(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  store     Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  addresses CustomerAddress[]
+  orders    Order[]
+
+  @@unique([storeId, phone])
+  @@unique([storeId, email])
+  @@index([storeId, createdAt])
+  @@index([storeId, lastOrderAt])
+  @@index([storeId, totalSpent])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id         String   @id @db.Char(36)
+  customerId String   @map("customer_id") @db.Char(36)
+  label      String   @default("Home") @db.VarChar(40)
+  name       String   @db.VarChar(120)
+  phone      String   @db.VarChar(20)
+  address    String   @db.VarChar(250)
+  city       String   @db.VarChar(80)
+  isDefault  Boolean  @default(false) @map("is_default")
+  createdAt  DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+/// Discount codes created in the dashboard and redeemed at checkout.
+model Discount {
+  id               String       @id @db.Char(36)
+  storeId          String       @map("store_id") @db.Char(36)
+  getorioTenantId  String       @map("getorio_tenant_id") @db.VarChar(64)
+  /// Upper-cased.
+  code             String       @db.VarChar(32)
+  description      String?      @db.VarChar(200)
+  type             DiscountType
+  /// Percent (1-100) or an amount in the store currency; 0 for free shipping.
+  value            Decimal      @db.Decimal(12, 2)
+  /// Caps a percentage discount.
+  maxDiscount      Decimal?     @map("max_discount") @db.Decimal(12, 2)
+  minSubtotal      Decimal?     @map("min_subtotal") @db.Decimal(12, 2)
+  usageLimit       Int?         @map("usage_limit")
+  perCustomerLimit Int?         @map("per_customer_limit")
+  usedCount        Int          @default(0) @map("used_count")
+  startsAt         DateTime     @map("starts_at") @db.DateTime(3)
+  endsAt           DateTime?    @map("ends_at") @db.DateTime(3)
+  active           Boolean      @default(true)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.DateTime(3)
+
+  store  Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([storeId, code])
+  @@index([storeId, createdAt])
+  @@map("discounts")
 }

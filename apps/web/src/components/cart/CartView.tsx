@@ -84,42 +84,74 @@ export function CartLines({ items, editable }: { items: CartItem[]; editable: bo
   );
 }
 
+export interface AppliedDiscount {
+  code: string;
+  summary: string;
+  amount: string;
+  freeShipping: boolean;
+}
+
 export function Summary({
   items,
   rules,
   currency,
   city,
+  discount,
 }: {
   items: CartItem[];
   rules: ShippingRules;
   currency: string;
   /** Delivery city typed at checkout; undefined in the cart. */
   city?: string;
+  /** Discount code applied at checkout (amounts come from the server). */
+  discount?: AppliedDiscount | null;
 }) {
   const t = totals(items, rules, city);
+  const shipping = discount?.freeShipping ? 0 : Number(t.shipping);
   // With city rates the fee is only known once the city is entered (free shipping aside).
-  const byCity =
-    Boolean(rules.cityShippingRates?.length) && !city?.trim() && Number(t.shipping) > 0;
+  const byCity = Boolean(rules.cityShippingRates?.length) && !city?.trim() && shipping > 0;
+  const off = discount ? toMinor(discount.amount) : 0;
+  const subtotalAfter = fromMinor(Math.max(0, toMinor(t.subtotal) - off));
+  const total = fromMinor(
+    Math.max(0, toMinor(t.subtotal) - off) + (byCity ? 0 : Math.round(shipping * 100)),
+  );
   return (
     <dl className="space-y-2 text-sm">
       <div className="flex justify-between">
         <dt>Subtotal</dt>
         <dd>{formatMoney(t.subtotal, currency)}</dd>
       </div>
+      {discount && off > 0 ? (
+        <div className="flex justify-between text-green-700">
+          <dt>
+            Discount <span className="font-mono text-xs font-semibold">({discount.code})</span>
+          </dt>
+          <dd>−{formatMoney(discount.amount, currency)}</dd>
+        </div>
+      ) : null}
       <div className="flex justify-between">
         <dt>Shipping</dt>
         <dd>
-          {Number(t.shipping) === 0
-            ? 'Free'
-            : byCity
-              ? 'Depends on city'
-              : formatMoney(t.shipping, currency)}
+          {shipping === 0 ? (
+            discount?.freeShipping && Number(t.shipping) > 0 ? (
+              <span className="text-green-700">
+                <s className="me-1 text-[var(--ms-muted)]">{formatMoney(t.shipping, currency)}</s>
+                Free
+              </span>
+            ) : (
+              'Free'
+            )
+          ) : byCity ? (
+            'Depends on city'
+          ) : (
+            formatMoney(t.shipping, currency)
+          )}
         </dd>
       </div>
       <div className="flex justify-between border-t border-[var(--ms-border)] pt-2 text-base font-bold">
         <dt>Total</dt>
         <dd>
-          {formatMoney(byCity ? t.subtotal : t.total, currency)}
+          {formatMoney(byCity ? subtotalAfter : total, currency)}
           {byCity ? ' + delivery' : ''}
         </dd>
       </div>

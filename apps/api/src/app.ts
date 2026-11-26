@@ -28,6 +28,10 @@ import { merchantCommerceRoutes } from './routes/merchant-commerce';
 import { publicRoutes } from './routes/public';
 import { storeRoutes } from './routes/stores';
 import { webhookRoutes } from './routes/webhooks';
+import type { CustomerAccountService } from './customers/customer-accounts';
+import type { CustomerService } from './customers/customer-service';
+import type { DiscountService } from './discounts/discount-service';
+import { customerRoutes } from './routes/customers';
 import type { CheckoutService } from './orders/checkout-service';
 import type { OrderTrackingService } from './orders/order-tracking';
 import type { AnalyticsService } from './stores/analytics';
@@ -51,6 +55,9 @@ export interface AppDeps {
   tracking: OrderTrackingService;
   analytics: AnalyticsService;
   domains: DomainService;
+  accounts: CustomerAccountService;
+  customers: CustomerService;
+  discounts: DiscountService;
   magic: MagicStoreService;
   commands: CommandService;
   revalidator: SiteRevalidator;
@@ -115,6 +122,7 @@ export async function buildApp(deps: AppDeps, options: FastifyServerOptions = {}
       await authRoutes(api, deps);
       await storeRoutes(api, deps);
       await api.register(async (scope) => merchantCommerceRoutes(scope, deps));
+      await api.register(async (scope) => customerRoutes(scope, deps));
       await api.register(async (scope) => publicRoutes(scope, deps));
       await api.register(async (scope) => webhookRoutes(scope, deps));
       await api.register(async (scope) => assetRoutes(scope, deps));

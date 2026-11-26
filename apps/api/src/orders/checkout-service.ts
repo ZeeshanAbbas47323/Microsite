@@ -8,6 +8,13 @@ import { Prisma, type Store } from '../generated/prisma/client';
 import { AppError, conflict } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { storeSettingsSchema } from '../stores/settings';
+import { recordCustomerOrder, type CustomerAccountService } from '../customers/customer-accounts';
+import {
+  describeDiscount,
+  evaluateDiscount,
+  reserveDiscount,
+  type AppliedDiscount,
+} from '../discounts/discount-service';
 import type { NotificationQueue } from '../notifications/queue';
 import type { CaptchaVerifier } from './captcha';
 import type { OrderSyncQueue } from './order-sync';
@@ -45,12 +52,22 @@ export const checkoutBodySchema = z.strictObject({
     .min(1)
     .max(MAX_CART_LINES),
   paymentMethod: z.literal('cod').default('cod'),
+  /** Discount code typed at checkout; checked and applied on the server. */
+  discountCode: z.string().trim().max(32).optional(),
   /** Honeypot: hidden in the form, must stay empty (FR-5.9). */
   website: z.string().max(200).optional(),
   /** Cloudflare Turnstile token, required only when CAPTCHA is enabled. */
   captchaToken: z.string().max(2048).optional(),
 });
 export type CheckoutBody = z.input<typeof checkoutBodySchema>;
+
+/** "Apply" on the checkout page: prices the cart with a code without placing an order. */
+export const quoteBodySchema = z.strictObject({
+  items: checkoutBodySchema.shape.items,
+  city: z.string().trim().max(80).default(''),
+  phone: z.union([z.literal(''), pkPhoneSchema]).optional(),
+  discountCode: z.string().trim().min(1).max(32),
+});
 
 export const idempotencyKeySchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/, {
   error: 'Idempotency-Key header must be 16-128 URL-safe characters',
@@ -88,6 +105,8 @@ export interface OrderSummary {
   currency: string;
   subtotal: string;
   shippingFee: string;
+  discountCode: string | null;
+  discountTotal: string;
   total: string;
   paymentMethod: string;
   items: {
@@ -109,6 +128,7 @@ export class CheckoutService {
     private readonly extras: {
       notifications?: NotificationQueue;
       captcha?: CaptchaVerifier;
+      accounts?: CustomerAccountService;
       onOrderPlaced?: () => void;
     } = {},
   ) {}
@@ -122,6 +142,7 @@ export class CheckoutService {
     rawBody: unknown,
     idempotencyKey: string,
     remoteIp = '',
+    customerToken?: string,
   ): Promise<{ order: OrderSummary; created: boolean }> {
     const body = checkoutBodySchema.parse(rawBody);
     if (body.website) throw new AppError(400, 'bad_request', 'Your order could not be placed');
@@ -140,18 +161,37 @@ export class CheckoutService {
     }
 
     const { lines, unverified } = await this.priceLines(store, mergeLines(body.items));
-    const settings = storeSettingsSchema.parse(store.settings);
     const subtotalMinor = lines.reduce((sum, l) => sum + l.unitMinor * l.qty, 0);
-    const threshold =
-      settings.freeShippingThreshold === null ? null : toMinorUnits(settings.freeShippingThreshold);
-    const shippingMinor =
-      threshold !== null && subtotalMinor >= threshold
-        ? 0
-        : toMinorUnits(baseShippingFee(settings, body.shipping.city));
+    const baseShippingMinor = shippingFor(store, subtotalMinor, body.shipping.city);
+    const signedIn = (await this.extras.accounts?.resolve(store, customerToken)) ?? null;
+    const applied: AppliedDiscount | null = body.discountCode
+      ? await evaluateDiscount(this.db, store.id, body.discountCode, {
+          subtotalMinor,
+          shippingMinor: baseShippingMinor,
+          phone: body.customer.phone,
+        })
+      : null;
+    const shippingMinor = applied ? applied.shippingMinor : baseShippingMinor;
+    const discountMinor = applied?.discountMinor ?? 0;
+    const totalMinor = subtotalMinor - discountMinor + shippingMinor;
 
     const orderId = newId();
     try {
       await this.db.$transaction(async (tx) => {
+        if (applied) await reserveDiscount(tx, applied.discount);
+        const customerId = await recordCustomerOrder(
+          tx,
+          store,
+          {
+            name: body.customer.name,
+            phone: body.customer.phone,
+            email: body.customer.email || null,
+            city: body.shipping.city,
+            totalMinor,
+          },
+          signedIn,
+          new Date(),
+        );
         await tx.order.create({
           data: {
             id: orderId,
@@ -169,7 +209,12 @@ export class CheckoutService {
             notes: body.notes || null,
             subtotal: fromMinorUnits(subtotalMinor),
             shippingFee: fromMinorUnits(shippingMinor),
-            total: fromMinorUnits(subtotalMinor + shippingMinor),
+            discountId: applied?.discount.id ?? null,
+            discountCode: applied?.discount.code ?? null,
+            discountTotal: fromMinorUnits(discountMinor),
+            customerId,
+            viaAccount: signedIn !== null,
+            total: fromMinorUnits(totalMinor),
             currency: store.currency,
             paymentMethod: PAYMENT_METHODS[body.paymentMethod]?.id ?? 'cod',
             stockUnverified: unverified,
@@ -210,6 +255,31 @@ export class CheckoutService {
       include: { items: true },
     });
     return { order: toSummary(order), created: true };
+  }
+
+  /** Prices the cart with a discount code for the checkout page (nothing is reserved). */
+  async quote(store: Store, rawBody: unknown) {
+    const body = quoteBodySchema.parse(rawBody);
+    const { lines } = await this.priceLines(store, mergeLines(body.items));
+    const subtotalMinor = lines.reduce((sum, l) => sum + l.unitMinor * l.qty, 0);
+    const baseShippingMinor = shippingFor(store, subtotalMinor, body.city);
+    const applied = await evaluateDiscount(this.db, store.id, body.discountCode, {
+      subtotalMinor,
+      shippingMinor: baseShippingMinor,
+      phone: body.phone || null,
+    });
+    return {
+      discount: {
+        code: applied.discount.code,
+        type: applied.discount.type,
+        summary: describeDiscount(applied.discount),
+        amount: fromMinorUnits(applied.discountMinor),
+        freeShipping: applied.discount.type === 'free_shipping',
+      },
+      subtotal: fromMinorUnits(subtotalMinor),
+      shippingFee: fromMinorUnits(applied.shippingMinor),
+      total: fromMinorUnits(subtotalMinor - applied.discountMinor + applied.shippingMinor),
+    };
   }
 
   private findExisting(storeId: string, idempotencyKey: string) {
@@ -301,6 +371,15 @@ export class CheckoutService {
   }
 }
 
+function shippingFor(store: Store, subtotalMinor: number, city: string) {
+  const settings = storeSettingsSchema.parse(store.settings);
+  const threshold =
+    settings.freeShippingThreshold === null ? null : toMinorUnits(settings.freeShippingThreshold);
+  return threshold !== null && subtotalMinor >= threshold
+    ? 0
+    : toMinorUnits(baseShippingFee(settings, city));
+}
+
 /** Same product+variant lines are merged so quantities are checked against stock together. */
 function mergeLines(items: CheckoutBodyItem[]) {
   const merged = new Map<string, { productId: string; variantId: string | null; qty: number }>();
@@ -329,6 +408,7 @@ function hashRequest(body: z.output<typeof checkoutBodySchema>) {
       `${a.productId}:${a.variantId}`.localeCompare(`${b.productId}:${b.variantId}`),
     ),
     paymentMethod: body.paymentMethod,
+    discountCode: body.discountCode?.toUpperCase() ?? '',
   };
   return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 }
@@ -342,6 +422,8 @@ export function toSummary(order: OrderWithItems): OrderSummary {
     currency: order.currency,
     subtotal: order.subtotal.toFixed(2),
     shippingFee: order.shippingFee.toFixed(2),
+    discountCode: order.discountCode,
+    discountTotal: order.discountTotal.toFixed(2),
     total: order.total.toFixed(2),
     paymentMethod: order.paymentMethod,
     items: order.items.map((i) => ({

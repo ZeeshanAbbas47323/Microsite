@@ -10,6 +10,7 @@ import type { Page, SiteConfig } from '@microstore/site-schema';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AccountLink } from '@/components/account/AccountLink';
 import { CartLink } from '@/components/cart/CartLink';
 import { getProducts, getStore, StorefrontApiError, type Mode, type StoreResponse } from './api';
 import { notFound } from 'next/navigation';
@@ -110,7 +111,12 @@ export async function buildContext(
     sectionProducts: await loadSectionProducts(mode, page),
     sectionCategories: await loadSectionCategories(mode, page),
     currentPath,
-    cartSlot: <CartLink href={href('/cart')} />,
+    cartSlot: (
+      <span className="inline-flex items-center gap-0.5">
+        {mode.preview ? null : <AccountLink href={href('/account')} />}
+        <CartLink href={href('/cart')} />
+      </span>
+    ),
     editable: Boolean(mode.preview),
   };
 }

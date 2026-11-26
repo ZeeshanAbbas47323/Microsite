@@ -41,6 +41,9 @@ export function toGetorioPayload(order: OrderWithItems): MicrostoreOrderPayload 
     })),
     subtotal: order.subtotal.toFixed(2),
     shippingFee: order.shippingFee.toFixed(2),
+    discount: order.discountCode
+      ? { code: order.discountCode, amount: order.discountTotal.toFixed(2) }
+      : null,
     total: order.total.toFixed(2),
     currency: order.currency,
     paymentMethod: 'cod',

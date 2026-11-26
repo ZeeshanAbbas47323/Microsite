@@ -49,6 +49,10 @@ export class OrderNotifier {
         (i) => `${i.nameSnapshot} × ${i.qty}: ${money(i.lineTotal, order.currency)}`,
       );
       const total = money(order.total, order.currency);
+      if (order.discountCode && Number(order.discountTotal) > 0)
+        lines.push(
+          `Discount (${order.discountCode}): -${money(order.discountTotal, order.currency)}`,
+        );
 
       if (this.email && order.customerEmail && settings.notifications.customerEmail) {
         const text = [
