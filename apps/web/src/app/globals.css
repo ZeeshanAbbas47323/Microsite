@@ -6,6 +6,10 @@
 /* Dashboard brand colour, built around #0074fc. Text and filled buttons use 600, which is a shade
    darker so white text on it passes WCAG AA contrast (4.5:1). */
 @theme {
+  /* Sora (loaded in app/layout.tsx) becomes --default-font-family for preflight's <html> rule. */
+  --font-sans:
+    var(--font-sora), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
   --color-brand-50: #eef6ff;
   --color-brand-100: #d9ebff;
   --color-brand-200: #bcdcff;
@@ -23,8 +27,24 @@
   color-scheme: light;
 }
 
+/* Same base as Tailwind preflight's <html> rule, spelled out so it is clear what the app uses. */
 html {
   -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+  line-height: 1.5;
+  font-family: var(
+    --default-font-family,
+    ui-sans-serif,
+    system-ui,
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol',
+    'Noto Color Emoji'
+  );
+  font-feature-settings: var(--default-font-feature-settings, normal);
+  font-variation-settings: var(--default-font-variation-settings, normal);
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -34,11 +54,6 @@ body {
 :focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
-}
-
-/* Dashboard typeface: Sora (see app/dashboard/layout.tsx). */
-.font-urdu-scope {
-  font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Dashboard in Urdu: Nastaliq needs more line height than Latin text. Latin runs (store names,

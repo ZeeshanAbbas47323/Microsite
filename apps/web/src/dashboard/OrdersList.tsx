@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Badge, Button, Notice } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import { api } from './api';
+import { Icon, PATHS } from './editor/icons';
 import { useT } from './i18n';
 import { formatDate, SyncBadge, type OrderRow } from './Overview';
 import { useDashboard } from './session';
@@ -132,7 +133,7 @@ function SortHeader({
       <button
         type="button"
         onClick={() => onSort(column)}
-        className={`inline-flex items-center gap-1 rounded tracking-wide uppercase hover:text-neutral-900 ${active ? 'text-brand-700' : ''}`}
+        className={`inline-flex items-center gap-1 rounded hover:text-neutral-900 ${active ? 'text-neutral-900' : ''}`}
       >
         {label}
         <span aria-hidden="true" className={active ? '' : 'opacity-30'}>
@@ -306,216 +307,242 @@ export function OrdersList() {
     return list;
   }, [pages, page]);
 
+  const failedCount = counts.sync_failed ?? 0;
+  const stats: { label: string; value: string; tone?: 'red' }[] = [
+    { label: t('Orders'), value: data ? data.total.toLocaleString('en-PK') : '–' },
+    {
+      label: t('Sales'),
+      value: data ? formatMoney(data.totalValue, store?.currency ?? 'PKR') : '–',
+    },
+    { label: t('In Getorio'), value: data ? String(counts.synced ?? 0) : '–' },
+    {
+      label: t('Needs attention'),
+      value: data ? String(failedCount) : '–',
+      ...(failedCount ? { tone: 'red' as const } : {}),
+    },
+  ];
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{t('Orders')}</h1>
-          <p className="text-sm text-neutral-500">
-            {data
-              ? `${data.total.toLocaleString('en-PK')} order${data.total === 1 ? '' : 's'} · ${formatMoney(data.totalValue, store?.currency ?? 'PKR')} total`
-              : ' '}
-          </p>
-        </div>
+    <div className="mx-auto max-w-6xl space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">{t('Orders')}</h1>
         <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => void load()}>
+            {t('Refresh')}
+          </Button>
           <Button
             variant="secondary"
+            size="sm"
             onClick={() => void exportAll()}
             loading={busy === 'export'}
             disabled={!data?.total}
           >
-            Export CSV
-          </Button>
-          <Button variant="secondary" onClick={() => void load()}>
-            {t('Refresh')}
+            {t('Export')}
           </Button>
         </div>
       </div>
 
-      {/* Status tabs */}
-      <div
-        role="group"
-        aria-label={t('Filter orders')}
-        className="flex gap-1 overflow-x-auto border-b border-neutral-200"
-      >
-        {STATUSES.map(([value, label]) => {
-          const active = status === value;
-          const n = value ? (counts[value] ?? 0) : allCount;
-          return (
-            <button
-              key={value || 'all'}
-              type="button"
-              aria-pressed={active}
-              onClick={() => {
-                setStatus(value);
-                setPage(1);
-              }}
-              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`}
+      {/* Summary strip */}
+      <dl className="grid grid-cols-2 divide-neutral-200 rounded-xl border border-neutral-200 bg-white sm:grid-cols-4 sm:divide-x">
+        {stats.map((s) => (
+          <div key={s.label} className="px-4 py-3">
+            <dt className="text-xs font-medium text-neutral-500">
+              {filtered && s.label !== t('Needs attention')
+                ? `${s.label} · ${t('filtered')}`
+                : s.label}
+            </dt>
+            <dd
+              className={`mt-0.5 text-lg font-semibold tabular-nums ${s.tone === 'red' ? 'text-red-700' : ''}`}
             >
-              {t(label)}
-              <span
-                className={`rounded-full px-1.5 text-xs tabular-nums ${active ? 'bg-brand-100 text-brand-800' : value === 'sync_failed' && n ? 'bg-red-100 text-red-800' : 'bg-neutral-100 text-neutral-600'}`}
-              >
-                {data ? n : '–'}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="relative min-w-56 flex-1">
-          <span className="sr-only">Search orders</span>
-          <span
-            className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-neutral-400"
-            aria-hidden="true"
-          >
-            ⌕
-          </span>
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search order no., customer, phone or city"
-            className="h-10 w-full rounded-lg border border-neutral-300 bg-white ps-8 pe-3 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="sr-only">Date range</span>
-          <select
-            value={range}
-            onChange={(e) => {
-              setRange(e.target.value as RangeKey);
-              setPage(1);
-            }}
-            className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm"
-          >
-            {RANGES.map(([v, label]) => (
-              <option key={v || 'all'} value={v}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {range === 'custom' ? (
-          <>
-            <label className="text-xs text-neutral-600">
-              From
-              <input
-                type="date"
-                value={from}
-                max={to || pktDay()}
-                onChange={(e) => {
-                  setFrom(e.target.value);
-                  setPage(1);
-                }}
-                className="mt-0.5 block h-10 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
-              />
-            </label>
-            <label className="text-xs text-neutral-600">
-              To
-              <input
-                type="date"
-                value={to}
-                min={from || undefined}
-                max={pktDay()}
-                onChange={(e) => {
-                  setTo(e.target.value);
-                  setPage(1);
-                }}
-                className="mt-0.5 block h-10 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
-              />
-            </label>
-          </>
-        ) : null}
-        <div className="relative" ref={columnsRef}>
-          <Button
-            variant="secondary"
-            aria-expanded={columnsOpen}
-            onClick={() => setColumnsOpen((o) => !o)}
-          >
-            Columns
-          </Button>
-          {columnsOpen ? (
-            <fieldset className="absolute end-0 z-20 mt-1 w-48 space-y-1 rounded-xl border border-neutral-200 bg-white p-3 shadow-lg">
-              <legend className="sr-only">Visible columns</legend>
-              {COLUMNS.map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="accent-brand-600"
-                    checked={show(key)}
-                    onChange={() =>
-                      setHidden((h) => {
-                        const next = new Set(h);
-                        if (next.has(key)) next.delete(key);
-                        else next.add(key);
-                        return next;
-                      })
-                    }
-                  />
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-          ) : null}
-        </div>
-        {filtered ? (
-          <button
-            type="button"
-            onClick={() => {
-              setSearchInput('');
-              setSearch('');
-              setRange('');
-              setStatus('');
-              setPage(1);
-            }}
-            className="h-10 text-sm font-medium text-brand-700 hover:underline"
-          >
-            Clear filters
-          </button>
-        ) : null}
-      </div>
+              {s.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
 
       {error ? <Notice tone="error">{error}</Notice> : null}
 
-      {/* Bulk actions */}
-      {selected.size > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-4 py-2.5 text-sm ring-1 ring-brand-200">
-          <span className="font-semibold text-brand-900">{selected.size} selected</span>
-          <Button
-            variant="secondary"
-            className="h-8"
-            disabled={!failedSelected}
-            loading={busy === 'retry'}
-            onClick={() => void retry([...selected.values()])}
+      <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white">
+        {/* Views + bulk actions */}
+        {selected.size > 0 ? (
+          <div className="flex h-12 flex-wrap items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-3 text-sm">
+            <span className="font-semibold">{selected.size} selected</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8"
+              disabled={!failedSelected}
+              loading={busy === 'retry'}
+              onClick={() => void retry([...selected.values()])}
+            >
+              Retry sync{failedSelected ? ` (${failedSelected})` : ''}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8"
+              onClick={() => download(`orders-selected-${pktDay()}.csv`, [...selected.values()])}
+            >
+              Export selected
+            </Button>
+            <button
+              type="button"
+              onClick={() => setSelected(new Map())}
+              className="ms-auto rounded-md px-2 py-1 font-medium text-neutral-600 hover:bg-neutral-200/60"
+            >
+              Clear selection
+            </button>
+          </div>
+        ) : (
+          <div
+            role="group"
+            aria-label={t('Filter orders')}
+            className="flex gap-1 overflow-x-auto border-b border-neutral-200 px-2 py-2"
           >
-            Retry sync{failedSelected ? ` (${failedSelected})` : ''}
-          </Button>
-          <Button
-            variant="secondary"
-            className="h-8"
-            onClick={() => download(`orders-selected-${pktDay()}.csv`, [...selected.values()])}
-          >
-            Export selected
-          </Button>
-          <button
-            type="button"
-            onClick={() => setSelected(new Map())}
-            className="ms-auto text-brand-700 hover:underline"
-          >
-            Clear selection
-          </button>
-        </div>
-      ) : null}
+            {STATUSES.map(([value, label]) => {
+              const active = status === value;
+              const n = value ? (counts[value] ?? 0) : allCount;
+              return (
+                <button
+                  key={value || 'all'}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    setStatus(value);
+                    setPage(1);
+                  }}
+                  className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm ${active ? 'bg-neutral-200/70 font-semibold text-neutral-900' : 'font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'}`}
+                >
+                  {t(label)}
+                  <span
+                    className={`text-xs tabular-nums ${value === 'sync_failed' && n ? 'rounded-full bg-red-100 px-1.5 text-red-800' : 'text-neutral-500'}`}
+                  >
+                    {data ? n : '–'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-end gap-2 border-b border-neutral-200 p-2">
+          <label className="relative min-w-56 flex-1">
+            <span className="sr-only">Search orders</span>
+            <span className="pointer-events-none absolute inset-y-0 start-2.5 flex items-center text-neutral-400">
+              <Icon d={PATHS.search} className="h-4 w-4" />
+            </span>
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search order no., customer, phone or city"
+              className="h-9 w-full rounded-lg border border-neutral-300 bg-white ps-8 pe-3 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="sr-only">Date range</span>
+            <select
+              value={range}
+              onChange={(e) => {
+                setRange(e.target.value as RangeKey);
+                setPage(1);
+              }}
+              className="h-9 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm"
+            >
+              {RANGES.map(([v, label]) => (
+                <option key={v || 'all'} value={v}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {range === 'custom' ? (
+            <>
+              <label className="text-xs text-neutral-600">
+                From
+                <input
+                  type="date"
+                  value={from}
+                  max={to || pktDay()}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    setPage(1);
+                  }}
+                  className="mt-0.5 block h-9 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+                />
+              </label>
+              <label className="text-xs text-neutral-600">
+                To
+                <input
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  max={pktDay()}
+                  onChange={(e) => {
+                    setTo(e.target.value);
+                    setPage(1);
+                  }}
+                  className="mt-0.5 block h-9 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+                />
+              </label>
+            </>
+          ) : null}
+          <div className="relative" ref={columnsRef}>
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-expanded={columnsOpen}
+              onClick={() => setColumnsOpen((o) => !o)}
+            >
+              Columns
+            </Button>
+            {columnsOpen ? (
+              <fieldset className="absolute end-0 z-20 mt-1 w-48 space-y-1 rounded-xl border border-neutral-200 bg-white p-3 shadow-lg">
+                <legend className="sr-only">Visible columns</legend>
+                {COLUMNS.map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="accent-brand-600"
+                      checked={show(key)}
+                      onChange={() =>
+                        setHidden((h) => {
+                          const next = new Set(h);
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        })
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
+          </div>
+          {filtered ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('');
+                setSearch('');
+                setRange('');
+                setStatus('');
+                setPage(1);
+              }}
+              className="h-9 rounded-lg px-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
+
+        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <caption className="sr-only">Orders</caption>
-            <thead className="sticky top-0 z-10 bg-neutral-50 text-xs text-neutral-600 uppercase tracking-wide">
+            <thead className="bg-neutral-50 text-xs text-neutral-600">
               <tr className="border-b border-neutral-200">
                 <th scope="col" className="w-10 px-3 py-2.5">
                   <input
@@ -572,7 +599,7 @@ export function OrdersList() {
               {!data && loading ? (
                 Array.from({ length: 6 }, (_, i) => (
                   <tr key={i}>
-                    <td colSpan={colCount} className="px-3 py-3">
+                    <td colSpan={colCount} className="px-3 py-2.5">
                       <div className="h-5 animate-pulse rounded bg-neutral-100" />
                     </td>
                   </tr>
@@ -600,7 +627,7 @@ export function OrdersList() {
                       <tr
                         className={`transition-colors ${isSelected ? 'bg-brand-50/60' : 'hover:bg-neutral-50'} ${loading ? 'opacity-60' : ''}`}
                       >
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-2.5">
                           <input
                             type="checkbox"
                             aria-label={`Select order ${o.orderRef}`}
@@ -616,12 +643,12 @@ export function OrdersList() {
                             }
                           />
                         </td>
-                        <th scope="row" className="px-3 py-3 text-start font-normal">
+                        <th scope="row" className="px-3 py-2.5 text-start font-normal">
                           <button
                             type="button"
                             onClick={() => void toggle(o)}
                             aria-expanded={Boolean(detail)}
-                            className="inline-flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"
+                            className="inline-flex items-center gap-1.5 font-semibold whitespace-nowrap text-neutral-900 hover:underline"
                           >
                             <span
                               aria-hidden="true"
@@ -638,22 +665,22 @@ export function OrdersList() {
                           ) : null}
                         </th>
                         {show('date') ? (
-                          <td className="px-3 py-3 whitespace-nowrap text-neutral-600">
+                          <td className="px-3 py-2.5 whitespace-nowrap text-neutral-600">
                             {formatDate(o.createdAt)}
                           </td>
                         ) : null}
                         {show('customer') ? (
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-2.5">
                             <p className="font-medium">{o.customerName}</p>
                             <p className="text-xs text-neutral-500">{o.customerPhone}</p>
                           </td>
                         ) : null}
-                        {show('city') ? <td className="px-3 py-3">{o.city}</td> : null}
+                        {show('city') ? <td className="px-3 py-2.5">{o.city}</td> : null}
                         {show('items') ? (
-                          <td className="px-3 py-3 text-end tabular-nums">{o.itemCount}</td>
+                          <td className="px-3 py-2.5 text-end tabular-nums">{o.itemCount}</td>
                         ) : null}
                         {show('total') ? (
-                          <td className="px-3 py-3 text-end font-semibold tabular-nums whitespace-nowrap">
+                          <td className="px-3 py-2.5 text-end font-semibold tabular-nums whitespace-nowrap">
                             {formatMoney(o.total, o.currency)}
                             {o.discountCode ? (
                               <span
@@ -670,11 +697,11 @@ export function OrdersList() {
                           </td>
                         ) : null}
                         {show('status') ? (
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-2.5">
                             <SyncBadge status={o.status} />
                           </td>
                         ) : null}
-                        <td className="px-3 py-3 text-end whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-end whitespace-nowrap">
                           {o.status === 'sync_failed' ? (
                             <Button
                               variant="secondary"
@@ -811,7 +838,7 @@ export function OrdersList() {
         </div>
 
         {/* Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-4 py-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 px-4 py-2.5 text-sm">
           <div className="flex items-center gap-3 text-neutral-600">
             <span>
               {data && data.total
@@ -842,7 +869,7 @@ export function OrdersList() {
                 type="button"
                 disabled={page === 1}
                 onClick={() => setPage((n) => n - 1)}
-                className="h-8 rounded-md px-2 hover:bg-white disabled:opacity-40"
+                className="h-8 rounded-md px-2 hover:bg-neutral-100 disabled:opacity-40"
               >
                 ‹ Prev
               </button>
@@ -857,7 +884,7 @@ export function OrdersList() {
                     type="button"
                     aria-current={p === page ? 'page' : undefined}
                     onClick={() => setPage(p)}
-                    className={`h-8 min-w-8 rounded-md px-2 tabular-nums ${p === page ? 'bg-brand-600 font-semibold text-white' : 'hover:bg-white'}`}
+                    className={`h-8 min-w-8 rounded-md px-2 tabular-nums ${p === page ? 'bg-neutral-900 font-semibold text-white' : 'hover:bg-neutral-100'}`}
                   >
                     {p}
                   </button>
@@ -867,7 +894,7 @@ export function OrdersList() {
                 type="button"
                 disabled={page === pages}
                 onClick={() => setPage((n) => n + 1)}
-                className="h-8 rounded-md px-2 hover:bg-white disabled:opacity-40"
+                className="h-8 rounded-md px-2 hover:bg-neutral-100 disabled:opacity-40"
               >
                 Next ›
               </button>

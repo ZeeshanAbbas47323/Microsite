@@ -49,6 +49,8 @@ export const PATHS = {
   chevron: 'M9 6l6 6-6 6',
   header: 'M4 4h16v6H4zM4 14h16M4 18h10',
   footer: 'M4 14h16v6H4zM4 6h16M4 10h10',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+  star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z',
   home: 'M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10',
   design: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4',
   products: 'M20 13l-7 7-9-9V4h7zM8 8h.01',
