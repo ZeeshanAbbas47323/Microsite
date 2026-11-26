@@ -10,6 +10,7 @@ import {
   Playfair_Display,
   Poppins,
   Roboto,
+  Sora,
 } from 'next/font/google';
 
 // Self-hosted via next/font (no request to Google at runtime). Only the font a store uses is
@@ -21,6 +22,7 @@ const poppins = Poppins({
   display: 'swap',
   preload: false,
 });
+const sora = Sora({ subsets: ['latin'], display: 'swap', preload: false });
 const roboto = Roboto({ subsets: ['latin'], display: 'swap', preload: false });
 const openSans = Open_Sans({ subsets: ['latin'], display: 'swap', preload: false });
 const lato = Lato({
@@ -48,6 +50,7 @@ const nastaliq = Noto_Nastaliq_Urdu({
 const FONTS: Record<FontFamily, { style: { fontFamily: string } }> = {
   Inter: inter,
   Poppins: poppins,
+  Sora: sora,
   Roboto: roboto,
   'Open Sans': openSans,
   Lato: lato,

@@ -137,9 +137,9 @@ export function PreviewFrame({
   }
 
   return (
-    <div className="relative flex h-full w-full justify-center overflow-hidden bg-neutral-100 p-3 sm:p-5">
+    <div className="relative flex h-full w-full justify-center overflow-hidden">
       <div
-        className="relative h-full overflow-hidden rounded-xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.08)] ring-1 ring-neutral-200 transition-[width] duration-300"
+        className="relative h-full overflow-hidden rounded-xl bg-white ring-1 ring-neutral-200 transition-[width] duration-300"
         style={{ width: WIDTH[device], maxWidth: '100%' }}
       >
         {!src ? (

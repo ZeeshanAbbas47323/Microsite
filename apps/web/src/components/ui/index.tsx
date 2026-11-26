@@ -21,12 +21,14 @@ const variants = {
 
 export function Button({
   variant = 'primary',
+  size = 'md',
   loading = false,
   className = '',
   children,
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: keyof typeof variants;
+  size?: 'md' | 'sm';
   loading?: boolean;
 }) {
   return (
@@ -35,7 +37,7 @@ export function Button({
       {...rest}
       disabled={rest.disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`inline-flex ${size === 'sm' ? 'h-9 px-3' : 'h-10 px-4'} items-center justify-center gap-2 rounded-lg text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
     >
       {loading ? <Spinner /> : null}
       {children}

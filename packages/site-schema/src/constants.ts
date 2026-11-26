@@ -5,6 +5,7 @@ export const CURRENT_SCHEMA_VERSION = 1 as const;
 export const FONT_WHITELIST = [
   'Inter',
   'Poppins',
+  'Sora',
   'Roboto',
   'Open Sans',
   'Lato',

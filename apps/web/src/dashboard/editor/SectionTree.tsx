@@ -9,21 +9,8 @@ import {
   type SectionType,
 } from '@microstore/site-schema';
 import { useState, type KeyboardEvent } from 'react';
+import { Icon, PATHS, SECTION_PATHS } from './icons';
 import { sectionTitle } from './SectionSettings';
-
-/** Tiny glyphs so each section type is recognisable at a glance. */
-const GLYPH: Record<SectionType, string> = {
-  hero: '▣',
-  features: '✦',
-  categoryGrid: '▦',
-  productGrid: '▤',
-  imageText: '◧',
-  richText: '¶',
-  banner: '▬',
-  testimonials: '❝',
-  faq: '?',
-  contactInfo: '☎',
-};
 
 export type Selection =
   | { kind: 'section'; id: string }
@@ -32,48 +19,61 @@ export type Selection =
   | { kind: 'page' }
   | null;
 
-function EyeIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      {open ? (
-        <>
-          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      ) : (
-        <path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 5.4-1.6" />
-      )}
-    </svg>
-  );
+function GroupLabel({ children }: { children: string }) {
+  return <h3 className="px-3 pb-1 pt-4 text-[13px] font-semibold text-neutral-900">{children}</h3>;
 }
 
-function FixedRow({ label, hint, onClick }: { label: string; hint: string; onClick: () => void }) {
+/** A fixed part of every page (header, footer, page settings): one quiet row with a chevron. */
+function FixedRow({
+  label,
+  hint,
+  icon,
+  onClick,
+}: {
+  label: string;
+  hint: string;
+  icon: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start text-sm hover:bg-neutral-100"
+      title={hint}
+      className="group flex h-9 w-full items-center gap-2.5 rounded-lg ps-3 pe-2 text-start text-sm text-neutral-800 hover:bg-neutral-100"
     >
-      <span
-        className="flex h-7 w-7 items-center justify-center rounded-md bg-neutral-100 text-xs text-neutral-500"
-        aria-hidden="true"
-      >
-        ≡
+      <span className="text-neutral-500">
+        <Icon d={icon} className="h-4 w-4" />
       </span>
-      <span className="flex-1">
-        <span className="block font-medium">{label}</span>
-        <span className="block text-xs text-neutral-500">{hint}</span>
+      <span className="min-w-0 flex-1 truncate">
+        {label}
+        <span className="sr-only">, {hint}</span>
       </span>
-      <span className="text-neutral-400" aria-hidden="true">
-        ›
+      <span className="text-neutral-400 opacity-0 group-hover:opacity-100">
+        <Icon d={PATHS.chevron} className="h-4 w-4" />
       </span>
+    </button>
+  );
+}
+
+function AddRow({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex h-9 w-full items-center gap-2.5 rounded-lg ps-3 pe-2 text-start text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:text-neutral-400 disabled:hover:bg-transparent"
+    >
+      <Icon d={PATHS.plusCircle} className="h-4 w-4" />
+      {label}
     </button>
   );
 }
@@ -111,18 +111,18 @@ export function SectionTree({
 
   if (picker) {
     return (
-      <div className="space-y-3 p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Add a section</h3>
+      <div className="p-2">
+        <div className="flex items-center justify-between px-3 pb-2 pt-2">
+          <h3 className="text-[13px] font-semibold text-neutral-900">Add section</h3>
           <button
             type="button"
             onClick={() => setPicker(false)}
-            className="rounded px-2 py-1 text-sm text-neutral-600 hover:bg-neutral-100"
+            className="rounded-md px-2 py-1 text-sm text-neutral-600 hover:bg-neutral-100"
           >
             Cancel
           </button>
         </div>
-        <ul className="grid gap-2">
+        <ul className="space-y-0.5">
           {SECTION_TYPES.map((type) => (
             <li key={type}>
               <button
@@ -131,17 +131,16 @@ export function SectionTree({
                   onAdd(type, page.sections.length);
                   setPicker(false);
                 }}
-                className="flex w-full items-start gap-3 rounded-lg border border-neutral-200 p-3 text-start hover:border-brand-400 hover:bg-brand-50/40"
+                className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-start hover:bg-neutral-100"
               >
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-700"
-                  aria-hidden="true"
-                >
-                  {GLYPH[type]}
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-600">
+                  <Icon d={SECTION_PATHS[type]} className="h-4 w-4" />
                 </span>
-                <span>
-                  <span className="block text-sm font-medium">{SECTION_INFO[type].label}</span>
-                  <span className="block text-xs text-neutral-500">
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-neutral-900">
+                    {SECTION_INFO[type].label}
+                  </span>
+                  <span className="block text-xs leading-snug text-neutral-500">
                     {SECTION_INFO[type].description}
                   </span>
                 </span>
@@ -154,136 +153,131 @@ export function SectionTree({
   }
 
   return (
-    <div className="space-y-1 p-2">
-      <FixedRow
-        label="Header"
-        hint="Logo, menu and cart"
-        onClick={() => onSelect({ kind: 'header' })}
-      />
-      <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-        Sections
-      </p>
-      <ol
-        aria-label="Sections on this page"
-        className="space-y-0.5"
-        onMouseLeave={() => onHover(null)}
-      >
-        {page.sections.map((section, i) => (
-          <li
-            key={section.id}
-            draggable
-            onDragStart={(e) => {
-              setDragIndex(i);
-              e.dataTransfer.effectAllowed = 'move';
-              e.dataTransfer.setData('text/plain', section.id);
-            }}
-            onDragOver={(e) => {
-              if (dragIndex === null) return;
-              e.preventDefault();
-              const rect = e.currentTarget.getBoundingClientRect();
-              setDropIndex(e.clientY < rect.top + rect.height / 2 ? i : i + 1);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              if (dragIndex !== null && dropIndex !== null) {
-                const to = dropIndex > dragIndex ? dropIndex - 1 : dropIndex;
-                if (to !== dragIndex) onReorder(dragIndex, to);
-              }
-              setDragIndex(null);
-              setDropIndex(null);
-            }}
-            onDragEnd={() => {
-              setDragIndex(null);
-              setDropIndex(null);
-            }}
-            onMouseEnter={() => onHover(section.id)}
-            className={`group relative ${dragIndex === i ? 'opacity-40' : ''}`}
-          >
-            {dropIndex === i && dragIndex !== null ? (
-              <span
-                className="absolute inset-x-2 -top-px h-0.5 rounded bg-brand-600"
-                aria-hidden="true"
-              />
-            ) : null}
-            {dropIndex === i + 1 && dragIndex !== null && i === page.sections.length - 1 ? (
-              <span
-                className="absolute inset-x-2 -bottom-px h-0.5 rounded bg-brand-600"
-                aria-hidden="true"
-              />
-            ) : null}
-            <div
-              className={`flex items-center gap-1 rounded-lg pe-1 ${selectedId === section.id ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-neutral-100'}`}
-            >
-              <span
-                className="cursor-grab px-1.5 text-neutral-300 group-hover:text-neutral-500 active:cursor-grabbing"
-                aria-hidden="true"
-                title="Drag to reorder"
+    <div className="px-2 pb-4">
+      <section aria-label="Header group">
+        <GroupLabel>Header</GroupLabel>
+        <FixedRow
+          label="Header"
+          hint="Logo, menu and cart"
+          icon={PATHS.header}
+          onClick={() => onSelect({ kind: 'header' })}
+        />
+      </section>
+
+      <section aria-label="Page sections" className="mt-2 border-t border-neutral-100">
+        <GroupLabel>Template</GroupLabel>
+        <ol aria-label="Sections on this page" onMouseLeave={() => onHover(null)}>
+          {page.sections.map((section, i) => {
+            const title = sectionTitle(section);
+            const selected = selectedId === section.id;
+            return (
+              <li
+                key={section.id}
+                draggable
+                onDragStart={(e) => {
+                  setDragIndex(i);
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', section.id);
+                }}
+                onDragOver={(e) => {
+                  if (dragIndex === null) return;
+                  e.preventDefault();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDropIndex(e.clientY < rect.top + rect.height / 2 ? i : i + 1);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragIndex !== null && dropIndex !== null) {
+                    const to = dropIndex > dragIndex ? dropIndex - 1 : dropIndex;
+                    if (to !== dragIndex) onReorder(dragIndex, to);
+                  }
+                  setDragIndex(null);
+                  setDropIndex(null);
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setDropIndex(null);
+                }}
+                onMouseEnter={() => onHover(section.id)}
+                className={`group relative ${dragIndex === i ? 'opacity-40' : ''}`}
               >
-                ⋮⋮
-              </span>
-              <button
-                type="button"
-                onClick={() => onSelect({ kind: 'section', id: section.id })}
-                onKeyDown={(e) => onRowKey(e, i)}
-                onFocus={() => onHover(section.id)}
-                aria-current={selectedId === section.id ? 'true' : undefined}
-                aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                className={`flex min-w-0 flex-1 items-center gap-2.5 py-2 text-start text-sm ${section.visible ? '' : 'text-neutral-400'}`}
-              >
-                <span
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-xs text-neutral-600"
-                  aria-hidden="true"
+                {dropIndex === i && dragIndex !== null ? (
+                  <span
+                    className="absolute inset-x-2 -top-px z-10 h-0.5 rounded bg-brand-600"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                {dropIndex === i + 1 && dragIndex !== null && i === page.sections.length - 1 ? (
+                  <span
+                    className="absolute inset-x-2 -bottom-px z-10 h-0.5 rounded bg-brand-600"
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <div
+                  className={`flex h-9 items-center rounded-lg pe-1 ${selected ? 'bg-neutral-100' : 'hover:bg-neutral-100'}`}
                 >
-                  {GLYPH[section.type]}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{sectionTitle(section)}</span>
-                  <span className="block truncate text-xs text-neutral-500">
-                    {SECTION_INFO[section.type].label}
-                    {section.visible ? '' : ' · hidden'}
+                  <span
+                    className="flex w-3 cursor-grab justify-center text-neutral-400 opacity-0 group-hover:opacity-100 active:cursor-grabbing"
+                    aria-hidden="true"
+                    title="Drag to reorder"
+                  >
+                    <Icon d={PATHS.grip} className="h-3.5 w-3.5" />
                   </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onToggle(i)}
-                aria-label={
-                  section.visible
-                    ? `Hide ${sectionTitle(section)}`
-                    : `Show ${sectionTitle(section)}`
-                }
-                aria-pressed={!section.visible}
-                className="rounded-md p-1.5 text-neutral-400 opacity-0 hover:bg-white hover:text-neutral-700 focus:opacity-100 group-hover:opacity-100 aria-pressed:opacity-100"
-              >
-                <EyeIcon open={section.visible} />
-              </button>
-            </div>
-          </li>
-        ))}
-      </ol>
-      <button
-        type="button"
-        disabled={full}
-        onClick={() => setPicker(true)}
-        className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:text-neutral-400"
-      >
-        <span className="text-lg leading-none" aria-hidden="true">
-          +
-        </span>
-        {full ? `This page has the maximum of ${MAX_SECTIONS_PER_PAGE} sections` : 'Add section'}
-      </button>
-      <div className="pt-3">
+                  <button
+                    type="button"
+                    onClick={() => onSelect({ kind: 'section', id: section.id })}
+                    onKeyDown={(e) => onRowKey(e, i)}
+                    onFocus={() => onHover(section.id)}
+                    aria-current={selected ? 'true' : undefined}
+                    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                    className={`flex h-full min-w-0 flex-1 items-center gap-2.5 text-start text-sm ${section.visible ? 'text-neutral-800' : 'text-neutral-400'}`}
+                  >
+                    <span className={section.visible ? 'text-neutral-500' : 'text-neutral-300'}>
+                      <Icon d={SECTION_PATHS[section.type]} className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 truncate" title={title}>
+                      {title}
+                      <span className="sr-only"> {SECTION_INFO[section.type].label}</span>
+                      {section.visible ? null : <span className="sr-only"> (hidden)</span>}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onToggle(i)}
+                    aria-label={section.visible ? `Hide ${title}` : `Show ${title}`}
+                    aria-pressed={!section.visible}
+                    title={section.visible ? 'Hide section' : 'Show section'}
+                    className="rounded-md p-1.5 text-neutral-500 opacity-0 hover:bg-neutral-200 hover:text-neutral-800 focus:opacity-100 group-hover:opacity-100 aria-pressed:opacity-100"
+                  >
+                    <Icon d={section.visible ? PATHS.eye : PATHS.eyeOff} className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <AddRow
+          label={full ? `Maximum of ${MAX_SECTIONS_PER_PAGE} sections reached` : 'Add section'}
+          disabled={full}
+          onClick={() => setPicker(true)}
+        />
+      </section>
+
+      <section aria-label="Footer group" className="mt-2 border-t border-neutral-100">
+        <GroupLabel>Footer</GroupLabel>
         <FixedRow
           label="Footer"
           hint="Links, contact and footer text"
+          icon={PATHS.footer}
           onClick={() => onSelect({ kind: 'footer' })}
         />
         <FixedRow
           label="Page settings"
           hint="Name in the menu, search engines"
+          icon={PATHS.page}
           onClick={() => onSelect({ kind: 'page' })}
         />
-      </div>
+      </section>
     </div>
   );
 }
