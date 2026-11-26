@@ -221,12 +221,12 @@ export function OnboardingWizard({ rootDomain }: { rootDomain: string }) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <p className="text-sm font-medium text-indigo-700">Create your store</p>
+      <p className="text-sm font-medium text-brand-700">Create your store</p>
       <ol className="mt-3 grid grid-cols-6 gap-1.5" aria-label="Progress">
         {STEPS.map((label, i) => (
           <li key={label} className="space-y-1">
             <div
-              className={`h-1.5 rounded-full ${i <= step ? 'bg-indigo-600' : 'bg-neutral-200'}`}
+              className={`h-1.5 rounded-full ${i <= step ? 'bg-brand-600' : 'bg-neutral-200'}`}
             />
             <span
               className={`hidden text-xs sm:block ${i === step ? 'font-semibold text-neutral-900' : 'text-neutral-500'}`}
@@ -520,7 +520,7 @@ export function OnboardingWizard({ rootDomain }: { rootDomain: string }) {
               {layouts.map((l) => (
                 <label
                   key={l.id}
-                  className="cursor-pointer rounded-xl border-2 border-neutral-200 p-3 has-[:checked]:border-indigo-600 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-300"
+                  className="cursor-pointer rounded-xl border-2 border-neutral-200 p-3 has-[:checked]:border-brand-600 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-300"
                 >
                   <input
                     type="radio"

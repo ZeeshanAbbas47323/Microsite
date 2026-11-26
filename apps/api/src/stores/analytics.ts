@@ -58,20 +58,54 @@ export class AnalyticsService {
     const today = karachiDay(this.now());
     const first = new Date(`${today}T00:00:00.000Z`);
     first.setUTCDate(first.getUTCDate() - (days - 1));
-    const firstDay = first.toISOString().slice(0, 10);
+    const previousFirst = new Date(first);
+    previousFirst.setUTCDate(previousFirst.getUTCDate() - days);
+
+    const [current, previous, topProducts, statuses] = await Promise.all([
+      this.window(tenantId, storeId, first, days),
+      this.window(tenantId, storeId, previousFirst, days),
+      this.topProducts(tenantId, storeId, first),
+      this.db.order.groupBy({
+        by: ['status'],
+        where: {
+          storeId,
+          getorioTenantId: tenantId,
+          createdAt: { gte: new Date(first.getTime() - PKT_OFFSET_MS) },
+        },
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      from: first.toISOString().slice(0, 10),
+      to: today,
+      totals: current.totals,
+      /** The same number of days just before, for "vs previous period". */
+      previous: previous.totals,
+      days: current.days,
+      topProducts,
+      ordersByStatus: Object.fromEntries(statuses.map((s) => [s.status, s._count._all])),
+    };
+  }
+
+  /** Daily series and totals for `days` Pakistan days starting at `first`. */
+  private async window(tenantId: string, storeId: string, first: Date, days: number) {
+    const end = new Date(first);
+    end.setUTCDate(end.getUTCDate() + days);
     // Midnight in Pakistan, as UTC, for the orders query.
     const since = new Date(first.getTime() - PKT_OFFSET_MS);
+    const until = new Date(end.getTime() - PKT_OFFSET_MS);
 
     const [stats, orders] = await Promise.all([
       this.db.storeDailyStat.findMany({
-        where: { storeId, getorioTenantId: tenantId, day: { gte: first } },
+        where: { storeId, getorioTenantId: tenantId, day: { gte: first, lt: end } },
       }),
       this.db.$queryRaw<{ day: string; orders: bigint; revenue: Prisma.Decimal | null }[]>`
         SELECT DATE_FORMAT(DATE_ADD(created_at, INTERVAL 5 HOUR), '%Y-%m-%d') AS day,
                COUNT(*) AS orders, SUM(total) AS revenue
         FROM orders
         WHERE store_id = ${storeId} AND getorio_tenant_id = ${tenantId}
-          AND created_at >= ${since} AND status <> 'cancelled'
+          AND created_at >= ${since} AND created_at < ${until} AND status <> 'cancelled'
         GROUP BY day`,
     ]);
 
@@ -102,8 +136,7 @@ export class AnalyticsService {
       .reduce((sum, d) => sum.plus(d.revenue), new Prisma.Decimal(0))
       .toFixed(2);
     return {
-      from: firstDay,
-      to: today,
+      days: series,
       totals: {
         visits,
         pageViews: series.reduce((n, d) => n + d.pageViews, 0),
@@ -114,7 +147,72 @@ export class AnalyticsService {
         conversionRate:
           visits > 0 ? Math.min(1, Math.round((orderCount / visits) * 10_000) / 10_000) : null,
       },
-      days: series,
     };
+  }
+
+  /** Best sellers since `first` (cancelled orders excluded), by sales. */
+  private async topProducts(tenantId: string, storeId: string, first: Date) {
+    const rows = await this.db.$queryRaw<
+      { productId: string; name: string; qty: Prisma.Decimal | bigint; revenue: Prisma.Decimal }[]
+    >`
+      SELECT i.getorio_product_id AS productId, MAX(i.name_snapshot) AS name,
+             SUM(i.qty) AS qty, SUM(i.line_total) AS revenue
+      FROM order_items i JOIN orders o ON o.id = i.order_id
+      WHERE o.store_id = ${storeId} AND o.getorio_tenant_id = ${tenantId}
+        AND o.created_at >= ${new Date(first.getTime() - PKT_OFFSET_MS)} AND o.status <> 'cancelled'
+      GROUP BY i.getorio_product_id
+      ORDER BY revenue DESC
+      LIMIT 5`;
+    return rows.map((r) => ({
+      productId: r.productId,
+      // Variant names are stored as "Product - Size 9"; show the product.
+      name: r.name.split(' - ')[0] ?? r.name,
+      qty: Number(r.qty),
+      revenue: new Prisma.Decimal(r.revenue).toFixed(2),
+    }));
+  }
+
+  /** Latest orders and design events, newest first (customer first names only). */
+  async activity(tenantId: string, storeId: string) {
+    await this.stores.get(tenantId, storeId);
+    const [orders, versions] = await Promise.all([
+      this.db.order.findMany({
+        where: { storeId, getorioTenantId: tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: {
+          orderRef: true,
+          customerName: true,
+          total: true,
+          currency: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+      this.db.siteVersion.findMany({
+        where: { storeId, getorioTenantId: tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: { kind: true, source: true, createdAt: true },
+      }),
+    ]);
+    const events = [
+      ...orders.map((o) => ({
+        type: 'order' as const,
+        at: o.createdAt.toISOString(),
+        orderRef: o.orderRef,
+        customer: o.customerName.split(/\s+/)[0] ?? '',
+        total: o.total.toFixed(2),
+        currency: o.currency,
+        status: o.status,
+      })),
+      ...versions.map((v) => ({
+        type: 'design' as const,
+        at: v.createdAt.toISOString(),
+        kind: v.kind,
+        source: v.source,
+      })),
+    ];
+    return { events: events.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 15) };
   }
 }

@@ -13,6 +13,7 @@ const NAV = [
   { href: '/dashboard/design', label: 'Design' },
   { href: '/dashboard/products', label: 'Products' },
   { href: '/dashboard/orders', label: 'Orders' },
+  { href: '/dashboard/domains', label: 'Domains' },
   { href: '/dashboard/settings', label: 'Settings' },
 ];
 
@@ -85,7 +86,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     <Link
                       href={item.href}
                       {...(active ? { 'aria-current': 'page' as const } : {})}
-                      className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${active ? 'bg-indigo-50 text-indigo-700' : 'text-neutral-700 hover:bg-neutral-100'}`}
+                      className={`block whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${active ? 'bg-brand-50 text-brand-700' : 'text-neutral-700 hover:bg-neutral-100'}`}
                     >
                       {t(item.label)}
                     </Link>
@@ -144,7 +145,7 @@ function LanguageSwitch({
           lang={value}
           aria-pressed={locale === value}
           onClick={() => onChange(value)}
-          className={`rounded-md px-2.5 py-1 text-sm ${locale === value ? 'bg-indigo-50 font-semibold text-indigo-700' : 'text-neutral-600 hover:bg-neutral-100'}`}
+          className={`rounded-md px-2.5 py-1 text-sm ${locale === value ? 'bg-brand-50 font-semibold text-brand-700' : 'text-neutral-600 hover:bg-neutral-100'}`}
         >
           {name}
         </button>

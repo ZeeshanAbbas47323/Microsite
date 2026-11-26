@@ -18,6 +18,10 @@ export const envSchema = z
     ROOT_DOMAIN: z.string().min(1),
     /** Public storefront URL; `{host}` is the store hostname. Dev: `http://{host}:3000`. */
     STOREFRONT_URL_TEMPLATE: z.string().includes('{host}').default('https://{host}'),
+    /** Custom domains (Phase 4): server IPv4(s) merchants point their A record at. */
+    CUSTOM_DOMAIN_IPS: csv.default(['203.0.113.10']),
+    /** Custom domains: CNAME target for www/shop subdomains; default `stores.<ROOT_DOMAIN>`. */
+    CUSTOM_DOMAIN_CNAME: z.string().optional(),
     DATABASE_URL: z.string().min(1),
     REDIS_URL: z.string().optional(),
     SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),

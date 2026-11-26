@@ -25,6 +25,7 @@ import { MagicStoreService } from './stores/magic';
 import { MerchantOrderService } from './orders/merchant-orders';
 import { BullOrderSyncQueue, OrderSyncService, type Alert } from './orders/order-sync';
 import { HttpSiteRevalidator } from './stores/http-revalidator';
+import { createDnsLookup, DomainService } from './stores/domains';
 import { noopRevalidator, StoreService } from './stores/store-service';
 
 /** Wires production dependencies from the environment. Shared by the API server and the worker. */
@@ -133,6 +134,12 @@ export function createContainer(
     ),
     tracking: new OrderTrackingService(db, getorio, cache),
     analytics: new AnalyticsService(db, stores),
+    domains: new DomainService(db, stores, createDnsLookup(), revalidator, {
+      rootDomain: env.ROOT_DOMAIN,
+      targetIps: env.CUSTOM_DOMAIN_IPS,
+      cnameTarget: env.CUSTOM_DOMAIN_CNAME ?? `stores.${env.ROOT_DOMAIN}`,
+      storefrontUrlTemplate: env.STOREFRONT_URL_TEMPLATE,
+    }),
     magic: new MagicStoreService(stores, commandLlm, cache),
     checkout: new CheckoutService(db, catalog, queue, {
       notifications,

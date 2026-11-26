@@ -120,6 +120,11 @@ model Domain {
   /// Old subdomains keep redirecting to the new primary for 30 days (FR-6.6).
   redirectToDomainId String?    @map("redirect_to_domain_id") @db.Char(36)
   redirectExpiresAt  DateTime?  @map("redirect_expires_at") @db.DateTime(3)
+  /// Custom domains: value the merchant puts in a TXT record to prove ownership (Phase 4).
+  verificationToken  String?    @map("verification_token") @db.VarChar(64)
+  verifiedAt         DateTime?  @map("verified_at") @db.DateTime(3)
+  lastCheckedAt      DateTime?  @map("last_checked_at") @db.DateTime(3)
+  lastCheckError     String?    @map("last_check_error") @db.VarChar(255)
   createdAt          DateTime   @default(now()) @map("created_at") @db.DateTime(3)
   updatedAt          DateTime   @updatedAt @map("updated_at") @db.DateTime(3)
 

@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Notice } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import { api } from './api';
-import { formatDate, SyncBadge, type OrderRow } from './Overview';
 import { useT } from './i18n';
+import { formatDate, SyncBadge, type OrderRow } from './Overview';
 import { useDashboard } from './session';
 
 interface OrderDetail extends OrderRow {
@@ -16,43 +16,217 @@ interface OrderDetail extends OrderRow {
   shippingFee: string;
   items: { sku: string; name: string; qty: number; unitPrice: string; lineTotal: string }[];
 }
+interface ListResponse {
+  items: OrderRow[];
+  total: number;
+  statusCounts: Partial<Record<OrderRow['status'], number>>;
+  totalValue: string;
+}
 
-const FILTERS = [
+type Status = '' | OrderRow['status'];
+type SortKey = 'createdAt' | 'total' | 'customerName' | 'city';
+type ColumnKey = 'date' | 'customer' | 'city' | 'items' | 'total' | 'status';
+
+const STATUSES: [Status, string][] = [
   ['', 'All'],
   ['pending_sync', 'Sending'],
   ['sync_failed', 'Failed'],
   ['synced', 'In Getorio'],
+  ['cancelled', 'Cancelled'],
+];
+const COLUMNS: [ColumnKey, string][] = [
+  ['date', 'Date'],
+  ['customer', 'Customer'],
+  ['city', 'City'],
+  ['items', 'Items'],
+  ['total', 'Total'],
+  ['status', 'Status'],
+];
+const PAGE_SIZES = [10, 20, 50, 100] as const;
+const RANGES = [
+  ['', 'All time'],
+  ['0', 'Today'],
+  ['6', 'Last 7 days'],
+  ['29', 'Last 30 days'],
+  ['89', 'Last 90 days'],
+  ['custom', 'Custom'],
 ] as const;
-const PAGE_SIZE = 20;
+type RangeKey = (typeof RANGES)[number][0];
 
-/** FR-6.5: microstore orders with Getorio sync status and manual retry. */
+/** Calendar day in Pakistan, `daysAgo` days before today (YYYY-MM-DD). */
+function pktDay(daysAgo = 0) {
+  return new Date(Date.now() + 5 * 3600_000 - daysAgo * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** CSV cell; neutralises spreadsheet formulas (=, +, -, @). */
+function csvCell(value: string | number) {
+  let s = String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function download(name: string, rows: OrderRow[]) {
+  const header = [
+    'Order',
+    'Date',
+    'Customer',
+    'Phone',
+    'City',
+    'Items',
+    'Total',
+    'Currency',
+    'Status',
+  ];
+  const lines = rows.map((o) =>
+    [
+      o.orderRef,
+      formatDate(o.createdAt),
+      o.customerName,
+      o.customerPhone,
+      o.city,
+      o.itemCount,
+      o.total,
+      o.currency,
+      o.status,
+    ]
+      .map(csvCell)
+      .join(','),
+  );
+  const blob = new Blob([`\uFEFF${[header.join(','), ...lines].join('\n')}`], {
+    type: 'text/csv;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function SortHeader({
+  label,
+  column,
+  sort,
+  dir,
+  onSort,
+  align = 'start',
+}: {
+  label: string;
+  column: SortKey;
+  sort: SortKey;
+  dir: 'asc' | 'desc';
+  onSort: (c: SortKey) => void;
+  align?: 'start' | 'end';
+}) {
+  const active = sort === column;
+  return (
+    <th
+      scope="col"
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`px-3 py-2.5 font-medium ${align === 'end' ? 'text-end' : 'text-start'}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`inline-flex items-center gap-1 rounded tracking-wide uppercase hover:text-neutral-900 ${active ? 'text-brand-700' : ''}`}
+      >
+        {label}
+        <span aria-hidden="true" className={active ? '' : 'opacity-30'}>
+          {active && dir === 'asc' ? '▲' : '▼'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+/** FR-6.5: microstore orders as a searchable, sortable data table with Getorio sync status. */
 export function OrdersList() {
   const { store } = useDashboard();
   const t = useT();
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<Status>('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [range, setRange] = useState<RangeKey>('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [sort, setSort] = useState<SortKey>('createdAt');
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<{ items: OrderRow[]; total: number } | null>(null);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [hidden, setHidden] = useState<Set<ColumnKey>>(new Set());
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [data, setData] = useState<ListResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Map<string, OrderRow>>(new Map());
   const [open, setOpen] = useState<Record<string, OrderDetail>>({});
   const [error, setError] = useState<string | null>(null);
-  const [retrying, setRetrying] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const columnsRef = useRef<HTMLDivElement>(null);
+
+  // Debounced search.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!columnsOpen) return;
+    const close = (e: MouseEvent) => {
+      if (!columnsRef.current?.contains(e.target as Node)) setColumnsOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [columnsOpen]);
+
+  const dates = useMemo(() => {
+    if (range === '') return {};
+    if (range === 'custom') return { ...(from ? { from } : {}), ...(to ? { to } : {}) };
+    return { from: pktDay(Number(range)), to: pktDay() };
+  }, [range, from, to]);
+
+  const query = useCallback(
+    (p: number, size: number, withStatus = true) =>
+      new URLSearchParams({
+        page: String(p),
+        pageSize: String(size),
+        sort,
+        dir,
+        ...(withStatus && status ? { status } : {}),
+        ...(search ? { search } : {}),
+        ...dates,
+      }),
+    [sort, dir, status, search, dates],
+  );
 
   const load = useCallback(async () => {
     if (!store) return;
-    const q = new URLSearchParams({
-      page: String(page),
-      pageSize: String(PAGE_SIZE),
-      ...(status ? { status } : {}),
-    });
+    setLoading(true);
     try {
-      setData(await api(`/stores/${store.id}/orders?${q}`));
+      setData(await api<ListResponse>(`/stores/${store.id}/orders?${query(page, pageSize)}`));
+      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load orders');
+    } finally {
+      setLoading(false);
     }
-  }, [store, page, status]);
+  }, [store, query, page, pageSize]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  function onSort(column: SortKey) {
+    if (sort === column) setDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSort(column);
+      setDir(column === 'customerName' || column === 'city' ? 'asc' : 'desc');
+    }
+    setPage(1);
+  }
 
   async function toggle(o: OrderRow) {
     if (!store) return;
@@ -64,161 +238,614 @@ export function OrdersList() {
     setOpen((m) => ({ ...m, [o.id]: order }));
   }
 
-  async function retry(o: OrderRow) {
+  async function retry(rows: OrderRow[]) {
     if (!store) return;
-    setRetrying(o.id);
+    const failed = rows.filter((o) => o.status === 'sync_failed');
+    if (!failed.length) return;
+    setBusy('retry');
     setError(null);
+    let ok = 0;
+    for (const o of failed) {
+      try {
+        await api(`/stores/${store.id}/orders/${o.id}/retry-sync`, { method: 'POST' });
+        ok++;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Retry failed');
+      }
+    }
+    setBusy(null);
+    setSelected(new Map());
+    setToast(`${ok} order${ok === 1 ? '' : 's'} sent to Getorio again.`);
+    await load();
+  }
+
+  async function exportAll() {
+    if (!store || !data) return;
+    setBusy('export');
     try {
-      await api(`/stores/${store.id}/orders/${o.id}/retry-sync`, { method: 'POST' });
-      await load();
+      const rows: OrderRow[] = [];
+      for (let p = 1; p <= Math.min(20, Math.ceil(data.total / 100)); p++) {
+        const r = await api<ListResponse>(`/stores/${store.id}/orders?${query(p, 100)}`);
+        rows.push(...r.items);
+      }
+      download(`orders-${pktDay()}.csv`, rows);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Retry failed');
+      setError(e instanceof Error ? e.message : 'Export failed');
     } finally {
-      setRetrying(null);
+      setBusy(null);
     }
   }
 
-  const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  const rows = data?.items ?? [];
+  const pages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1;
+  const allOnPage = rows.length > 0 && rows.every((o) => selected.has(o.id));
+  const someOnPage = rows.some((o) => selected.has(o.id));
+  const failedSelected = [...selected.values()].filter((o) => o.status === 'sync_failed').length;
+  const show = (c: ColumnKey) => !hidden.has(c);
+  const colCount = 3 + COLUMNS.filter(([c]) => show(c)).length;
+  const counts = data?.statusCounts ?? {};
+  const allCount = Object.values(counts).reduce((n, v) => n + (v ?? 0), 0);
+  const filtered = Boolean(search || range || status);
+
+  const pageList = useMemo(() => {
+    const list: (number | '…')[] = [];
+    for (let p = 1; p <= pages; p++) {
+      if (p === 1 || p === pages || Math.abs(p - page) <= 1) list.push(p);
+      else if (list.at(-1) !== '…') list.push('…');
+    }
+    return list;
+  }, [pages, page]);
+
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{t('Orders')}</h1>
-        <Button variant="secondary" onClick={() => void load()}>
-          {t('Refresh')}
-        </Button>
-      </div>
-      <div role="group" aria-label={t('Filter orders')} className="flex flex-wrap gap-2">
-        {FILTERS.map(([value, label]) => (
-          <button
-            key={value || 'all'}
-            type="button"
-            aria-pressed={status === value}
-            onClick={() => {
-              setStatus(value);
-              setPage(1);
-            }}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ring-1 ${status === value ? 'bg-neutral-900 text-white ring-neutral-900' : 'bg-white ring-neutral-300 hover:bg-neutral-50'}`}
-          >
-            {t(label)}
-          </button>
-        ))}
-      </div>
-      {error ? <Notice tone="error">{error}</Notice> : null}
-      {!data ? (
-        <p className="text-neutral-500">Loading…</p>
-      ) : data.items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-neutral-300 p-10 text-center text-neutral-500">
-          No orders here yet.
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {data.items.map((o) => {
-            const detail = open[o.id];
-            return (
-              <li key={o.id} className="rounded-xl border border-neutral-200 bg-white">
-                <div className="flex flex-wrap items-center gap-3 p-4">
-                  <button
-                    type="button"
-                    onClick={() => void toggle(o)}
-                    aria-expanded={Boolean(detail)}
-                    className="min-w-48 flex-1 text-start"
-                  >
-                    <p className="font-semibold">
-                      {o.orderRef}{' '}
-                      <span className="font-normal text-neutral-600">
-                        · {o.customerName}, {o.city}
-                      </span>
-                    </p>
-                    <p className="text-sm text-neutral-500">
-                      {formatDate(o.createdAt)} · {o.itemCount} item{o.itemCount === 1 ? '' : 's'}
-                    </p>
-                  </button>
-                  <span className="font-semibold">{formatMoney(o.total, o.currency)}</span>
-                  <SyncBadge status={o.status} />
-                  {o.stockUnverified ? <Badge tone="amber">Check stock</Badge> : null}
-                  {o.status === 'sync_failed' ? (
-                    <Button
-                      variant="secondary"
-                      onClick={() => retry(o)}
-                      loading={retrying === o.id}
-                    >
-                      Retry sync
-                    </Button>
-                  ) : null}
-                  {o.getorioOrderUrl ? (
-                    <a
-                      href={o.getorioOrderUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium text-indigo-700 underline"
-                    >
-                      Open in Getorio
-                    </a>
-                  ) : null}
-                </div>
-                {o.status === 'sync_failed' && o.lastSyncError ? (
-                  <p className="px-4 pb-3 text-sm text-red-700">Last error: {o.lastSyncError}</p>
-                ) : null}
-                {detail ? (
-                  <div className="grid gap-4 border-t border-neutral-100 p-4 text-sm sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <p className="font-medium">Customer</p>
-                      <p>{detail.customerName}</p>
-                      <p>
-                        <a href={`tel:${detail.customerPhone}`} className="underline">
-                          {detail.customerPhone}
-                        </a>
-                      </p>
-                      {detail.customerEmail ? <p>{detail.customerEmail}</p> : null}
-                      <p className="text-neutral-600">
-                        {detail.address}, {detail.city}
-                      </p>
-                      {detail.notes ? (
-                        <p className="text-neutral-600">Note: {detail.notes}</p>
-                      ) : null}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="font-medium">Items (cash on delivery)</p>
-                      {detail.items.map((i, idx) => (
-                        <p key={idx} className="flex justify-between gap-2">
-                          <span>
-                            {i.name} × {i.qty}
-                          </span>
-                          <span>{formatMoney(i.lineTotal, o.currency)}</span>
-                        </p>
-                      ))}
-                      <p className="flex justify-between border-t border-neutral-100 pt-1 text-neutral-600">
-                        <span>Shipping</span>
-                        <span>{formatMoney(detail.shippingFee, o.currency)}</span>
-                      </p>
-                      <p className="flex justify-between font-semibold">
-                        <span>Total</span>
-                        <span>{formatMoney(detail.total, o.currency)}</span>
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {pages > 1 ? (
-        <nav aria-label="Pagination" className="flex items-center justify-center gap-3 text-sm">
-          <Button variant="secondary" disabled={page === 1} onClick={() => setPage((n) => n - 1)}>
-            Previous
-          </Button>
-          <span>
-            Page {page} of {pages}
-          </span>
+    <div className="mx-auto max-w-6xl space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{t('Orders')}</h1>
+          <p className="text-sm text-neutral-500">
+            {data
+              ? `${data.total.toLocaleString('en-PK')} order${data.total === 1 ? '' : 's'} · ${formatMoney(data.totalValue, store?.currency ?? 'PKR')} total`
+              : ' '}
+          </p>
+        </div>
+        <div className="flex gap-2">
           <Button
             variant="secondary"
-            disabled={page === pages}
-            onClick={() => setPage((n) => n + 1)}
+            onClick={() => void exportAll()}
+            loading={busy === 'export'}
+            disabled={!data?.total}
           >
-            Next
+            Export CSV
           </Button>
-        </nav>
+          <Button variant="secondary" onClick={() => void load()}>
+            {t('Refresh')}
+          </Button>
+        </div>
+      </div>
+
+      {/* Status tabs */}
+      <div
+        role="group"
+        aria-label={t('Filter orders')}
+        className="flex gap-1 overflow-x-auto border-b border-neutral-200"
+      >
+        {STATUSES.map(([value, label]) => {
+          const active = status === value;
+          const n = value ? (counts[value] ?? 0) : allCount;
+          return (
+            <button
+              key={value || 'all'}
+              type="button"
+              aria-pressed={active}
+              onClick={() => {
+                setStatus(value);
+                setPage(1);
+              }}
+              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`}
+            >
+              {t(label)}
+              <span
+                className={`rounded-full px-1.5 text-xs tabular-nums ${active ? 'bg-brand-100 text-brand-800' : value === 'sync_failed' && n ? 'bg-red-100 text-red-800' : 'bg-neutral-100 text-neutral-600'}`}
+              >
+                {data ? n : '–'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="relative min-w-56 flex-1">
+          <span className="sr-only">Search orders</span>
+          <span
+            className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-neutral-400"
+            aria-hidden="true"
+          >
+            ⌕
+          </span>
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search order no., customer, phone or city"
+            className="h-10 w-full rounded-lg border border-neutral-300 bg-white ps-8 pe-3 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+          />
+        </label>
+        <label className="text-sm">
+          <span className="sr-only">Date range</span>
+          <select
+            value={range}
+            onChange={(e) => {
+              setRange(e.target.value as RangeKey);
+              setPage(1);
+            }}
+            className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm"
+          >
+            {RANGES.map(([v, label]) => (
+              <option key={v || 'all'} value={v}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {range === 'custom' ? (
+          <>
+            <label className="text-xs text-neutral-600">
+              From
+              <input
+                type="date"
+                value={from}
+                max={to || pktDay()}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setPage(1);
+                }}
+                className="mt-0.5 block h-10 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-neutral-600">
+              To
+              <input
+                type="date"
+                value={to}
+                min={from || undefined}
+                max={pktDay()}
+                onChange={(e) => {
+                  setTo(e.target.value);
+                  setPage(1);
+                }}
+                className="mt-0.5 block h-10 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+              />
+            </label>
+          </>
+        ) : null}
+        <div className="relative" ref={columnsRef}>
+          <Button
+            variant="secondary"
+            aria-expanded={columnsOpen}
+            onClick={() => setColumnsOpen((o) => !o)}
+          >
+            Columns
+          </Button>
+          {columnsOpen ? (
+            <fieldset className="absolute end-0 z-20 mt-1 w-48 space-y-1 rounded-xl border border-neutral-200 bg-white p-3 shadow-lg">
+              <legend className="sr-only">Visible columns</legend>
+              {COLUMNS.map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="accent-brand-600"
+                    checked={show(key)}
+                    onChange={() =>
+                      setHidden((h) => {
+                        const next = new Set(h);
+                        if (next.has(key)) next.delete(key);
+                        else next.add(key);
+                        return next;
+                      })
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+        </div>
+        {filtered ? (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchInput('');
+              setSearch('');
+              setRange('');
+              setStatus('');
+              setPage(1);
+            }}
+            className="h-10 text-sm font-medium text-brand-700 hover:underline"
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </div>
+
+      {error ? <Notice tone="error">{error}</Notice> : null}
+
+      {/* Bulk actions */}
+      {selected.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-brand-50 px-4 py-2.5 text-sm ring-1 ring-brand-200">
+          <span className="font-semibold text-brand-900">{selected.size} selected</span>
+          <Button
+            variant="secondary"
+            className="h-8"
+            disabled={!failedSelected}
+            loading={busy === 'retry'}
+            onClick={() => void retry([...selected.values()])}
+          >
+            Retry sync{failedSelected ? ` (${failedSelected})` : ''}
+          </Button>
+          <Button
+            variant="secondary"
+            className="h-8"
+            onClick={() => download(`orders-selected-${pktDay()}.csv`, [...selected.values()])}
+          >
+            Export selected
+          </Button>
+          <button
+            type="button"
+            onClick={() => setSelected(new Map())}
+            className="ms-auto text-brand-700 hover:underline"
+          >
+            Clear selection
+          </button>
+        </div>
+      ) : null}
+
+      {/* Table */}
+      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <caption className="sr-only">Orders</caption>
+            <thead className="sticky top-0 z-10 bg-neutral-50 text-xs text-neutral-600 uppercase tracking-wide">
+              <tr className="border-b border-neutral-200">
+                <th scope="col" className="w-10 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all orders on this page"
+                    className="accent-brand-600"
+                    checked={allOnPage}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someOnPage && !allOnPage;
+                    }}
+                    onChange={() =>
+                      setSelected((m) => {
+                        const next = new Map(m);
+                        for (const o of rows) {
+                          if (allOnPage) next.delete(o.id);
+                          else next.set(o.id, o);
+                        }
+                        return next;
+                      })
+                    }
+                  />
+                </th>
+                <th scope="col" className="px-3 py-2.5 text-start font-medium">
+                  Order
+                </th>
+                {show('date') ? (
+                  <SortHeader label="Date" column="createdAt" {...{ sort, dir, onSort }} />
+                ) : null}
+                {show('customer') ? (
+                  <SortHeader label="Customer" column="customerName" {...{ sort, dir, onSort }} />
+                ) : null}
+                {show('city') ? (
+                  <SortHeader label="City" column="city" {...{ sort, dir, onSort }} />
+                ) : null}
+                {show('items') ? (
+                  <th scope="col" className="px-3 py-2.5 text-end font-medium">
+                    Items
+                  </th>
+                ) : null}
+                {show('total') ? (
+                  <SortHeader label="Total" column="total" align="end" {...{ sort, dir, onSort }} />
+                ) : null}
+                {show('status') ? (
+                  <th scope="col" className="px-3 py-2.5 text-start font-medium">
+                    Status
+                  </th>
+                ) : null}
+                <th scope="col" className="px-3 py-2.5 text-end font-medium">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100" aria-busy={loading}>
+              {!data && loading ? (
+                Array.from({ length: 6 }, (_, i) => (
+                  <tr key={i}>
+                    <td colSpan={colCount} className="px-3 py-3">
+                      <div className="h-5 animate-pulse rounded bg-neutral-100" />
+                    </td>
+                  </tr>
+                ))
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={colCount} className="px-3 py-14 text-center text-neutral-500">
+                    <p className="text-3xl" aria-hidden="true">
+                      📦
+                    </p>
+                    <p className="mt-2 font-medium text-neutral-700">
+                      {filtered ? 'No orders match these filters.' : 'No orders yet.'}
+                    </p>
+                    {!filtered ? (
+                      <p className="text-sm">Share your store link to get your first order.</p>
+                    ) : null}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((o) => {
+                  const detail = open[o.id];
+                  const isSelected = selected.has(o.id);
+                  return (
+                    <Fragment key={o.id}>
+                      <tr
+                        className={`transition-colors ${isSelected ? 'bg-brand-50/60' : 'hover:bg-neutral-50'} ${loading ? 'opacity-60' : ''}`}
+                      >
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select order ${o.orderRef}`}
+                            className="accent-brand-600"
+                            checked={isSelected}
+                            onChange={() =>
+                              setSelected((m) => {
+                                const next = new Map(m);
+                                if (next.has(o.id)) next.delete(o.id);
+                                else next.set(o.id, o);
+                                return next;
+                              })
+                            }
+                          />
+                        </td>
+                        <th scope="row" className="px-3 py-3 text-start font-normal">
+                          <button
+                            type="button"
+                            onClick={() => void toggle(o)}
+                            aria-expanded={Boolean(detail)}
+                            className="inline-flex items-center gap-1.5 font-semibold text-brand-700 hover:underline"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={`text-[10px] text-neutral-400 transition-transform ${detail ? 'rotate-90' : ''}`}
+                            >
+                              ▶
+                            </span>
+                            {o.orderRef}
+                          </button>
+                          {o.stockUnverified ? (
+                            <span className="ms-2">
+                              <Badge tone="amber">Check stock</Badge>
+                            </span>
+                          ) : null}
+                        </th>
+                        {show('date') ? (
+                          <td className="px-3 py-3 whitespace-nowrap text-neutral-600">
+                            {formatDate(o.createdAt)}
+                          </td>
+                        ) : null}
+                        {show('customer') ? (
+                          <td className="px-3 py-3">
+                            <p className="font-medium">{o.customerName}</p>
+                            <p className="text-xs text-neutral-500">{o.customerPhone}</p>
+                          </td>
+                        ) : null}
+                        {show('city') ? <td className="px-3 py-3">{o.city}</td> : null}
+                        {show('items') ? (
+                          <td className="px-3 py-3 text-end tabular-nums">{o.itemCount}</td>
+                        ) : null}
+                        {show('total') ? (
+                          <td className="px-3 py-3 text-end font-semibold tabular-nums whitespace-nowrap">
+                            {formatMoney(o.total, o.currency)}
+                          </td>
+                        ) : null}
+                        {show('status') ? (
+                          <td className="px-3 py-3">
+                            <SyncBadge status={o.status} />
+                          </td>
+                        ) : null}
+                        <td className="px-3 py-3 text-end whitespace-nowrap">
+                          {o.status === 'sync_failed' ? (
+                            <Button
+                              variant="secondary"
+                              className="h-8 px-3"
+                              onClick={() => void retry([o])}
+                              disabled={busy === 'retry'}
+                            >
+                              Retry
+                            </Button>
+                          ) : o.getorioOrderUrl ? (
+                            <a
+                              href={o.getorioOrderUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-brand-700 hover:underline"
+                            >
+                              Getorio ↗
+                            </a>
+                          ) : null}
+                        </td>
+                      </tr>
+                      {o.status === 'sync_failed' && o.lastSyncError ? (
+                        <tr>
+                          <td
+                            colSpan={colCount}
+                            className="bg-red-50/60 px-12 py-1.5 text-xs text-red-800"
+                          >
+                            Last error: {o.lastSyncError}
+                          </td>
+                        </tr>
+                      ) : null}
+                      {detail ? (
+                        <tr>
+                          <td colSpan={colCount} className="bg-neutral-50 px-12 py-4">
+                            <div className="grid gap-6 text-sm sm:grid-cols-[1fr_1.4fr]">
+                              <div className="space-y-1">
+                                <p className="text-xs font-semibold text-neutral-500 uppercase">
+                                  Customer
+                                </p>
+                                <p className="font-medium">{detail.customerName}</p>
+                                <p>
+                                  <a href={`tel:${detail.customerPhone}`} className="underline">
+                                    {detail.customerPhone}
+                                  </a>
+                                  {' · '}
+                                  <a
+                                    href={`https://wa.me/${detail.customerPhone.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-emerald-700 underline"
+                                  >
+                                    WhatsApp
+                                  </a>
+                                </p>
+                                {detail.customerEmail ? <p>{detail.customerEmail}</p> : null}
+                                <p className="text-neutral-600">
+                                  {detail.address}, {detail.city}
+                                </p>
+                                {detail.notes ? (
+                                  <p className="rounded-lg bg-amber-50 p-2 text-amber-900">
+                                    Note: {detail.notes}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div>
+                                <p className="mb-1 text-xs font-semibold text-neutral-500 uppercase">
+                                  Items · cash on delivery
+                                </p>
+                                <table className="w-full">
+                                  <caption className="sr-only">Items in {o.orderRef}</caption>
+                                  <tbody>
+                                    {detail.items.map((i, idx) => (
+                                      <tr key={idx}>
+                                        <td className="py-0.5">
+                                          {i.name}{' '}
+                                          <span className="text-xs text-neutral-400">{i.sku}</span>
+                                        </td>
+                                        <td className="py-0.5 text-end tabular-nums text-neutral-600">
+                                          {i.qty} × {formatMoney(i.unitPrice, o.currency)}
+                                        </td>
+                                        <td className="py-0.5 text-end tabular-nums">
+                                          {formatMoney(i.lineTotal, o.currency)}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                    <tr className="border-t border-neutral-200 text-neutral-600">
+                                      <td className="pt-1" colSpan={2}>
+                                        Delivery
+                                      </td>
+                                      <td className="pt-1 text-end tabular-nums">
+                                        {formatMoney(detail.shippingFee, o.currency)}
+                                      </td>
+                                    </tr>
+                                    <tr className="font-semibold">
+                                      <td colSpan={2}>Total</td>
+                                      <td className="text-end tabular-nums">
+                                        {formatMoney(detail.total, o.currency)}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50 px-4 py-3 text-sm">
+          <div className="flex items-center gap-3 text-neutral-600">
+            <span>
+              {data && data.total
+                ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, data.total)} of ${data.total}`
+                : 'No results'}
+            </span>
+            <label className="flex items-center gap-1.5">
+              Rows
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="h-8 rounded-md border border-neutral-300 bg-white px-1.5"
+              >
+                {PAGE_SIZES.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {pages > 1 ? (
+            <nav aria-label="Pagination" className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={page === 1}
+                onClick={() => setPage((n) => n - 1)}
+                className="h-8 rounded-md px-2 hover:bg-white disabled:opacity-40"
+              >
+                ‹ Prev
+              </button>
+              {pageList.map((p, i) =>
+                p === '…' ? (
+                  <span key={`gap-${i}`} className="px-1 text-neutral-400">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    aria-current={p === page ? 'page' : undefined}
+                    onClick={() => setPage(p)}
+                    className={`h-8 min-w-8 rounded-md px-2 tabular-nums ${p === page ? 'bg-brand-600 font-semibold text-white' : 'hover:bg-white'}`}
+                  >
+                    {p}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                disabled={page === pages}
+                onClick={() => setPage((n) => n + 1)}
+                className="h-8 rounded-md px-2 hover:bg-white disabled:opacity-40"
+              >
+                Next ›
+              </button>
+            </nav>
+          ) : null}
+        </div>
+      </div>
+
+      {toast ? (
+        <div
+          role="status"
+          className="fixed end-6 bottom-6 z-50 rounded-xl bg-neutral-900 px-4 py-3 text-sm text-white shadow-lg"
+        >
+          {toast}
+        </div>
       ) : null}
     </div>
   );

@@ -315,7 +315,7 @@ export function SectionSettings({
                 max={24}
                 value={section.props.limit}
                 onChange={(e) => setProp('limit', Number(e.target.value))}
-                className="w-full accent-indigo-600"
+                className="w-full accent-brand-600"
               />
             )}
           </Field>
@@ -333,7 +333,7 @@ export function SectionSettings({
                 max={8}
                 value={section.props.limit}
                 onChange={(e) => setProp('limit', Number(e.target.value))}
-                className="w-full accent-indigo-600"
+                className="w-full accent-brand-600"
               />
             )}
           </Field>

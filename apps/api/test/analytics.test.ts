@@ -74,6 +74,49 @@ describe('store analytics (Phase 3)', () => {
     });
   });
 
+  it('adds the previous period, best sellers, order statuses and an activity feed', async () => {
+    const order = await ctx.app.inject({
+      method: 'POST',
+      url: '/api/v1/public/checkout',
+      headers: { 'x-store-host': host, 'idempotency-key': 'analytics-top-0123456789' },
+      payload: {
+        customer: { name: 'Ayesha Khan', phone: '03001234567' },
+        shipping: { address: 'House 5', city: 'Karachi' },
+        items: [
+          { productId: 'p-1001', qty: 2 },
+          { productId: 'p-1004', variantId: 'v-1004-9', qty: 1 },
+        ],
+      },
+    });
+    expect(order.statusCode).toBe(201);
+    const body = (await analytics('?days=7')).json();
+    expect(body.previous).toMatchObject({ orders: 0, visits: 0, revenue: '0.00' });
+    expect(body.topProducts[0]).toEqual({
+      productId: 'p-1001',
+      name: 'Leather Tote Bag',
+      qty: 2,
+      revenue: '9000.00',
+    });
+    // Variant lines are grouped under the product name.
+    expect(body.topProducts[1]).toMatchObject({ name: 'Classic Khussa', qty: 1 });
+    expect(body.ordersByStatus).toEqual({ pending_sync: 1 });
+
+    const activity = (
+      await ctx.app.inject({
+        method: 'GET',
+        url: `/api/v1/stores/${storeId}/activity`,
+        headers: owner.headers,
+      })
+    ).json();
+    expect(activity.events[0]).toMatchObject({
+      type: 'order',
+      customer: 'Ayesha',
+      total: '12400.00',
+    });
+    expect(JSON.stringify(activity)).not.toContain('03001234567');
+    expect(activity.events.some((e: { type: string }) => e.type === 'design')).toBe(true);
+  });
+
   it('defaults to 30 days, rejects other ranges and other tenants', async () => {
     const res = await analytics();
     expect(res.json().days).toHaveLength(30);

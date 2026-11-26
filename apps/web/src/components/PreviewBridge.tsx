@@ -12,7 +12,7 @@ export const PREVIEW_MESSAGE_SOURCE = 'microstore-preview';
 export const EDITOR_MESSAGE_SOURCE = 'microstore-editor';
 
 const ORIGIN_KEY = 'ms_editor_origin';
-const ACCENT = '#4f46e5';
+const ACCENT = '#0074fc';
 
 /** The dashboard origin embedding us. Later in-frame navigations lose the referrer, so cache it. */
 function editorOrigin(): string | null {

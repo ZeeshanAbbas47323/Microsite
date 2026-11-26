@@ -122,6 +122,41 @@ export async function storeRoutes(app: FastifyInstance, deps: AppDeps) {
       return deps.analytics.summary(authOf(request).getorioTenantId, id, days);
     });
 
+    authed.get('/stores/:id/activity', async (request) => {
+      const { id } = storeParams.parse(request.params);
+      return deps.analytics.activity(authOf(request).getorioTenantId, id);
+    });
+
+    // Phase 4: custom domains (FR-9.3).
+    const domainParams = z.object({ id: z.uuid(), did: z.uuid() });
+    authed.get('/stores/:id/domains', async (request) => {
+      const { id } = storeParams.parse(request.params);
+      return deps.domains.list(authOf(request).getorioTenantId, id);
+    });
+    authed.post('/stores/:id/domains', async (request, reply) => {
+      const { id } = storeParams.parse(request.params);
+      const { hostname } = z.object({ hostname: z.string().max(300) }).parse(request.body);
+      return reply
+        .status(201)
+        .send({ domain: await deps.domains.add(authOf(request), id, hostname) });
+    });
+    authed.post(
+      '/stores/:id/domains/:did/verify',
+      { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+      async (request) => {
+        const { id, did } = domainParams.parse(request.params);
+        return deps.domains.verify(authOf(request), id, did);
+      },
+    );
+    authed.post('/stores/:id/domains/:did/primary', async (request) => {
+      const { id, did } = domainParams.parse(request.params);
+      return deps.domains.makePrimary(authOf(request), id, did);
+    });
+    authed.delete('/stores/:id/domains/:did', async (request) => {
+      const { id, did } = domainParams.parse(request.params);
+      return deps.domains.remove(authOf(request), id, did);
+    });
+
     authed.get('/stores/:id/versions', async (request) => {
       const { id } = storeParams.parse(request.params);
       return { versions: await stores.listVersions(authOf(request).getorioTenantId, id) };

@@ -17,7 +17,7 @@ export default async function DashboardHome({
       ) : null}
       <p className="text-neutral-600">
         Open Microstore from inside Getorio to sign in. Already signed in?{' '}
-        <Link href="/dashboard" className="font-semibold text-indigo-700 underline">
+        <Link href="/dashboard" className="font-semibold text-brand-700 underline">
           Go to your dashboard
         </Link>
         .
@@ -26,15 +26,15 @@ export default async function DashboardHome({
         <form
           method="post"
           action="/dev-login"
-          className="space-y-3 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/50 p-4"
+          className="space-y-3 rounded-lg border border-dashed border-brand-300 bg-brand-50/50 p-4"
         >
-          <p className="text-sm font-semibold text-indigo-900">Local development</p>
+          <p className="text-sm font-semibold text-brand-900">Local development</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="submit"
               name="as"
               value="merchant"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
             >
               Sign in as demo merchant
             </button>
@@ -42,7 +42,7 @@ export default async function DashboardHome({
               type="submit"
               name="as"
               value="admin"
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-indigo-800 ring-1 ring-indigo-300 hover:bg-white"
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-brand-800 ring-1 ring-brand-300 hover:bg-white"
             >
               Sign in as platform admin
             </button>

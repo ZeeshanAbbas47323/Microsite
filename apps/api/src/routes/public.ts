@@ -7,7 +7,7 @@ import { AppError, notFound } from '../lib/errors';
 import { idempotencyKeySchema } from '../orders/checkout-service';
 import { verifyPreviewToken } from '../public/preview';
 import { loadLivePreview } from '../stores/live-preview';
-import { resolveStoreByHost, type ResolvedStore } from '../public/tenant';
+import { normalizeHost, resolveStoreByHost, type ResolvedStore } from '../public/tenant';
 import { storeSettingsSchema } from '../stores/settings';
 
 export const STORE_HOST_HEADER = 'x-store-host';
@@ -172,6 +172,15 @@ export async function publicRoutes(app: FastifyInstance, deps: AppDeps) {
       return reply.status(204).send();
     },
   );
+
+  // On-demand TLS (Caddy `ask`): a certificate is only issued for our subdomains and verified
+  // custom domains, so nobody can make us request certificates for arbitrary hosts.
+  app.get('/public/tls/ask', async (request, reply) => {
+    const { domain } = z.object({ domain: z.string().max(253) }).parse(request.query);
+    const host = normalizeHost(domain);
+    const ok = host ? await deps.domains.allowsCertificate(host) : false;
+    return reply.status(ok ? 200 : 404).send();
+  });
 
   // FR-5.10: POST so the phone number never ends up in URLs or access logs.
   app.post(

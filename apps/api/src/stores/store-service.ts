@@ -519,8 +519,10 @@ export class StoreService {
         reason: check.reason,
       });
     const hostname = this.hostnameFor(check.value);
-    const current = store.domains.find((d) => d.isPrimary && d.type === 'subdomain');
+    const current = store.domains.find((d) => d.type === 'subdomain' && !d.redirectToDomainId);
     if (current?.hostname === hostname) return;
+    // A verified custom domain can be primary (Phase 4); the new subdomain then stays secondary.
+    const primary = !store.domains.some((d) => d.isPrimary && d.type === 'custom');
 
     // Re-claiming one of this store's own old subdomains: make it primary again.
     const own = store.domains.find((d) => d.hostname === hostname);
@@ -528,7 +530,7 @@ export class StoreService {
     if (own) {
       await tx.domain.update({
         where: { id: own.id },
-        data: { isPrimary: true, redirectToDomainId: null, redirectExpiresAt: null },
+        data: { isPrimary: primary, redirectToDomainId: null, redirectExpiresAt: null },
       });
     } else {
       await tx.domain.create({
@@ -539,7 +541,7 @@ export class StoreService {
           hostname,
           type: 'subdomain',
           verified: true,
-          isPrimary: true,
+          isPrimary: primary,
         },
       });
     }
@@ -572,13 +574,17 @@ export class StoreService {
 
   private toDto(store: StoreWithDomains) {
     const primary = store.domains.find((d) => d.isPrimary) ?? null;
+    const subdomain =
+      store.domains.find((d) => d.type === 'subdomain' && !d.redirectToDomainId) ?? null;
     return {
       id: store.id,
       name: store.name,
       status: store.status,
       currency: store.currency,
       timezone: store.timezone,
-      subdomain: primary ? primary.hostname.slice(0, -(this.options.rootDomain.length + 1)) : null,
+      subdomain: subdomain
+        ? subdomain.hostname.slice(0, -(this.options.rootDomain.length + 1))
+        : null,
       hostname: primary?.hostname ?? null,
       url: primary ? this.options.storefrontUrlTemplate.replace('{host}', primary.hostname) : null,
       settings: storeSettingsSchema.parse(store.settings),

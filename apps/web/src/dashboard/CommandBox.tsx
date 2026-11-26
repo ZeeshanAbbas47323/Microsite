@@ -159,7 +159,7 @@ export function CommandBox({
   return (
     <section
       aria-label={t('Design assistant')}
-      className="space-y-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 shadow-xs"
+      className="space-y-3 rounded-xl border border-brand-200 bg-brand-50/40 p-4 shadow-xs"
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-neutral-900">{t('Ask the assistant')}</h2>
@@ -185,7 +185,7 @@ export function CommandBox({
                 onChange={(e) => setCommand(e.target.value)}
                 maxLength={300}
                 placeholder={t('e.g. Make the navbar dark blue')}
-                className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
                 disabled={busy !== null || left === 0}
               />
             </label>
@@ -203,7 +203,7 @@ export function CommandBox({
                   setCommand(ex);
                   void ask(ex);
                 }}
-                className="rounded-full bg-white px-3 py-1 text-xs text-neutral-700 ring-1 ring-neutral-200 hover:ring-indigo-300 disabled:opacity-50"
+                className="rounded-full bg-white px-3 py-1 text-xs text-neutral-700 ring-1 ring-neutral-200 hover:ring-brand-300 disabled:opacity-50"
               >
                 {ex}
               </button>
@@ -220,7 +220,7 @@ export function CommandBox({
         ) : null}
         {error ? <Notice tone="error">{error}</Notice> : null}
         {result?.status === 'ok' ? (
-          <div className="space-y-2 rounded-lg bg-white p-3 ring-1 ring-indigo-200">
+          <div className="space-y-2 rounded-lg bg-white p-3 ring-1 ring-brand-200">
             <p className="text-sm">
               <span className="font-medium">{t('Suggested:')}</span>{' '}
               {result.summary || t('Design change ready.')}
@@ -245,7 +245,7 @@ export function CommandBox({
         ) : null}
         {result?.status === 'clarify' ? <Notice>{result.question}</Notice> : null}
         {result?.status === 'advice' ? (
-          <div className="space-y-3 rounded-lg bg-white p-3 text-sm ring-1 ring-indigo-200">
+          <div className="space-y-3 rounded-lg bg-white p-3 text-sm ring-1 ring-brand-200">
             <p>{result.message}</p>
             {result.suggestions.length ? (
               <>
@@ -260,9 +260,9 @@ export function CommandBox({
                           setCommand(s);
                           void ask(s);
                         }}
-                        className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-start ring-1 ring-neutral-200 hover:bg-indigo-50 hover:ring-indigo-300 disabled:opacity-50"
+                        className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-start ring-1 ring-neutral-200 hover:bg-brand-50 hover:ring-brand-300 disabled:opacity-50"
                       >
-                        <span aria-hidden="true" className="text-indigo-600">
+                        <span aria-hidden="true" className="text-brand-600">
                           ✦
                         </span>
                         <span>{s}</span>

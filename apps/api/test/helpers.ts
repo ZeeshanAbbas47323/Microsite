@@ -27,6 +27,7 @@ import { MagicStoreService } from '../src/stores/magic';
 import { MerchantOrderService } from '../src/orders/merchant-orders';
 import { InlineOrderSyncQueue, OrderSyncService } from '../src/orders/order-sync';
 import { StoreService, type SiteRevalidator } from '../src/stores/store-service';
+import { DomainService, type DnsLookup } from '../src/stores/domains';
 
 config({ path: '../../.env', quiet: true });
 
@@ -62,6 +63,28 @@ export const PREVIEW_SECRET = 'preview-secret-0123456789abcdef0123456789';
 export const METRICS_TOKEN = 'metrics-token-0123456789abcdef';
 export const WEBHOOK_SECRET = 'whsec_test_0123456789abcdef';
 
+/** Server IP custom domains must point at, in tests. */
+export const TARGET_IP = '203.0.113.10';
+
+/** In-memory DNS for custom domain tests: `dns.records[host] = { a, cname, txt }`. */
+export class FakeDns implements DnsLookup {
+  records: Record<string, { a?: string[]; cname?: string[]; txt?: string[] }> = {};
+  private get(host: string, key: 'a' | 'cname' | 'txt') {
+    const v = this.records[host]?.[key];
+    if (!v?.length) return Promise.reject(Object.assign(new Error('ENODATA'), { code: 'ENODATA' }));
+    return Promise.resolve(v);
+  }
+  resolve4(host: string) {
+    return this.get(host, 'a');
+  }
+  resolveCname(host: string) {
+    return this.get(host, 'cname');
+  }
+  async resolveTxt(host: string) {
+    return (await this.get(host, 'txt')).map((t) => [t]);
+  }
+}
+
 export async function createTestApp(
   options: {
     now?: () => number;
@@ -86,6 +109,7 @@ export async function createTestApp(
     catalog: Object.fromEntries(tenants.map((t) => [t, createSampleCatalog()])),
   });
   const alerts: { message: string; meta: Record<string, unknown> }[] = [];
+  const dns = new FakeDns();
   const cache = new MemoryCache(options.now);
   const stores = new StoreService(d, {
     rootDomain: ROOT_DOMAIN,
@@ -126,6 +150,12 @@ export async function createTestApp(
     ),
     tracking: new OrderTrackingService(d, getorio, cache),
     analytics: new AnalyticsService(d, stores, () => new Date(options.now?.() ?? Date.now())),
+    domains: new DomainService(d, stores, dns, revalidator, {
+      rootDomain: ROOT_DOMAIN,
+      targetIps: [TARGET_IP],
+      cnameTarget: `stores.${ROOT_DOMAIN}`,
+      storefrontUrlTemplate: 'https://{host}',
+    }),
     magic: new MagicStoreService(stores, commandLlm, cache),
     checkout: new CheckoutService(d, catalog, queue, {
       onOrderPlaced: () => metrics.ordersPlaced.inc(),
@@ -143,6 +173,7 @@ export async function createTestApp(
   });
   return {
     app,
+    dns,
     getorio,
     revalidated,
     queue,

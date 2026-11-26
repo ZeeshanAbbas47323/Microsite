@@ -119,8 +119,8 @@ export function ThemeEditor() {
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>('desktop');
   const [drawer, setDrawer] = useState<'ai' | 'history' | null>(null);
-  const [magicOpen, setMagicOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [magicOpen, setMagicOpen] = useState(() => params.get('magic') === '1');
+  const [shareOpen, setShareOpen] = useState(() => params.get('share') === '1');
   const [revealSignal, setRevealSignal] = useState(0);
   const [addingPage, setAddingPage] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
@@ -558,7 +558,7 @@ export function ThemeEditor() {
               setPageIndex(Number(e.target.value));
               setSelection(null);
             }}
-            className="h-9 max-w-44 rounded-lg border border-neutral-200 bg-white px-2.5 text-sm font-medium hover:border-neutral-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="h-9 max-w-44 rounded-lg border border-neutral-200 bg-white px-2.5 text-sm font-medium hover:border-neutral-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
           >
             {config.pages.map((p, i) => (
               <option key={p.slug} value={i}>
@@ -595,7 +595,7 @@ export function ThemeEditor() {
           <button
             type="button"
             onClick={() => setMagicOpen(true)}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-[linear-gradient(120deg,#4f46e5,#7c3aed_50%,#db2777)] px-3 text-sm font-semibold text-white shadow-sm hover:brightness-110"
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-[linear-gradient(120deg,#0054b8,#0074fc)] px-3 text-sm font-semibold text-white shadow-sm hover:brightness-110"
           >
             <span aria-hidden="true">✨</span> <span className="hidden md:inline">Magic Store</span>
             <span className="sr-only md:hidden">Magic Store</span>
@@ -611,7 +611,7 @@ export function ThemeEditor() {
             type="button"
             onClick={() => setDrawer(drawer === 'ai' ? null : 'ai')}
             aria-pressed={drawer === 'ai'}
-            className="hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 aria-pressed:bg-indigo-50 sm:flex"
+            className="hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 aria-pressed:bg-brand-50 sm:flex"
           >
             <span aria-hidden="true">✦</span> {t('AI assistant')}
           </button>
@@ -702,7 +702,7 @@ export function ThemeEditor() {
                     aria-selected={tab === id}
                     aria-controls={`editor-panel-${id}`}
                     onClick={() => setTab(id)}
-                    className={`-mb-px border-b-2 px-3 py-3 text-sm font-medium ${tab === id ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`}
+                    className={`-mb-px border-b-2 px-3 py-3 text-sm font-medium ${tab === id ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`}
                   >
                     {t(label)}
                   </button>

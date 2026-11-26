@@ -8,6 +8,7 @@ import { useDashboard, type Locale } from './session';
 const UR: Record<string, string> = {
   // Shell
   Overview: 'جائزہ',
+  Domains: 'ڈومینز',
   Design: 'ڈیزائن',
   Products: 'پروڈکٹس',
   Orders: 'آرڈرز',

@@ -131,10 +131,10 @@ export function SectionTree({
                   onAdd(type, page.sections.length);
                   setPicker(false);
                 }}
-                className="flex w-full items-start gap-3 rounded-lg border border-neutral-200 p-3 text-start hover:border-indigo-400 hover:bg-indigo-50/40"
+                className="flex w-full items-start gap-3 rounded-lg border border-neutral-200 p-3 text-start hover:border-brand-400 hover:bg-brand-50/40"
               >
                 <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-700"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-700"
                   aria-hidden="true"
                 >
                   {GLYPH[type]}
@@ -201,18 +201,18 @@ export function SectionTree({
           >
             {dropIndex === i && dragIndex !== null ? (
               <span
-                className="absolute inset-x-2 -top-px h-0.5 rounded bg-indigo-600"
+                className="absolute inset-x-2 -top-px h-0.5 rounded bg-brand-600"
                 aria-hidden="true"
               />
             ) : null}
             {dropIndex === i + 1 && dragIndex !== null && i === page.sections.length - 1 ? (
               <span
-                className="absolute inset-x-2 -bottom-px h-0.5 rounded bg-indigo-600"
+                className="absolute inset-x-2 -bottom-px h-0.5 rounded bg-brand-600"
                 aria-hidden="true"
               />
             ) : null}
             <div
-              className={`flex items-center gap-1 rounded-lg pe-1 ${selectedId === section.id ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-neutral-100'}`}
+              className={`flex items-center gap-1 rounded-lg pe-1 ${selectedId === section.id ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-neutral-100'}`}
             >
               <span
                 className="cursor-grab px-1.5 text-neutral-300 group-hover:text-neutral-500 active:cursor-grabbing"
@@ -265,7 +265,7 @@ export function SectionTree({
         type="button"
         disabled={full}
         onClick={() => setPicker(true)}
-        className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:text-neutral-400"
+        className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:text-neutral-400"
       >
         <span className="text-lg leading-none" aria-hidden="true">
           +

@@ -31,6 +31,7 @@ import { webhookRoutes } from './routes/webhooks';
 import type { CheckoutService } from './orders/checkout-service';
 import type { OrderTrackingService } from './orders/order-tracking';
 import type { AnalyticsService } from './stores/analytics';
+import type { DomainService } from './stores/domains';
 import type { MagicStoreService } from './stores/magic';
 import type { MerchantOrderService } from './orders/merchant-orders';
 import type { SiteRevalidator, StoreService } from './stores/store-service';
@@ -49,6 +50,7 @@ export interface AppDeps {
   checkout: CheckoutService;
   tracking: OrderTrackingService;
   analytics: AnalyticsService;
+  domains: DomainService;
   magic: MagicStoreService;
   commands: CommandService;
   revalidator: SiteRevalidator;

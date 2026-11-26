@@ -96,7 +96,7 @@ export function ThemeSettings({ config, update }: { config: SiteConfig; update: 
           {LAYOUTS.map(({ id, name }) => (
             <label
               key={id}
-              className="cursor-pointer space-y-1.5 rounded-xl border-2 border-transparent p-1 transition has-[:checked]:border-indigo-600 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-300 hover:border-neutral-300"
+              className="cursor-pointer space-y-1.5 rounded-xl border-2 border-transparent p-1 transition has-[:checked]:border-brand-600 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-300 hover:border-neutral-300"
             >
               <input
                 type="radio"
@@ -140,7 +140,7 @@ export function ThemeSettings({ config, update }: { config: SiteConfig; update: 
           />
         </div>
         <ContrastHint fg={t.textColor} bg={t.backgroundColor} />
-        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 px-3 py-2.5 text-sm font-medium text-neutral-700 hover:border-indigo-400 hover:bg-indigo-50/40 focus-within:ring-2 focus-within:ring-indigo-300">
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 px-3 py-2.5 text-sm font-medium text-neutral-700 hover:border-brand-400 hover:bg-brand-50/40 focus-within:ring-2 focus-within:ring-brand-300">
           <span aria-hidden="true">🎨</span> Colors from a logo or photo
           <input
             type="file"
@@ -312,7 +312,7 @@ export function FooterSettings({ config, update }: { config: SiteConfig; update:
           <li>“Track your order” and cart links.</li>
           <li>
             Phone, WhatsApp, email, address and social links from{' '}
-            <a href="/dashboard/settings" className="font-medium text-indigo-700 underline">
+            <a href="/dashboard/settings" className="font-medium text-brand-700 underline">
               Settings → Business details
             </a>
             .

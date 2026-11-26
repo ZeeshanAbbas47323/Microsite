@@ -3,6 +3,22 @@
 /* Layout components live in a workspace package; let Tailwind see their classes. */
 @source '../../../../packages/layouts/src';
 
+/* Dashboard brand colour, built around #0074fc. Text and filled buttons use 600, which is a shade
+   darker so white text on it passes WCAG AA contrast (4.5:1). */
+@theme {
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9ebff;
+  --color-brand-200: #bcdcff;
+  --color-brand-300: #8ec5ff;
+  --color-brand-400: #4aa1ff;
+  --color-brand-500: #0074fc;
+  --color-brand-600: #0066e0;
+  --color-brand-700: #0054b8;
+  --color-brand-800: #004596;
+  --color-brand-900: #003a7a;
+  --color-brand-950: #002450;
+}
+
 :root {
   color-scheme: light;
 }

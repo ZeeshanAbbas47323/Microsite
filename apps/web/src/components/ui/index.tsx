@@ -12,7 +12,7 @@ import {
 /** Small, accessible UI kit for the merchant dashboard (neutral look, independent of store themes). */
 
 const variants = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-300',
+  primary: 'bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-300',
   secondary:
     'bg-white text-neutral-900 ring-1 ring-neutral-300 hover:bg-neutral-50 disabled:text-neutral-400',
   ghost: 'text-neutral-700 hover:bg-neutral-100',
@@ -35,7 +35,7 @@ export function Button({
       {...rest}
       disabled={rest.disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
     >
       {loading ? <Spinner /> : null}
       {children}
@@ -97,7 +97,7 @@ export function Field({
 }
 
 const control =
-  'w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-900 shadow-xs placeholder:text-neutral-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 aria-[invalid=true]:border-red-500';
+  'w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-900 shadow-xs placeholder:text-neutral-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 aria-[invalid=true]:border-red-500';
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`h-10 ${control} ${props.className ?? ''}`} />;
@@ -140,7 +140,7 @@ export function Toggle({
         aria-labelledby={`${id}-label`}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 ${checked ? 'bg-indigo-600' : 'bg-neutral-300'}`}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:opacity-50 ${checked ? 'bg-brand-600' : 'bg-neutral-300'}`}
       >
         <span
           className={`inline-block h-5 w-5 rounded-full bg-white shadow transition ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
@@ -218,7 +218,7 @@ const badgeTones = {
   amber: 'bg-amber-50 text-amber-800 ring-amber-200',
   red: 'bg-red-50 text-red-800 ring-red-200',
   neutral: 'bg-neutral-100 text-neutral-700 ring-neutral-200',
-  indigo: 'bg-indigo-50 text-indigo-800 ring-indigo-200',
+  indigo: 'bg-brand-50 text-brand-800 ring-brand-200',
 } as const;
 
 export function Badge({

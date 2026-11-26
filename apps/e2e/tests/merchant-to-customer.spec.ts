@@ -100,7 +100,7 @@ test.describe.serial('merchant creates a store and a customer orders', () => {
     await page.goto(await ssoUrl(tenant));
     await page.waitForURL(/\/dashboard/);
     await page.goto('/dashboard/orders');
-    const row = page.getByRole('listitem').filter({ hasText: orderRef });
+    const row = page.getByRole('row').filter({ hasText: orderRef });
     await expect(row).toBeVisible();
     await expect(async () => {
       await page.getByRole('button', { name: 'Refresh' }).click();

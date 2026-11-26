@@ -113,7 +113,7 @@ export function MagicBuilder({
         aria-labelledby="magic-title"
         className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
       >
-        <div className="relative overflow-hidden rounded-t-2xl bg-[linear-gradient(120deg,#4f46e5,#7c3aed_45%,#db2777)] px-6 py-5 text-white">
+        <div className="relative overflow-hidden rounded-t-2xl bg-[linear-gradient(120deg,#003a85,#0074fc_55%,#1a8bff)] px-6 py-5 text-white">
           <h2 id="magic-title" className="text-xl font-bold">
             ✨ Magic Store
           </h2>
@@ -151,7 +151,7 @@ export function MagicBuilder({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="e.g. Main Lahore mein handmade leather bags bechta hoon"
-                className="w-full rounded-xl border border-neutral-300 p-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-xl border border-neutral-300 p-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
               />
               <div className="flex flex-wrap gap-1.5" aria-label="Examples">
                 {EXAMPLES.map((ex) => (
@@ -159,7 +159,7 @@ export function MagicBuilder({
                     key={ex}
                     type="button"
                     onClick={() => setDescription(ex)}
-                    className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 hover:bg-indigo-50 hover:text-indigo-800"
+                    className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 hover:bg-brand-50 hover:text-brand-800"
                   >
                     {ex}
                   </button>
@@ -172,7 +172,7 @@ export function MagicBuilder({
                 Your logo <span className="font-normal text-neutral-500">(optional)</span>
               </p>
               <div className="flex items-center gap-4">
-                <label className="flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-neutral-300 text-xs text-neutral-500 hover:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-300">
+                <label className="flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-neutral-300 text-xs text-neutral-500 hover:border-brand-400 focus-within:ring-2 focus-within:ring-brand-300">
                   {logo ? (
                     <img
                       src={logo.preview}
@@ -255,7 +255,7 @@ export function MagicBuilder({
                 return (
                   <li key={label} className="flex items-center gap-3 text-sm">
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? 'bg-emerald-500 text-white' : active ? 'bg-indigo-100 text-indigo-700' : 'bg-neutral-100 text-neutral-400'}`}
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${done ? 'bg-emerald-500 text-white' : active ? 'bg-brand-100 text-brand-700' : 'bg-neutral-100 text-neutral-400'}`}
                       aria-hidden="true"
                     >
                       {done ? '✓' : active ? <span className="animate-pulse">•</span> : i + 1}

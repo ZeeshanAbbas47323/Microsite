@@ -57,6 +57,46 @@ const setShipping = (payload: Record<string, unknown>) =>
   });
 
 describe('checkout (FR-5)', () => {
+  it('lists orders with search, sort, dates, status counts and a total value', async () => {
+    await checkout(cart());
+    await checkout(
+      cart({
+        customer: { name: 'Bilal Ahmed', phone: '0321-7654321' },
+        shipping: { address: 'Flat 2', city: 'Lahore' },
+        items: [{ productId: 'p-1001', qty: 1 }],
+      }),
+    );
+    const list = (query: string) =>
+      ctx.app
+        .inject({
+          method: 'GET',
+          url: `/api/v1/stores/${storeId}/orders?${query}`,
+          headers: owner.headers,
+        })
+        .then((r) => r.json());
+
+    const all = await list('sort=total&dir=asc');
+    expect(all.items.map((o: { customerName: string }) => o.customerName)).toEqual([
+      'Bilal Ahmed',
+      'Ayesha Khan',
+    ]);
+    expect(all.statusCounts).toEqual({ pending_sync: 2 });
+    expect(Number(all.totalValue)).toBe(
+      all.items.reduce((n: number, o: { total: string }) => n + Number(o.total), 0),
+    );
+
+    expect((await list('search=lahore')).total).toBe(1);
+    expect((await list('search=0321 7654321')).items[0].customerName).toBe('Bilal Ahmed');
+    expect((await list('search=bilal&status=synced')).statusCounts).toEqual({ pending_sync: 1 });
+    expect((await list('from=2001-01-01&to=2001-01-31')).total).toBe(0);
+    const res = await ctx.app.inject({
+      method: 'GET',
+      url: `/api/v1/stores/${storeId}/orders?sort=customerPhone`,
+      headers: owner.headers,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('charges the city rate when the delivery city has one (Phase 3)', async () => {
     const saved = await setShipping({
       shippingFlatFee: '300.00',

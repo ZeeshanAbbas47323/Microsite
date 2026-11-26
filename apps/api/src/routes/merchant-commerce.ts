@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppDeps } from '../app';
 import { authOf, requireAuth } from '../auth/plugin';
+import { ORDER_SORTS } from '../orders/merchant-orders';
 import { createPreviewToken } from '../public/preview';
 
 const storeParams = z.object({ id: z.uuid() });
@@ -42,6 +43,11 @@ export async function merchantCommerceRoutes(app: FastifyInstance, deps: AppDeps
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(25),
         status: z.enum(['pending_sync', 'synced', 'sync_failed', 'cancelled']).optional(),
+        search: z.string().max(100).optional(),
+        sort: z.enum(ORDER_SORTS).optional(),
+        dir: z.enum(['asc', 'desc']).optional(),
+        from: z.iso.date().optional(),
+        to: z.iso.date().optional(),
       })
       .parse(request.query);
     return deps.merchantOrders.list(authOf(request).getorioTenantId, id, q);

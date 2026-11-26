@@ -4,11 +4,23 @@ import { AppError, notFound } from '../lib/errors';
 import type { StoreService } from '../stores/store-service';
 import type { OrderSyncQueue, OrderSyncService } from './order-sync';
 
+export const ORDER_SORTS = ['createdAt', 'total', 'customerName', 'city'] as const;
+
 export interface OrderListQuery {
   page: number;
   pageSize: number;
   status?: OrderStatus;
+  /** Order ref, customer name, phone or city. */
+  search?: string;
+  sort?: (typeof ORDER_SORTS)[number];
+  dir?: 'asc' | 'desc';
+  /** Pakistan calendar days, inclusive (YYYY-MM-DD). */
+  from?: string;
+  to?: string;
 }
+
+/** Midnight in Pakistan (UTC+5, no DST) as an instant. */
+const pktDayStart = (day: string) => new Date(Date.parse(`${day}T00:00:00.000Z`) - 5 * 3600_000);
 
 /** FR-6.5: the merchant's view of microstore orders, always scoped by tenant. */
 export class MerchantOrderService {
@@ -23,22 +35,55 @@ export class MerchantOrderService {
 
   async list(tenantId: string, storeId: string, q: OrderListQuery) {
     await this.stores.get(tenantId, storeId);
-    const where = { storeId, getorioTenantId: tenantId, ...(q.status ? { status: q.status } : {}) };
-    const [rows, total] = await Promise.all([
+    const search = q.search?.trim();
+    // Phones are stored as +92…; match "0321-765…" or "92321…" by the digits after the prefix.
+    const phone = (search ?? '').replace(/\D/g, '').replace(/^(92|0)/, '');
+    const base = {
+      storeId,
+      getorioTenantId: tenantId,
+      ...(q.from || q.to
+        ? {
+            createdAt: {
+              ...(q.from ? { gte: pktDayStart(q.from) } : {}),
+              ...(q.to ? { lt: new Date(pktDayStart(q.to).getTime() + 86_400_000) } : {}),
+            },
+          }
+        : {}),
+      ...(search
+        ? {
+            OR: [
+              { orderRef: { contains: search } },
+              { customerName: { contains: search } },
+              ...(phone.length >= 4 ? [{ customerPhone: { contains: phone } }] : []),
+              { city: { contains: search } },
+            ],
+          }
+        : {}),
+    };
+    const where = { ...base, ...(q.status ? { status: q.status } : {}) };
+    const sort = q.sort ?? 'createdAt';
+    const dir = q.dir ?? 'desc';
+    const [rows, total, statuses, sum] = await Promise.all([
       this.db.order.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ [sort]: dir }, { createdAt: 'desc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
         include: { _count: { select: { items: true } } },
       }),
       this.db.order.count({ where }),
+      // Counts per status for the filter tabs (same search and dates, any status).
+      this.db.order.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
+      this.db.order.aggregate({ where, _sum: { total: true } }),
     ]);
     return {
       items: rows.map(({ _count, ...o }) => ({ ...this.toDto(o), itemCount: _count.items })),
       total,
       page: q.page,
       pageSize: q.pageSize,
+      statusCounts: Object.fromEntries(statuses.map((r) => [r.status, r._count._all])),
+      /** Sum of totals for every matching order (all pages). */
+      totalValue: (sum._sum.total ?? 0).toFixed(2),
     };
   }
 
