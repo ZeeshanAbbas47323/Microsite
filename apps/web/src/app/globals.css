@@ -36,9 +36,14 @@ body {
   outline-offset: 2px;
 }
 
+/* Dashboard typeface: Sora (see app/dashboard/layout.tsx). */
+.font-urdu-scope {
+  font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Dashboard in Urdu: Nastaliq needs more line height than Latin text. Latin runs (store names,
    prices, codes) fall back to the system font. */
 html[lang='ur'] .font-urdu-scope {
-  font-family: var(--font-urdu), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-urdu), var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   line-height: 1.9;
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Noto_Nastaliq_Urdu } from 'next/font/google';
+import { Noto_Nastaliq_Urdu, Sora } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { DashboardShell } from '@/dashboard/DashboardShell';
 import { DashboardProvider } from '@/dashboard/session';
@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   title: { default: 'Microstore', template: '%s | Microstore' },
   robots: { index: false, follow: false },
 };
+
+// The dashboard's own typeface (self-hosted by next/font, so no request to Google at runtime).
+const sora = Sora({ subsets: ['latin'], variable: '--font-sora', display: 'swap' });
 
 // Used only while the dashboard is in Urdu (see globals.css `html[lang='ur']`).
 const urdu = Noto_Nastaliq_Urdu({
@@ -19,7 +22,7 @@ const urdu = Noto_Nastaliq_Urdu({
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`${urdu.variable} font-urdu-scope`}>
+    <div className={`${sora.variable} ${urdu.variable} font-urdu-scope`}>
       <DashboardProvider>
         <DashboardShell>{children}</DashboardShell>
       </DashboardProvider>
