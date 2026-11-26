@@ -95,330 +95,386 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
     setBusiness((b) => (b ? { ...b, social: { ...b.social, ...patch } } : b));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">{t('Settings')}</h1>
-
-      <Card title={t('Store address')}>
-        <div className="space-y-4">
-          <Field
-            label="Subdomain"
-            hint={`Changing it keeps the old address redirecting for 30 days.`}
-          >
-            {(p) => (
-              <div className="flex items-center gap-2">
-                <Input
-                  {...p}
-                  value={subdomain}
-                  onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
-                  spellCheck={false}
-                />
-                <span className="shrink-0 text-sm text-neutral-500">.{rootDomain}</span>
-              </div>
-            )}
-          </Field>
-          {note('subdomain')}
-          <Button
-            variant="secondary"
-            disabled={subdomain === store.subdomain}
-            loading={busy === 'subdomain'}
-            onClick={() => patchSettings('subdomain', { subdomain })}
-          >
-            Change address
-          </Button>
-        </div>
-      </Card>
-
-      <Card title={t('Delivery charges')}>
-        <div className="space-y-4">
-          <Field label={`Flat delivery fee (${store.currency})`}>
-            {(p) => (
-              <Input
-                {...p}
-                inputMode="decimal"
-                value={settings.shippingFlatFee}
-                onChange={(e) => setSettings({ ...settings, shippingFlatFee: e.target.value })}
-              />
-            )}
-          </Field>
-          <Toggle
-            label="Free delivery above an order amount"
-            checked={freeShipping}
-            onChange={setFreeShipping}
-          />
-          {freeShipping ? (
-            <Field label={`Free delivery from (${store.currency})`}>
-              {(p) => (
-                <Input
-                  {...p}
-                  inputMode="decimal"
-                  value={settings.freeShippingThreshold ?? ''}
-                  onChange={(e) =>
-                    setSettings({ ...settings, freeShippingThreshold: e.target.value })
-                  }
-                />
-              )}
-            </Field>
-          ) : null}
-          <CityRates
-            currency={store.currency}
-            rates={settings.cityShippingRates ?? []}
-            onChange={(cityShippingRates) => setSettings({ ...settings, cityShippingRates })}
-          />
-          {note('shipping')}
-          <Button
-            variant="secondary"
-            loading={busy === 'shipping'}
-            onClick={() =>
-              patchSettings('shipping', {
-                shippingFlatFee: settings.shippingFlatFee.trim(),
-                freeShippingThreshold: freeShipping
-                  ? (settings.freeShippingThreshold ?? '').trim()
-                  : null,
-                cityShippingRates: (settings.cityShippingRates ?? []).map((r) => ({
-                  city: r.city.trim(),
-                  fee: r.fee.trim(),
-                })),
-              })
-            }
-          >
-            Save delivery charges
-          </Button>
-        </div>
-      </Card>
-
-      <Card title={t('Storefront options')}>
-        <div className="space-y-4">
-          <Toggle
-            label="WhatsApp chat button"
-            description="Shows a floating WhatsApp button when you have a WhatsApp number."
-            checked={settings.whatsappButton}
-            disabled={busy === 'options'}
-            onChange={(v) => patchSettings('options', { whatsappButton: v })}
-          />
-          <Toggle
-            label="Right-to-left layout"
-            description="For stores written in Urdu."
-            checked={settings.rtl}
-            disabled={busy === 'options'}
-            onChange={(v) => patchSettings('options', { rtl: v })}
-          />
-          <Toggle
-            label="Email order confirmations"
-            description="Sent when the customer gives an email address."
-            checked={settings.notifications.customerEmail}
-            disabled={busy === 'options'}
-            onChange={(v) => patchSettings('options', { notifications: { customerEmail: v } })}
-          />
-          {note('options')}
-        </div>
-      </Card>
-
-      <Card title={t('Business details')}>
-        {!business ? (
-          <p className="text-sm text-neutral-500">Loading…</p>
-        ) : (
-          <div className="space-y-4">
-            <Field label="Store name">
-              {(p) => (
-                <Input
-                  {...p}
-                  value={business.name}
-                  maxLength={80}
-                  onChange={(e) => setB({ name: e.target.value })}
-                />
-              )}
-            </Field>
-            <Field label="Tagline" optional>
-              {(p) => (
-                <Input
-                  {...p}
-                  value={business.tagline}
-                  maxLength={120}
-                  onChange={(e) => setB({ tagline: e.target.value })}
-                />
-              )}
-            </Field>
-            <Field label="Description" optional>
-              {(p) => (
-                <Textarea
-                  {...p}
-                  value={business.description}
-                  maxLength={500}
-                  onChange={(e) => setB({ description: e.target.value })}
-                />
-              )}
-            </Field>
-            <ImageUpload
-              storeId={store.id}
-              purpose="logo"
-              label="Logo"
-              value={business.logoUrl}
-              onChange={(url) => setB({ logoUrl: url })}
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Phone">
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="tel"
-                    value={business.contact.phone}
-                    onChange={(e) => setContact({ phone: e.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="WhatsApp" optional>
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="tel"
-                    value={business.contact.whatsapp}
-                    onChange={(e) => setContact({ whatsapp: e.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="Email" optional>
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="email"
-                    value={business.contact.email}
-                    onChange={(e) => setContact({ email: e.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="City">
-                {(p) => (
-                  <Input
-                    {...p}
-                    value={business.contact.city}
-                    onChange={(e) => setContact({ city: e.target.value })}
-                  />
-                )}
-              </Field>
-            </div>
-            <Field label="Address" optional>
-              {(p) => (
-                <Input
-                  {...p}
-                  value={business.contact.address}
-                  onChange={(e) => setContact({ address: e.target.value })}
-                />
-              )}
-            </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Facebook" optional>
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="url"
-                    value={business.social.facebook}
-                    onChange={(e) => setSocial({ facebook: e.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="Instagram" optional>
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="url"
-                    value={business.social.instagram}
-                    onChange={(e) => setSocial({ instagram: e.target.value })}
-                  />
-                )}
-              </Field>
-              <Field label="TikTok" optional>
-                {(p) => (
-                  <Input
-                    {...p}
-                    type="url"
-                    value={business.social.tiktok}
-                    onChange={(e) => setSocial({ tiktok: e.target.value })}
-                  />
-                )}
-              </Field>
-            </div>
-            {note('business')}
-            {store.hasUnpublishedChanges ? (
-              <div
-                role="status"
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200 ring-inset"
+    <div className="mx-auto max-w-5xl">
+      <h1 className="mb-4 text-xl font-semibold">{t('Settings')}</h1>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
+        <SectionNav
+          sections={[
+            ['address', t('Store address')],
+            ['delivery', t('Delivery charges')],
+            ['storefront', t('Storefront options')],
+            ['business', t('Business details')],
+            ...(session.merchant.role === 'owner'
+              ? ([['danger', t('Delete store')]] as [string, string][])
+              : []),
+          ]}
+        />
+        <div className="min-w-0 space-y-6">
+          <Card id="address" title={t('Store address')}>
+            <div className="space-y-4">
+              <Field
+                label="Subdomain"
+                hint={`Changing it keeps the old address redirecting for 30 days.`}
               >
-                <span>
-                  {store.status === 'published'
-                    ? 'Your store still shows the old details. Publish to make the saved changes live (this also publishes any other unpublished design changes).'
-                    : 'Your store is not published yet. Publish it to go live with these details.'}
-                </span>
-                <Button
-                  variant="secondary"
-                  className="h-9"
-                  loading={actions.busy === 'publish'}
-                  onClick={async () => {
-                    const published = await actions.publish();
-                    if (published)
-                      setMsg((m) => ({
-                        ...m,
-                        business: {
-                          tone: 'success',
-                          text: 'Published. Your store now shows these details.',
-                        },
-                      }));
-                  }}
-                >
-                  Publish now
+                {(p) => (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      {...p}
+                      value={subdomain}
+                      onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
+                      spellCheck={false}
+                    />
+                    <span className="shrink-0 text-sm text-neutral-500">.{rootDomain}</span>
+                  </div>
+                )}
+              </Field>
+              {note('subdomain')}
+              <Button
+                variant="secondary"
+                disabled={subdomain === store.subdomain}
+                loading={busy === 'subdomain'}
+                onClick={() => patchSettings('subdomain', { subdomain })}
+              >
+                Change address
+              </Button>
+            </div>
+          </Card>
+
+          <Card id="delivery" title={t('Delivery charges')}>
+            <div className="space-y-4">
+              <Field label={`Flat delivery fee (${store.currency})`}>
+                {(p) => (
+                  <Input
+                    {...p}
+                    inputMode="decimal"
+                    value={settings.shippingFlatFee}
+                    onChange={(e) => setSettings({ ...settings, shippingFlatFee: e.target.value })}
+                  />
+                )}
+              </Field>
+              <Toggle
+                label="Free delivery above an order amount"
+                checked={freeShipping}
+                onChange={setFreeShipping}
+              />
+              {freeShipping ? (
+                <Field label={`Free delivery from (${store.currency})`}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      inputMode="decimal"
+                      value={settings.freeShippingThreshold ?? ''}
+                      onChange={(e) =>
+                        setSettings({ ...settings, freeShippingThreshold: e.target.value })
+                      }
+                    />
+                  )}
+                </Field>
+              ) : null}
+              <CityRates
+                currency={store.currency}
+                rates={settings.cityShippingRates ?? []}
+                onChange={(cityShippingRates) => setSettings({ ...settings, cityShippingRates })}
+              />
+              {note('shipping')}
+              <Button
+                variant="secondary"
+                loading={busy === 'shipping'}
+                onClick={() =>
+                  patchSettings('shipping', {
+                    shippingFlatFee: settings.shippingFlatFee.trim(),
+                    freeShippingThreshold: freeShipping
+                      ? (settings.freeShippingThreshold ?? '').trim()
+                      : null,
+                    cityShippingRates: (settings.cityShippingRates ?? []).map((r) => ({
+                      city: r.city.trim(),
+                      fee: r.fee.trim(),
+                    })),
+                  })
+                }
+              >
+                Save delivery charges
+              </Button>
+            </div>
+          </Card>
+
+          <Card id="storefront" title={t('Storefront options')}>
+            <div className="space-y-4">
+              <Toggle
+                label="WhatsApp chat button"
+                description="Shows a floating WhatsApp button when you have a WhatsApp number."
+                checked={settings.whatsappButton}
+                disabled={busy === 'options'}
+                onChange={(v) => patchSettings('options', { whatsappButton: v })}
+              />
+              <Toggle
+                label="Right-to-left layout"
+                description="For stores written in Urdu."
+                checked={settings.rtl}
+                disabled={busy === 'options'}
+                onChange={(v) => patchSettings('options', { rtl: v })}
+              />
+              <Toggle
+                label="Email order confirmations"
+                description="Sent when the customer gives an email address."
+                checked={settings.notifications.customerEmail}
+                disabled={busy === 'options'}
+                onChange={(v) => patchSettings('options', { notifications: { customerEmail: v } })}
+              />
+              {note('options')}
+            </div>
+          </Card>
+
+          <Card id="business" title={t('Business details')}>
+            {!business ? (
+              <p className="text-sm text-neutral-500">Loading…</p>
+            ) : (
+              <div className="space-y-4">
+                <Field label="Store name">
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={business.name}
+                      maxLength={80}
+                      onChange={(e) => setB({ name: e.target.value })}
+                    />
+                  )}
+                </Field>
+                <Field label="Tagline" optional>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={business.tagline}
+                      maxLength={120}
+                      onChange={(e) => setB({ tagline: e.target.value })}
+                    />
+                  )}
+                </Field>
+                <Field label="Description" optional>
+                  {(p) => (
+                    <Textarea
+                      {...p}
+                      value={business.description}
+                      maxLength={500}
+                      onChange={(e) => setB({ description: e.target.value })}
+                    />
+                  )}
+                </Field>
+                <ImageUpload
+                  storeId={store.id}
+                  purpose="logo"
+                  label="Logo"
+                  value={business.logoUrl}
+                  onChange={(url) => setB({ logoUrl: url })}
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Phone">
+                    {(p) => (
+                      <Input
+                        {...p}
+                        type="tel"
+                        value={business.contact.phone}
+                        onChange={(e) => setContact({ phone: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                  <Field label="WhatsApp" optional>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        type="tel"
+                        value={business.contact.whatsapp}
+                        onChange={(e) => setContact({ whatsapp: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Email" optional>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        type="email"
+                        value={business.contact.email}
+                        onChange={(e) => setContact({ email: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                  <Field label="City">
+                    {(p) => (
+                      <Input
+                        {...p}
+                        value={business.contact.city}
+                        onChange={(e) => setContact({ city: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                </div>
+                <Field label="Address" optional>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={business.contact.address}
+                      onChange={(e) => setContact({ address: e.target.value })}
+                    />
+                  )}
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Facebook" optional>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        type="url"
+                        value={business.social.facebook}
+                        onChange={(e) => setSocial({ facebook: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                  <Field label="Instagram" optional>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        type="url"
+                        value={business.social.instagram}
+                        onChange={(e) => setSocial({ instagram: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                  <Field label="TikTok" optional>
+                    {(p) => (
+                      <Input
+                        {...p}
+                        type="url"
+                        value={business.social.tiktok}
+                        onChange={(e) => setSocial({ tiktok: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                </div>
+                {note('business')}
+                {store.hasUnpublishedChanges ? (
+                  <div
+                    role="status"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200 ring-inset"
+                  >
+                    <span>
+                      {store.status === 'published'
+                        ? 'Your store still shows the old details. Publish to make the saved changes live (this also publishes any other unpublished design changes).'
+                        : 'Your store is not published yet. Publish it to go live with these details.'}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      className="h-9"
+                      loading={actions.busy === 'publish'}
+                      onClick={async () => {
+                        const published = await actions.publish();
+                        if (published)
+                          setMsg((m) => ({
+                            ...m,
+                            business: {
+                              tone: 'success',
+                              text: 'Published. Your store now shows these details.',
+                            },
+                          }));
+                      }}
+                    >
+                      Publish now
+                    </Button>
+                  </div>
+                ) : null}
+                {actions.error ? <Notice tone="error">{actions.error}</Notice> : null}
+                <Button onClick={saveBusiness} loading={busy === 'business'}>
+                  Save business details
                 </Button>
               </div>
-            ) : null}
-            {actions.error ? <Notice tone="error">{actions.error}</Notice> : null}
-            <Button onClick={saveBusiness} loading={busy === 'business'}>
-              Save business details
-            </Button>
-          </div>
-        )}
-      </Card>
+            )}
+          </Card>
 
-      {session.merchant.role === 'owner' ? (
-        <Card title={t('Delete store')}>
-          <div className="space-y-4">
-            <p className="text-sm text-neutral-700">
-              This permanently deletes the store, its pages, images and all Microstore orders with
-              customer details. Orders already in Getorio stay there. This cannot be undone.
-            </p>
-            <Field label={`Type “${store.name}” to confirm`}>
-              {(p) => (
-                <Input
-                  {...p}
-                  value={confirmName}
-                  onChange={(e) => setConfirmName(e.target.value)}
-                  autoComplete="off"
-                />
-              )}
-            </Field>
-            {note('delete')}
-            <Button
-              variant="danger"
-              disabled={confirmName.trim() !== store.name}
-              loading={busy === 'delete'}
-              onClick={async () => {
-                setBusy('delete');
-                try {
-                  await api(`/stores/${store.id}`, {
-                    method: 'DELETE',
-                    body: { confirmName: confirmName.trim() },
-                  });
-                  setStore(null);
-                } catch (e) {
-                  setMsg((m) => ({ ...m, delete: { tone: 'error', text: errorText(e) } }));
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            >
-              Delete store permanently
-            </Button>
-          </div>
-        </Card>
-      ) : null}
+          {session.merchant.role === 'owner' ? (
+            <Card id="danger" title={t('Delete store')} className="border-red-200">
+              <div className="space-y-4">
+                <p className="text-sm text-neutral-700">
+                  This permanently deletes the store, its pages, images and all Microstore orders
+                  with customer details. Orders already in Getorio stay there. This cannot be
+                  undone.
+                </p>
+                <Field label={`Type “${store.name}” to confirm`}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={confirmName}
+                      onChange={(e) => setConfirmName(e.target.value)}
+                      autoComplete="off"
+                    />
+                  )}
+                </Field>
+                {note('delete')}
+                <Button
+                  variant="danger"
+                  disabled={confirmName.trim() !== store.name}
+                  loading={busy === 'delete'}
+                  onClick={async () => {
+                    setBusy('delete');
+                    try {
+                      await api(`/stores/${store.id}`, {
+                        method: 'DELETE',
+                        body: { confirmName: confirmName.trim() },
+                      });
+                      setStore(null);
+                    } catch (e) {
+                      setMsg((m) => ({ ...m, delete: { tone: 'error', text: errorText(e) } }));
+                    } finally {
+                      setBusy(null);
+                    }
+                  }}
+                >
+                  Delete store permanently
+                </Button>
+              </div>
+            </Card>
+          ) : null}
+        </div>
+      </div>
     </div>
+  );
+}
+
+/** Jump links to each settings section; the one in view is highlighted (like Shopify's settings). */
+function SectionNav({ sections }: { sections: [string, string][] }) {
+  const [current, setCurrent] = useState(sections[0]?.[0] ?? '');
+  const ids = sections.map(([id]) => id).join(' ');
+  useEffect(() => {
+    const els = ids
+      .split(' ')
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        const top = visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (top) setCurrent(top.target.id);
+      },
+      { rootMargin: '-80px 0px -55% 0px' },
+    );
+    for (const el of els) observer.observe(el);
+    return () => observer.disconnect();
+  }, [ids]);
+
+  return (
+    <nav aria-label="Settings sections" className="md:sticky md:top-24 md:self-start">
+      <ul className="flex gap-1 overflow-x-auto md:flex-col">
+        {sections.map(([id, label]) => (
+          <li key={id}>
+            <a
+              href={`#${id}`}
+              aria-current={current === id ? 'true' : undefined}
+              onClick={() => setCurrent(id)}
+              className={`flex h-9 items-center whitespace-nowrap rounded-lg px-3 text-sm ${current === id ? 'bg-white font-semibold ring-1 ring-neutral-200' : 'font-medium hover:bg-neutral-200/60'} ${id === 'danger' ? 'text-red-700' : current === id ? 'text-neutral-900' : 'text-neutral-600 hover:text-neutral-900'}`}
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 

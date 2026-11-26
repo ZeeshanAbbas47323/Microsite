@@ -12,6 +12,7 @@ import {
 import { Badge, Button, Notice, Toggle } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import { api, ApiError } from '../api';
+import { Icon, PATHS } from '../editor/icons';
 import { useT } from '../i18n';
 import { useDashboard } from '../session';
 
@@ -196,42 +197,11 @@ export function DiscountsManager() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label="Filter discounts" className="flex gap-1 overflow-x-auto">
-          {FILTERS.map(([value, label]) => (
-            <button
-              key={value || 'all'}
-              type="button"
-              aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${filter === value ? 'bg-brand-600 text-white' : 'bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'}`}
-            >
-              {label}
-              <span
-                className={`text-xs tabular-nums ${filter === value ? 'text-brand-100' : 'text-neutral-400'}`}
-              >
-                {data ? count(value) : ''}
-              </span>
-            </button>
-          ))}
-        </div>
-        <label className="w-full sm:w-64">
-          <span className="sr-only">Search codes</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search codes"
-            className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-          />
-        </label>
-      </div>
-
       {data && data.items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-14 text-center">
-          <p className="text-3xl" aria-hidden="true">
-            🏷️
-          </p>
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+            <Icon d={PATHS.discounts} className="h-6 w-6" />
+          </span>
           <h2 className="mt-2 text-lg font-semibold text-neutral-900">
             Create your first discount code
           </h2>
@@ -244,45 +214,65 @@ export function DiscountsManager() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs">
+        <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white">
+          <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 p-2">
+            <div
+              role="group"
+              aria-label="Filter discounts"
+              className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+            >
+              {FILTERS.map(([value, label]) => {
+                const active = filter === value;
+                return (
+                  <button
+                    key={value || 'all'}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setFilter(value)}
+                    className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm ${active ? 'bg-neutral-200/70 font-semibold text-neutral-900' : 'font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'}`}
+                  >
+                    {label}
+                    <span className="text-xs text-neutral-500 tabular-nums">
+                      {data ? count(value) : ''}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <label className="relative w-full sm:w-60">
+              <span className="sr-only">Search codes</span>
+              <span className="pointer-events-none absolute inset-y-0 start-2.5 flex items-center text-neutral-400">
+                <Icon d={PATHS.search} className="h-4 w-4" />
+              </span>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search codes"
+                className="h-9 w-full rounded-lg border border-neutral-300 bg-white ps-8 pe-3 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+              />
+            </label>
+          </div>
           <div className="relative overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
-              <thead className="bg-neutral-50 text-xs text-neutral-500">
+              <thead className="bg-neutral-50 text-xs text-neutral-600">
                 <tr>
-                  <th
-                    scope="col"
-                    className="px-4 py-2.5 text-start font-medium tracking-wide uppercase"
-                  >
+                  <th scope="col" className="px-4 py-2.5 text-start font-medium">
                     Code
                   </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-2.5 text-start font-medium tracking-wide uppercase"
-                  >
+                  <th scope="col" className="px-3 py-2.5 text-start font-medium">
                     Status
                   </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-2.5 text-start font-medium tracking-wide uppercase"
-                  >
+                  <th scope="col" className="px-3 py-2.5 text-start font-medium">
                     Used
                   </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-2.5 text-end font-medium tracking-wide uppercase"
-                  >
+                  <th scope="col" className="px-3 py-2.5 text-end font-medium">
                     Sales
                   </th>
-                  <th
-                    scope="col"
-                    className="px-3 py-2.5 text-start font-medium tracking-wide uppercase"
-                  >
+                  <th scope="col" className="px-3 py-2.5 text-start font-medium">
                     Dates
                   </th>
-                  <th
-                    scope="col"
-                    className="px-4 py-2.5 text-end font-medium tracking-wide uppercase"
-                  >
+                  <th scope="col" className="px-4 py-2.5 text-end font-medium">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>

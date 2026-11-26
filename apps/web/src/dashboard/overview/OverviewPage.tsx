@@ -9,6 +9,7 @@ import { api } from '../api';
 import { StatusBadge } from '../DashboardShell';
 import { useT } from '../i18n';
 import { formatDate, SyncBadge, type OrderRow } from '../Overview';
+import { Icon, PATHS } from '../editor/icons';
 import { useDashboard } from '../session';
 import { ShareKit } from '../ShareKit';
 import { useStoreActions } from '../useStoreActions';
@@ -192,11 +193,18 @@ function Kpi({
 
 // -- Main chart ---------------------------------------------------------------------------
 
+/** Rounds up to a readable axis maximum: 1, 2, 2.5 or 5 times a power of ten (9,827 → 10,000). */
+function niceCeil(value: number) {
+  const power = 10 ** Math.floor(Math.log10(value));
+  const step = [1, 2, 2.5, 5, 10].find((m) => m * power >= value) ?? 10;
+  return step * power;
+}
+
 function TrendChart({ days, metric, currency }: { days: Day[]; metric: Metric; currency: string }) {
   const t = useT();
   const [showTable, setShowTable] = useState(false);
   const values = days.map((d) => metricValue(d, metric));
-  const max = Math.max(1, ...values);
+  const max = niceCeil(Math.max(1, ...values));
   const format = (v: number) =>
     metric === 'revenue' ? formatMoney(v.toFixed(2), currency) : v.toLocaleString('en-PK');
   const ticks = [max, max / 2, 0];
@@ -332,10 +340,24 @@ function HealthRing({ score }: { score: number }) {
   );
 }
 
+/** Back-to-back design events of the same kind (e.g. seven publishes) collapse into one row. */
+function groupEvents(events: Event[]) {
+  const key = (e: Event) => (e.type === 'order' ? null : `${e.kind}:${e.source ?? ''}`);
+  const out: { event: Event; count: number }[] = [];
+  for (const e of events) {
+    const last = out.at(-1);
+    const k = key(e);
+    if (last && k && key(last.event) === k) last.count++;
+    else out.push({ event: e, count: 1 });
+  }
+  return out;
+}
+
 // -- Insights ---------------------------------------------------------------------------------
 
 interface Insight {
   tone: 'good' | 'warn' | 'info';
+  /** SVG path from ../editor/icons. */
   icon: string;
   title: string;
   text: string;
@@ -362,7 +384,7 @@ function buildInsights(
   if (failed) {
     out.push({
       tone: 'warn',
-      icon: '⚠',
+      icon: PATHS.alert,
       title: `${failed} order${failed > 1 ? 's' : ''} did not reach Getorio`,
       text: 'Retry them so they can be packed and shipped.',
       action: { label: 'Open orders', href: '/dashboard/orders' },
@@ -371,7 +393,7 @@ function buildInsights(
   if (unpublished) {
     out.push({
       tone: 'info',
-      icon: '✎',
+      icon: PATHS.design,
       title: 'You have design changes customers can’t see',
       text: 'Publish to put them live.',
       action: { label: 'Review design', href: '/dashboard/design' },
@@ -381,7 +403,7 @@ function buildInsights(
   if (salesChange !== null && salesChange !== 0 && Number(previous.revenue) > 0) {
     out.push({
       tone: salesChange > 0 ? 'good' : 'warn',
-      icon: salesChange > 0 ? '↗' : '↘',
+      icon: salesChange > 0 ? PATHS.trendUp : PATHS.trendDown,
       title: `Sales ${salesChange > 0 ? 'up' : 'down'} ${Math.abs(salesChange)}%`,
       text: `${formatMoney(totals.revenue, currency)} in the last ${range} days vs ${formatMoney(previous.revenue, currency)} before.`,
     });
@@ -391,7 +413,7 @@ function buildInsights(
     const share = Math.round((Number(top.revenue) / Number(totals.revenue)) * 100);
     out.push({
       tone: 'info',
-      icon: '★',
+      icon: PATHS.star,
       title: `${top.name} is your best seller`,
       text: `${top.qty} sold, ${share}% of your sales. Feature it on your home page.`,
       action: { label: 'Choose featured products', href: '/dashboard/products' },
@@ -410,7 +432,7 @@ function buildInsights(
     if (count > 0)
       out.push({
         tone: 'info',
-        icon: '📅',
+        icon: PATHS.calendar,
         title: `${bestDay} is your busiest day`,
         text: 'Plan offers and WhatsApp posts for the day before.',
       });
@@ -418,7 +440,7 @@ function buildInsights(
   if (live && totals.visits === 0) {
     out.push({
       tone: 'info',
-      icon: '📣',
+      icon: PATHS.megaphone,
       title: 'No visitors yet in this period',
       text: 'Share your store on WhatsApp and Instagram with a ready-made poster.',
       action: { label: 'Open share kit', onClick: share },
@@ -430,7 +452,7 @@ function buildInsights(
   ) {
     out.push({
       tone: 'warn',
-      icon: '🛒',
+      icon: PATHS.cart,
       title: 'Visitors look but rarely order',
       text: 'Clear delivery and payment answers help: add them to your FAQ.',
       action: { label: 'Edit FAQ', href: '/dashboard/design' },
@@ -438,7 +460,7 @@ function buildInsights(
   } else if (totals.conversionRate !== null && totals.conversionRate >= 0.03) {
     out.push({
       tone: 'good',
-      icon: '✓',
+      icon: PATHS.check,
       title: `Strong conversion: ${(totals.conversionRate * 100).toFixed(1)}%`,
       text: 'More visitors will mean more orders. Share your store link.',
       action: { label: 'Open share kit', onClick: share },
@@ -610,9 +632,10 @@ export function OverviewPage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/dashboard/design?magic=1"
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white px-4 text-sm font-semibold text-[#0074fc] shadow-sm hover:bg-blue-50"
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white px-4 text-sm font-semibold text-brand-600 shadow-sm hover:bg-blue-50"
               >
-                ✨ Magic Store
+                <Icon d={PATHS.sparkle} className="h-4 w-4" />
+                Magic Store
               </Link>
               <button
                 type="button"
@@ -805,8 +828,8 @@ export function OverviewPage() {
               <ul className="space-y-3">
                 {insights.map((i) => (
                   <li key={i.title} className={`flex gap-3 rounded-xl p-3 ring-1 ${TONE[i.tone]}`}>
-                    <span className="text-lg leading-6" aria-hidden="true">
-                      {i.icon}
+                    <span className="mt-0.5">
+                      <Icon d={i.icon} className="h-[18px] w-[18px]" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{i.title}</p>
@@ -935,33 +958,44 @@ export function OverviewPage() {
             <p className="text-sm text-neutral-500">Nothing yet.</p>
           ) : (
             <ol className="relative space-y-4 border-s border-neutral-200 ps-5">
-              {events.slice(0, 8).map((e, i) => (
-                <li key={i} className="relative text-sm">
-                  <span
-                    className={`absolute -start-[27px] top-1 h-3 w-3 rounded-full ring-4 ring-white ${e.type === 'order' ? 'bg-emerald-500' : e.kind === 'published' ? 'bg-brand-600' : 'bg-neutral-400'}`}
-                    aria-hidden="true"
-                  />
-                  {e.type === 'order' ? (
-                    <p>
-                      <span className="font-medium">New order {e.orderRef}</span> from {e.customer}{' '}
-                      · <span className="tabular-nums">{formatMoney(e.total, e.currency)}</span>
+              {groupEvents(events)
+                .slice(0, 8)
+                .map(({ event: e, count }, i) => (
+                  <li key={i} className="relative text-sm">
+                    <span
+                      className={`absolute -start-[27px] top-1 h-3 w-3 rounded-full ring-4 ring-white ${e.type === 'order' ? 'bg-emerald-500' : e.kind === 'published' ? 'bg-brand-600' : 'bg-neutral-400'}`}
+                      aria-hidden="true"
+                    />
+                    {e.type === 'order' ? (
+                      <p>
+                        <span className="font-medium">New order {e.orderRef}</span> from{' '}
+                        {e.customer} ·{' '}
+                        <span className="tabular-nums">{formatMoney(e.total, e.currency)}</span>
+                      </p>
+                    ) : (
+                      <p>
+                        {e.kind === 'published'
+                          ? 'Store published'
+                          : e.source === 'command'
+                            ? 'AI assistant changed the design'
+                            : e.source === 'restore'
+                              ? 'An earlier design was restored'
+                              : e.source === 'generate'
+                                ? 'Store created'
+                                : 'Design saved'}
+                        {count > 1 ? (
+                          <span className="ms-1.5 rounded-full bg-neutral-100 px-1.5 text-xs font-medium text-neutral-600 tabular-nums">
+                            ×{count}
+                          </span>
+                        ) : null}
+                      </p>
+                    )}
+                    <p className="text-xs text-neutral-500">
+                      {timeAgo(e.at)}
+                      {count > 1 ? ` · ${count} times in a row` : ''}
                     </p>
-                  ) : (
-                    <p>
-                      {e.kind === 'published'
-                        ? 'Store published'
-                        : e.source === 'command'
-                          ? 'AI assistant changed the design'
-                          : e.source === 'restore'
-                            ? 'An earlier design was restored'
-                            : e.source === 'generate'
-                              ? 'Store created'
-                              : 'Design saved'}
-                    </p>
-                  )}
-                  <p className="text-xs text-neutral-500">{timeAgo(e.at)}</p>
-                </li>
-              ))}
+                  </li>
+                ))}
             </ol>
           )}
         </Panel>
@@ -971,11 +1005,11 @@ export function OverviewPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {(
             [
-              ['✨', 'Magic Store', 'AI redesign', '/dashboard/design?magic=1'],
-              ['🎨', 'Edit design', 'Theme & sections', '/dashboard/design'],
-              ['🛍️', 'Products', 'Choose what shows', '/dashboard/products'],
-              ['📦', 'Orders', 'Track & retry', '/dashboard/orders'],
-              ['🚚', 'Delivery', 'Fees by city', '/dashboard/settings'],
+              [PATHS.sparkle, 'Magic Store', 'AI redesign', '/dashboard/design?magic=1'],
+              [PATHS.design, 'Edit design', 'Theme & sections', '/dashboard/design'],
+              [PATHS.products, 'Products', 'Choose what shows', '/dashboard/products'],
+              [PATHS.orders, 'Orders', 'Track & retry', '/dashboard/orders'],
+              [PATHS.truck, 'Delivery', 'Fees by city', '/dashboard/settings#delivery'],
             ] as const
           ).map(([icon, title, text, href]) => (
             <Link
@@ -983,22 +1017,22 @@ export function OverviewPage() {
               href={href}
               className="group rounded-xl border border-neutral-200 p-3 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-sm"
             >
-              <span className="text-xl" aria-hidden="true">
-                {icon}
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 group-hover:bg-brand-50 group-hover:text-brand-700">
+                <Icon d={icon} className="h-[18px] w-[18px]" />
               </span>
-              <p className="mt-1 text-sm font-semibold">{title}</p>
+              <p className="mt-2 text-sm font-semibold">{title}</p>
               <p className="text-xs text-neutral-500">{text}</p>
             </Link>
           ))}
           <button
             type="button"
             onClick={share}
-            className="rounded-xl border border-neutral-200 p-3 text-start transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-sm"
+            className="group rounded-xl border border-neutral-200 p-3 text-start transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-sm"
           >
-            <span className="text-xl" aria-hidden="true">
-              📣
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 group-hover:bg-brand-50 group-hover:text-brand-700">
+              <Icon d={PATHS.share} className="h-[18px] w-[18px]" />
             </span>
-            <p className="mt-1 text-sm font-semibold">Share</p>
+            <p className="mt-2 text-sm font-semibold">Share</p>
             <p className="text-xs text-neutral-500">Poster & WhatsApp</p>
           </button>
         </div>

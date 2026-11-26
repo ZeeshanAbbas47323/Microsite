@@ -196,14 +196,19 @@ export function Card({
   actions,
   children,
   className = '',
+  id,
 }: {
   title?: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-neutral-200 bg-white p-5 shadow-xs ${className}`}>
+    <section
+      id={id}
+      className={`rounded-xl border border-neutral-200 bg-white p-5 shadow-xs ${id ? 'scroll-mt-24' : ''} ${className}`}
+    >
       {title || actions ? (
         <div className="mb-4 flex items-center justify-between gap-3">
           {title ? <h2 className="text-base font-semibold text-neutral-900">{title}</h2> : <span />}

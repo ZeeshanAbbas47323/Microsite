@@ -128,7 +128,7 @@ export function CustomerProfile({ customerId }: { customerId: string }) {
                 href={whatsappLink(c.phone)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-10 items-center rounded-lg bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
+                className="inline-flex h-10 items-center rounded-lg bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-800"
               >
                 WhatsApp
               </a>
@@ -154,7 +154,7 @@ export function CustomerProfile({ customerId }: { customerId: string }) {
       {error ? <Notice tone="error">{error}</Notice> : null}
       {saved ? <Notice tone="success">{saved}</Notice> : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           label="Total spent"
           value={formatMoney(c.totalSpent, currency)}
@@ -162,7 +162,7 @@ export function CustomerProfile({ customerId }: { customerId: string }) {
         />
         <Kpi
           label="Average order"
-          value={formatMoney(c.stats.averageOrder, currency)}
+          value={formatMoney(Math.round(Number(c.stats.averageOrder)), currency)}
           hint={
             c.stats.cancelledOrders ? `${c.stats.cancelledOrders} cancelled` : 'No cancellations'
           }
@@ -179,8 +179,8 @@ export function CustomerProfile({ customerId }: { customerId: string }) {
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="min-w-0 space-y-5 lg:col-span-2">
           {/* Monthly activity */}
           <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs">
             <h2 className="font-semibold text-neutral-900">Orders in the last 12 months</h2>
@@ -192,7 +192,7 @@ export function CustomerProfile({ customerId }: { customerId: string }) {
               {c.stats.months.map((m) => (
                 <div
                   key={m.month}
-                  className="flex h-full flex-1 flex-col items-center justify-end gap-1"
+                  className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"
                   title={`${m.month}: ${m.orders} orders, ${formatMoney(m.spent, currency)}`}
                 >
                   <span className="text-[10px] tabular-nums text-neutral-500">
@@ -270,9 +270,12 @@ export function CustomerProfile({ customerId }: { customerId: string }) {
                     {c.orders.map((o) => (
                       <tr key={o.id}>
                         <td className="px-5 py-3">
-                          <span className="font-mono font-medium text-neutral-900">
+                          <Link
+                            href={`/dashboard/orders?search=${encodeURIComponent(o.orderRef)}`}
+                            className="font-semibold whitespace-nowrap text-neutral-900 hover:text-brand-700 hover:underline"
+                          >
                             {o.orderRef}
-                          </span>
+                          </Link>
                           <span className="mt-0.5 flex flex-wrap gap-1">
                             {o.viaAccount ? <Badge tone="indigo">Signed in</Badge> : null}
                             {o.discountCode ? <Badge tone="green">{o.discountCode}</Badge> : null}

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Notice } from '@/components/ui';
 import { formatMoney } from '@/lib/money';
 import { api } from '../api';
+import { Icon, PATHS } from '../editor/icons';
 import { useT } from '../i18n';
 import { useDashboard } from '../session';
 import {
@@ -226,114 +227,93 @@ export function CustomersPage() {
 
       <Insights stats={stats} days={days} setDays={setDays} currency={currency} />
 
-      {/* Segments */}
-      <div
-        role="group"
-        aria-label="Customer segments"
-        className="flex gap-1 overflow-x-auto border-b border-neutral-200"
-      >
-        {SEGMENTS.map(([value, label, hint]) => {
-          const active = segment === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              title={hint}
-              aria-pressed={active}
-              onClick={() => {
-                setSegment(value);
-                setPage(1);
-              }}
-              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium ${active ? 'border-brand-600 text-brand-700' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`}
-            >
-              {label}
-              <span
-                className={`rounded-full px-1.5 text-xs tabular-nums ${active ? 'bg-brand-100 text-brand-800' : value === 'inactive' && data?.segmentCounts.inactive ? 'bg-amber-100 text-amber-800' : 'bg-neutral-100 text-neutral-600'}`}
-              >
-                {data ? data.segmentCounts[value] : '–'}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative min-w-56 flex-1">
-          <span className="sr-only">Search customers</span>
-          <span
-            className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-neutral-400"
-            aria-hidden="true"
-          >
-            ⌕
-          </span>
-          <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search name, phone, email or city"
-            className="h-10 w-full rounded-lg border border-neutral-300 bg-white ps-8 pe-3 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-neutral-600">
-          Sort
-          <select
-            value={sort}
-            onChange={(e) => {
-              setSort(e.target.value as SortKey);
-              setPage(1);
-            }}
-            className="h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-900"
-          >
-            {SORTS.map(([k, , label]) => (
-              <option key={k} value={k}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
       {error ? <Notice tone="error">{error}</Notice> : null}
 
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs">
+      <div className="relative overflow-hidden rounded-xl border border-neutral-200 bg-white">
+        {/* Segments */}
+        <div
+          role="group"
+          aria-label="Customer segments"
+          className="flex gap-1 overflow-x-auto border-b border-neutral-200 p-2"
+        >
+          {SEGMENTS.map(([value, label, hint]) => {
+            const active = segment === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                title={hint}
+                aria-pressed={active}
+                onClick={() => {
+                  setSegment(value);
+                  setPage(1);
+                }}
+                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm ${active ? 'bg-neutral-200/70 font-semibold text-neutral-900' : 'font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'}`}
+              >
+                {label}
+                <span
+                  className={`text-xs tabular-nums ${value === 'inactive' && data?.segmentCounts.inactive ? 'rounded-full bg-amber-100 px-1.5 text-amber-800' : 'text-neutral-500'}`}
+                >
+                  {data ? data.segmentCounts[value] : '–'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 p-2">
+          <label className="relative min-w-56 flex-1">
+            <span className="sr-only">Search customers</span>
+            <span className="pointer-events-none absolute inset-y-0 start-2.5 flex items-center text-neutral-400">
+              <Icon d={PATHS.search} className="h-4 w-4" />
+            </span>
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search name, phone, email or city"
+              className="h-9 w-full rounded-lg border border-neutral-300 bg-white ps-8 pe-3 text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-neutral-600">
+            Sort
+            <select
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value as SortKey);
+                setPage(1);
+              }}
+              className="h-9 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-900"
+            >
+              {SORTS.map(([k, , label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-neutral-50 text-xs text-neutral-500">
+            <thead className="bg-neutral-50 text-xs text-neutral-600">
               <tr>
-                <th
-                  scope="col"
-                  className="px-4 py-2.5 text-start font-medium tracking-wide uppercase"
-                >
+                <th scope="col" className="px-4 py-2.5 text-start font-medium">
                   Customer
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-start font-medium tracking-wide uppercase"
-                >
+                <th scope="col" className="px-3 py-2.5 text-start font-medium">
                   Type
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-start font-medium tracking-wide uppercase"
-                >
+                <th scope="col" className="px-3 py-2.5 text-start font-medium">
                   City
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-end font-medium tracking-wide uppercase"
-                >
+                <th scope="col" className="px-3 py-2.5 text-end font-medium">
                   Orders
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 py-2.5 text-end font-medium tracking-wide uppercase"
-                >
+                <th scope="col" className="px-3 py-2.5 text-end font-medium">
                   Spent
                 </th>
-                <th
-                  scope="col"
-                  className="px-4 py-2.5 text-start font-medium tracking-wide uppercase"
-                >
+                <th scope="col" className="px-4 py-2.5 text-start font-medium">
                   Last order
                 </th>
               </tr>
@@ -486,7 +466,9 @@ function Insights({
         </Stat>
         <Stat
           label="Avg. lifetime value"
-          value={stats ? formatMoney(stats.totals.lifetimeValue, currency) : '–'}
+          value={
+            stats ? formatMoney(Math.round(Number(stats.totals.lifetimeValue)), currency) : '–'
+          }
         >
           <span className="text-xs text-neutral-500">
             {stats ? `${stats.totals.ordersPerCustomer} orders per customer` : ' '}

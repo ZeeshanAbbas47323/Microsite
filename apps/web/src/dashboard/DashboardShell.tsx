@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui';
 import { api } from './api';
 import { Icon, PATHS } from './editor/icons';
@@ -90,69 +90,190 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     );
   };
 
+  const initial = store.name.trim()[0]?.toUpperCase() ?? 'M';
+  const live = Boolean(store.url) && store.status === 'published';
+
   return (
-    <div className="min-h-dvh bg-[#f1f1f1] text-neutral-900 md:grid md:grid-cols-[240px_1fr]">
-      <aside className="border-b border-neutral-200 bg-[#ebebeb] md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:border-b-0 md:border-e">
-        {/* Store */}
-        <div className="flex items-center gap-2.5 px-3 pb-2 pt-3 md:px-4 md:pt-4">
-          <span
-            aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-sm font-semibold text-white"
-          >
-            {store.name.trim()[0]?.toUpperCase() ?? 'M'}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold leading-tight">{store.name}</p>
-            <p className="text-xs text-neutral-500">Microstore</p>
-          </div>
-          <StatusBadge status={store.status} />
-        </div>
-
-        <nav
-          aria-label={t('Dashboard')}
-          className="overflow-x-auto px-2 pb-2 md:flex-1 md:overflow-y-auto md:pt-2"
+    <div className="min-h-dvh bg-[#f1f1f1] text-neutral-900">
+      {/* Product header, shared look with Orio's other products */}
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-3 bg-[#1f1f1f] px-3 text-white sm:px-4">
+        <Link
+          href="/dashboard"
+          aria-label="Orio Microsite home"
+          className="flex shrink-0 items-center rounded-md focus-visible:outline-white"
         >
-          <ul className="flex gap-0.5 md:flex-col">
-            {NAV.map(link)}
-            {isAdmin ? link(ADMIN) : null}
-            {/* On phones the bottom block is hidden, so Settings joins the scrolling row. */}
-            <li className="md:hidden">
-              <ul className="flex">{link(SETTINGS)}</ul>
-            </li>
-          </ul>
+          <img
+            src="/brand/orio-microsite-logo.svg"
+            alt="Orio Microsite"
+            width={103}
+            height={44}
+            className="h-11 w-auto"
+          />
+        </Link>
 
-          {store.url && store.status === 'published' ? (
-            <div className="mt-5 hidden md:block">
-              <p className="px-2.5 pb-1 text-xs font-medium text-neutral-500">
-                {t('Sales channels')}
-              </p>
-              <a
-                href={store.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200/60 hover:text-neutral-900"
-              >
-                <span className="text-neutral-500">
-                  <Icon d={PATHS.store} className="h-[18px] w-[18px]" />
-                </span>
-                <span className="flex-1">{t('Online store')}</span>
-                <span className="text-neutral-400 opacity-0 group-hover:opacity-100">
-                  <Icon d={PATHS.external} className="h-4 w-4" />
-                </span>
-                <span className="sr-only">{t('(opens in a new tab)')}</span>
-              </a>
-            </div>
+        <div className="ms-auto flex items-center gap-1.5">
+          {live ? (
+            <a
+              href={store.url ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white"
+            >
+              <Icon d={PATHS.external} className="h-4 w-4" />
+              <span className="hidden sm:inline">{t('View store')}</span>
+              <span className="sr-only sm:hidden">{t('View store')}</span>
+            </a>
           ) : null}
-        </nav>
+          <Link
+            href="/dashboard/settings"
+            aria-label={t('Settings')}
+            title={t('Settings')}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-white/85 hover:bg-white/10 hover:text-white"
+          >
+            <Icon d={PATHS.settings} className="h-[18px] w-[18px]" />
+          </Link>
+          <AccountMenu
+            initial={initial}
+            storeName={store.name}
+            label={t('Account')}
+            onSignOut={logout}
+          >
+            <LanguageSwitch locale={locale} onChange={setLocale} label={t('Language')} />
+          </AccountMenu>
+        </div>
+      </header>
 
-        {/* Bottom: settings, language, sign out */}
-        <div className="hidden space-y-0.5 border-t border-neutral-300/60 p-2 md:block">
-          <ul>{link(SETTINGS)}</ul>
-          <LanguageSwitch locale={locale} onChange={setLocale} label={t('Language')} />
+      <div className="md:grid md:grid-cols-[240px_1fr]">
+        <aside className="border-b border-neutral-200 bg-[#ebebeb] md:sticky md:top-16 md:flex md:h-[calc(100dvh-4rem)] md:flex-col md:border-b-0 md:border-e">
+          {/* Store */}
+          <div className="flex items-center gap-2.5 px-3 pb-2 pt-3 md:px-4 md:pt-4">
+            <span
+              aria-hidden="true"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-sm font-semibold text-white"
+            >
+              {initial}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold leading-tight">{store.name}</p>
+              <p className="text-xs text-neutral-500">Microstore</p>
+            </div>
+            <StatusBadge status={store.status} />
+          </div>
+
+          <nav
+            aria-label={t('Dashboard')}
+            className="overflow-x-auto px-2 pb-2 md:flex-1 md:overflow-y-auto md:pt-2"
+          >
+            <ul className="flex gap-0.5 md:flex-col">
+              {NAV.map(link)}
+              {isAdmin ? link(ADMIN) : null}
+              {/* On phones the bottom block is hidden, so Settings joins the scrolling row. */}
+              <li className="md:hidden">
+                <ul className="flex">{link(SETTINGS)}</ul>
+              </li>
+            </ul>
+
+            {store.url && store.status === 'published' ? (
+              <div className="mt-5 hidden md:block">
+                <p className="px-2.5 pb-1 text-xs font-medium text-neutral-500">
+                  {t('Sales channels')}
+                </p>
+                <a
+                  href={store.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-200/60 hover:text-neutral-900"
+                >
+                  <span className="text-neutral-500">
+                    <Icon d={PATHS.store} className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="flex-1">{t('Online store')}</span>
+                  <span className="text-neutral-400 opacity-0 group-hover:opacity-100">
+                    <Icon d={PATHS.external} className="h-4 w-4" />
+                  </span>
+                  <span className="sr-only">{t('(opens in a new tab)')}</span>
+                </a>
+              </div>
+            ) : null}
+          </nav>
+
+          {/* Bottom: settings, language, sign out */}
+          <div className="hidden space-y-0.5 border-t border-neutral-300/60 p-2 md:block">
+            <ul>{link(SETTINGS)}</ul>
+            <LanguageSwitch locale={locale} onChange={setLocale} label={t('Language')} />
+            <button
+              type="button"
+              onClick={logout}
+              className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-start text-sm font-medium text-neutral-700 hover:bg-neutral-200/60 hover:text-neutral-900"
+            >
+              <span className="text-neutral-500">
+                <Icon d={PATHS.logout} className="h-[18px] w-[18px]" />
+              </span>
+              {t('Sign out')}
+            </button>
+          </div>
+        </aside>
+        <main className="min-w-0 px-4 py-6 sm:px-8">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+/** Avatar in the header: store name, language and sign out (the only place for them on phones). */
+function AccountMenu({
+  initial,
+  storeName,
+  label,
+  onSignOut,
+  children,
+}: {
+  initial: string;
+  storeName: string;
+  label: string;
+  onSignOut: () => void;
+  children: ReactNode;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={root} className="relative ms-1">
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white ring-2 ring-white/20 hover:ring-white/40"
+      >
+        {initial}
+      </button>
+      {open ? (
+        <div className="absolute end-0 top-11 z-50 w-60 rounded-xl border border-neutral-200 bg-white p-1.5 text-neutral-900 shadow-xl">
+          <div className="border-b border-neutral-100 px-2.5 pb-2 pt-1.5">
+            <p className="truncate text-sm font-semibold">{storeName}</p>
+            <p className="text-xs text-neutral-500">Orio Microsite</p>
+          </div>
+          <div className="py-1">{children}</div>
           <button
             type="button"
-            onClick={logout}
-            className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-start text-sm font-medium text-neutral-700 hover:bg-neutral-200/60 hover:text-neutral-900"
+            onClick={onSignOut}
+            className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-start text-sm font-medium text-neutral-700 hover:bg-neutral-100"
           >
             <span className="text-neutral-500">
               <Icon d={PATHS.logout} className="h-[18px] w-[18px]" />
@@ -160,18 +281,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             {t('Sign out')}
           </button>
         </div>
-        <div className="flex items-center justify-between px-3 pb-2 md:hidden">
-          <LanguageSwitch locale={locale} onChange={setLocale} label={t('Language')} />
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-md px-2.5 py-1 text-sm text-neutral-600 hover:bg-neutral-200/60"
-          >
-            {t('Sign out')}
-          </button>
-        </div>
-      </aside>
-      <main className="min-w-0 px-4 py-6 sm:px-8">{children}</main>
+      ) : null}
     </div>
   );
 }

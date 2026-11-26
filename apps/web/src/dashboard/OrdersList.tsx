@@ -169,6 +169,12 @@ export function OrdersList() {
   const [toast, setToast] = useState<string | null>(null);
   const columnsRef = useRef<HTMLDivElement>(null);
 
+  // Links such as /dashboard/orders?search=MS-ABC123 (from a customer profile) open pre-filtered.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('search')?.trim();
+    if (q) setSearchInput(q.slice(0, 100));
+  }, []);
+
   // Debounced search.
   useEffect(() => {
     const id = setTimeout(() => {

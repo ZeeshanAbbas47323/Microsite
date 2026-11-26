@@ -19,6 +19,8 @@ const UR: Record<string, string> = {
   Dashboard: 'ڈیش بورڈ',
   'View store ↗': 'اسٹور دیکھیں ↗',
   'Sign out': 'سائن آؤٹ',
+  Account: 'اکاؤنٹ',
+  'View store': 'اسٹور دیکھیں',
   Export: 'ایکسپورٹ',
   'Needs attention': 'توجہ درکار',
   filtered: 'فلٹر شدہ',

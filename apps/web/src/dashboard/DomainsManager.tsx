@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Button, Notice } from '@/components/ui';
 import { api, ApiError, type Store } from './api';
+import { Icon, PATHS } from './editor/icons';
 import { useT } from './i18n';
 import { formatDate } from './Overview';
 import { useDashboard } from './session';
@@ -99,16 +100,16 @@ function Section({
   return (
     <section
       aria-label={title}
-      className="rounded-2xl border border-neutral-200 bg-white shadow-xs"
+      className="min-w-0 rounded-2xl border border-neutral-200 bg-white shadow-xs"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-4 py-4 sm:px-5">
+        <div className="min-w-0">
           <h2 className="font-semibold text-neutral-900">{title}</h2>
           {description ? <p className="mt-0.5 text-sm text-neutral-500">{description}</p> : null}
         </div>
         {actions}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -178,9 +179,9 @@ function DnsTable({
   const state = (key: DnsCheck['key']) => checks?.find((c) => c.key === key);
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-200">
-      <table className="w-full min-w-[640px] text-sm">
+      <table className="w-full min-w-[680px] text-sm">
         <caption className="sr-only">DNS records for {domain.hostname}</caption>
-        <thead className="bg-neutral-50 text-xs text-neutral-600 uppercase tracking-wide">
+        <thead className="bg-neutral-50 text-xs text-neutral-600">
           <tr>
             <th scope="col" className="px-3 py-2 text-start font-medium">
               Type
@@ -211,7 +212,7 @@ function DnsTable({
                 </td>
                 <td className="px-3 py-3 align-top">
                   <div className="flex items-center gap-2">
-                    <code className="font-mono text-[13px] break-all">{r.name}</code>
+                    <code className="font-mono text-[13px] whitespace-nowrap">{r.name}</code>
                     <CopyButton value={r.name} label={`${r.type} name`} />
                   </div>
                   <p className="mt-0.5 text-xs text-neutral-500">{r.purpose}</p>
@@ -222,12 +223,14 @@ function DnsTable({
                     <CopyButton value={r.value} label={`${r.type} value`} />
                   </div>
                 </td>
-                <td className="px-3 py-3 align-top text-neutral-600">Auto / 3600</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap text-neutral-600">Auto</td>
                 <td className="px-3 py-3 align-top">
                   {domain.verified && !s ? (
                     <span className="text-xs font-semibold text-emerald-700">✓ Verified</span>
                   ) : !s ? (
-                    <span className="text-xs text-neutral-500">Not checked yet</span>
+                    <span className="text-xs whitespace-nowrap text-neutral-600">
+                      Not checked yet
+                    </span>
                   ) : s.ok ? (
                     <span className="text-xs font-semibold text-emerald-700">✓ Found</span>
                   ) : (
@@ -588,7 +591,7 @@ export function DomainsManager() {
         <div>
           <h1 className="text-2xl font-bold">{t('Domains')}</h1>
           <p className="text-sm text-neutral-500">
-            Your free Getorio address, and your own domain if you have one.
+            Your free Orio Microsite address, and your own domain if you have one.
           </p>
         </div>
         {primary ? (
@@ -608,11 +611,11 @@ export function DomainsManager() {
 
       {error ? <Notice tone="error">{error}</Notice> : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-6">
           {/* Free subdomain */}
           <Section
-            title="Free Getorio address"
+            title="Free Orio Microsite address"
             description="Included with every store, with https. You can change the name any time."
           >
             {!data ? (
@@ -621,12 +624,12 @@ export function DomainsManager() {
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <span
-                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold text-white"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white"
                     aria-hidden="true"
                   >
-                    G
+                    <Icon d={PATHS.domains} className="h-5 w-5" />
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-48 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <a
                         href={free.url}
