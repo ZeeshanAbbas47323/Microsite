@@ -7,6 +7,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { api, ApiError, type Store, type StoreSettings } from './api';
 import { useT } from './i18n';
 import { useDashboard } from './session';
+import { useStoreActions } from './useStoreActions';
 
 type Business = SiteConfig['business'];
 
@@ -30,6 +31,7 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
   const [business, setBusiness] = useState<Business | null>(null);
   const [msg, setMsg] = useState<Record<string, { tone: 'error' | 'success'; text: string }>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const actions = useStoreActions();
 
   const storeId = store?.id;
   useEffect(() => {
@@ -74,7 +76,7 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
         ...m,
         business: {
           tone: 'success',
-          text: 'Saved to your draft. Publish to show it on the store.',
+          text: 'Saved. These details go live on your store when you publish.',
         },
       }));
     } catch (e) {
@@ -336,6 +338,37 @@ export function SettingsForm({ rootDomain }: { rootDomain: string }) {
               </Field>
             </div>
             {note('business')}
+            {store.hasUnpublishedChanges ? (
+              <div
+                role="status"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-200 ring-inset"
+              >
+                <span>
+                  {store.status === 'published'
+                    ? 'Your store still shows the old details. Publish to make the saved changes live (this also publishes any other unpublished design changes).'
+                    : 'Your store is not published yet. Publish it to go live with these details.'}
+                </span>
+                <Button
+                  variant="secondary"
+                  className="h-9"
+                  loading={actions.busy === 'publish'}
+                  onClick={async () => {
+                    const published = await actions.publish();
+                    if (published)
+                      setMsg((m) => ({
+                        ...m,
+                        business: {
+                          tone: 'success',
+                          text: 'Published. Your store now shows these details.',
+                        },
+                      }));
+                  }}
+                >
+                  Publish now
+                </Button>
+              </div>
+            ) : null}
+            {actions.error ? <Notice tone="error">{actions.error}</Notice> : null}
             <Button onClick={saveBusiness} loading={busy === 'business'}>
               Save business details
             </Button>
