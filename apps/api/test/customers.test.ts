@@ -313,6 +313,16 @@ describe('discount codes', () => {
       discountTotal: '500.00',
       total: '4000.00',
     });
+    // The merchant's order list and detail show the code and amount.
+    const orders = (await dash('GET', '/orders')).json();
+    expect(orders.items[0]).toMatchObject({ discountCode: 'EID20', discountTotal: '500.00' });
+    const detail = (await dash('GET', `/orders/${orders.items[0].id}`)).json().order;
+    expect(detail).toMatchObject({
+      discountCode: 'EID20',
+      discountTotal: '500.00',
+      total: '4000.00',
+    });
+
     // Getorio gets the discount and the reduced total.
     await ctx.queue.runPending();
     const sent = ctx.getorio.getOrders('tenant-demo').at(-1)?.payload;

@@ -133,6 +133,8 @@ export class MerchantOrderService {
     customerPhone: string;
     city: string;
     total: { toFixed(n: number): string };
+    discountCode: string | null;
+    discountTotal: { toFixed(n: number): string };
     currency: string;
     paymentMethod: string;
     stockUnverified: boolean;
@@ -149,6 +151,8 @@ export class MerchantOrderService {
       customerPhone: o.customerPhone,
       city: o.city,
       total: o.total.toFixed(2),
+      discountCode: o.discountCode,
+      discountTotal: o.discountTotal.toFixed(2),
       currency: o.currency,
       paymentMethod: o.paymentMethod,
       stockUnverified: o.stockUnverified,

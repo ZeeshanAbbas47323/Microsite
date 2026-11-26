@@ -73,6 +73,8 @@ function download(name: string, rows: OrderRow[]) {
     'Phone',
     'City',
     'Items',
+    'Discount code',
+    'Discount',
     'Total',
     'Currency',
     'Status',
@@ -85,6 +87,8 @@ function download(name: string, rows: OrderRow[]) {
       o.customerPhone,
       o.city,
       o.itemCount,
+      o.discountCode ?? '',
+      o.discountTotal,
       o.total,
       o.currency,
       o.status,
@@ -651,6 +655,18 @@ export function OrdersList() {
                         {show('total') ? (
                           <td className="px-3 py-3 text-end font-semibold tabular-nums whitespace-nowrap">
                             {formatMoney(o.total, o.currency)}
+                            {o.discountCode ? (
+                              <span
+                                className="mt-0.5 block text-xs font-medium text-green-700"
+                                title={`Discount code ${o.discountCode}: −${formatMoney(o.discountTotal, o.currency)}`}
+                              >
+                                <span aria-hidden="true">🏷 </span>
+                                {o.discountCode}
+                                {Number(o.discountTotal) > 0
+                                  ? ` −${formatMoney(o.discountTotal, o.currency)}`
+                                  : ' · free delivery'}
+                              </span>
+                            ) : null}
                           </td>
                         ) : null}
                         {show('status') ? (
@@ -746,9 +762,30 @@ export function OrdersList() {
                                     ))}
                                     <tr className="border-t border-neutral-200 text-neutral-600">
                                       <td className="pt-1" colSpan={2}>
-                                        Delivery
+                                        Subtotal
                                       </td>
                                       <td className="pt-1 text-end tabular-nums">
+                                        {formatMoney(detail.subtotal, o.currency)}
+                                      </td>
+                                    </tr>
+                                    {detail.discountCode ? (
+                                      <tr className="text-green-700">
+                                        <td colSpan={2}>
+                                          Discount{' '}
+                                          <span className="rounded border border-dashed border-green-600 px-1 font-mono text-xs font-semibold">
+                                            {detail.discountCode}
+                                          </span>
+                                        </td>
+                                        <td className="text-end tabular-nums">
+                                          {Number(detail.discountTotal) > 0
+                                            ? `−${formatMoney(detail.discountTotal, o.currency)}`
+                                            : 'Free delivery'}
+                                        </td>
+                                      </tr>
+                                    ) : null}
+                                    <tr className="text-neutral-600">
+                                      <td colSpan={2}>Delivery</td>
+                                      <td className="text-end tabular-nums">
                                         {formatMoney(detail.shippingFee, o.currency)}
                                       </td>
                                     </tr>

@@ -11,6 +11,9 @@ export interface OrderRow {
   customerPhone: string;
   city: string;
   total: string;
+  /** Coupon used at checkout (null when none). */
+  discountCode: string | null;
+  discountTotal: string;
   currency: string;
   itemCount: number;
   stockUnverified: boolean;
