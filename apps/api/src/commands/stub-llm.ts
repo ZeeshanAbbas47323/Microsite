@@ -148,6 +148,31 @@ function stubBrief(user: string) {
       description: `Order ${style.what}${where} with cash on delivery.`,
     },
     footerAbout: `${style.what[0]?.toUpperCase()}${style.what.slice(1)}${where}, with cash on delivery.`,
+    slideshow: {
+      style: /cards|many|bohat/.test(text) ? 'cards' : 'overlay',
+      tone: 'primary',
+      transition: /fade|elegant|luxury/.test(text) ? 'fade' : 'slide',
+      slides: [
+        {
+          eyebrow: 'New in',
+          title: `Our ${style.what}`,
+          text: `Picked with care${where}.`,
+          ctaLabel: 'Shop now',
+        },
+        {
+          eyebrow: '',
+          title: 'Cash on delivery',
+          text: 'Pay when your order arrives.',
+          ctaLabel: '',
+        },
+        {
+          eyebrow: '',
+          title: 'Track every order',
+          text: 'Delivery across Pakistan.',
+          ctaLabel: 'Browse products',
+        },
+      ],
+    },
   };
 }
 

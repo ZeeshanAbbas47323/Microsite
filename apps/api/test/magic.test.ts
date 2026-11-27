@@ -47,6 +47,11 @@ describe('magic store builder', () => {
     expect(body.config.theme.primaryColor).toBe('#8b4513');
     expect(body.config.business.name).toBe(before.business.name);
     expect(body.summary).toMatchObject({ layout: 'Boutique', font: 'Playfair Display' });
+    // A home page carousel of highlights comes with it, buttons pointing at the products.
+    const home = body.config.pages.find((p: { slug: string }) => p.slug === 'home');
+    const show = home.sections.find((sec: { type: string }) => sec.type === 'slideshow');
+    expect(show.props.slides.length).toBeGreaterThanOrEqual(2);
+    expect(show.props.slides[0].ctaLink).toBe('/products');
     expect(body.remaining).toBe(MAGIC_BUILDS_PER_DAY - 1);
     // Nothing is saved until the owner presses Save in the editor.
     expect(await draft()).toEqual(before);

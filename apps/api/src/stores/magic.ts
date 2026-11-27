@@ -9,6 +9,8 @@ import {
   HEX_COLOR_REGEX,
   imageUrlSchema,
   sanitizePlainText,
+  SLIDESHOW_TONES,
+  SLIDESHOW_TRANSITIONS,
   storeBriefSchema,
   type SiteConfig,
   type StoreBrief,
@@ -69,6 +71,15 @@ export const STORE_BRIEF_JSON_SCHEMA = obj({
   faq: { type: 'array', items: obj({ question: str, answer: str }) },
   seo: obj({ title: str, description: str }),
   footerAbout: str,
+  slideshow: obj({
+    style: { type: 'string', enum: ['overlay', 'cards'] },
+    tone: { type: 'string', enum: SLIDESHOW_TONES },
+    transition: { type: 'string', enum: SLIDESHOW_TRANSITIONS },
+    slides: {
+      type: 'array',
+      items: obj({ eyebrow: str, title: str, text: str, ctaLabel: str }),
+    },
+  }),
 });
 
 const SYSTEM_PROMPT = `You design small online stores in Pakistan. From the owner's short description, write a complete, professional store design as JSON matching the schema.
@@ -84,6 +95,7 @@ Words:
 - features: 3 or 4 items, at least two of them from those platform promises.
 - faq: 3 to 5 questions a customer of this store would ask, answered only with the facts above or what the owner said.
 - story: one paragraph about the store, ending with an invitation to the owner's customers to shop. No made-up history.
+- slideshow: a home page carousel of 3 slides (2 to 4), each a different highlight: what the store sells or its main collection, one promise from the facts above or the owner's words, and an invitation to order. Titles under 7 words, text one short line, eyebrow a few words or empty. ctaLabel is a short button text on the slides that should lead to the products (at least the first and last), empty on the others. style: "overlay" for one big slide at a time (bold, premium or festive stores), "cards" for several small cards side by side (shops with many kinds of products). tone: "primary" (brand colour) by default, "dark" for luxurious or tech stores, "secondary" or "light" when they suit the palette better. transition: "fade" for calm, elegant stores, "slide" otherwise. If the owner asks for a slider, carousel or slideshow, follow what they describe.
 - seo.title under 60 characters including the store name; seo.description under 155 characters.
 - All text is plain text: no HTML, markdown or emoji.
 - Write in the language requested (English, or Urdu in Urdu script).

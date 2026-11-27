@@ -359,7 +359,7 @@ export function Slideshow({
       data-ms-carousel=""
       data-transition={fade ? 'fade' : 'slide'}
       data-autoplay={many && p.autoplay ? String(p.interval) : '0'}
-      className={`ms-carousel ${contained ? v.section : ''}`}
+      className={`ms-carousel relative isolate ${contained ? v.section : ''}`}
       style={{ ['--pv' as string]: String(p.perView) }}
     >
       {many ? <style>{CSS}</style> : null}

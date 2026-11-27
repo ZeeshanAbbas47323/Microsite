@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { BORDER_RADII, BUTTON_STYLES, FEATURE_ICONS, TEXT_LIMITS as L } from './constants';
+import {
+  BORDER_RADII,
+  BUTTON_STYLES,
+  FEATURE_ICONS,
+  SLIDESHOW_TONES,
+  SLIDESHOW_TRANSITIONS,
+  TEXT_LIMITS as L,
+} from './constants';
 import { fontFamilySchema, siteConfigSchema, type SiteConfig } from './config';
 import { contrastRatio, WCAG_AA_NORMAL } from './contrast';
 import {
@@ -77,6 +84,28 @@ export const storeBriefSchema = z.object({
     .max(5),
   seo: z.object({ title: text(L.seoTitle, 1), description: text(L.seoDescription) }),
   footerAbout: clean(L.footerAbout, { multiline: true }),
+  /**
+   * A short carousel of highlights for the home page (text slides on the brand colours; the owner
+   * adds photos later). Optional so older briefs still apply.
+   */
+  slideshow: z
+    .object({
+      style: z.enum(['overlay', 'cards']),
+      tone: z.enum(SLIDESHOW_TONES),
+      transition: z.enum(SLIDESHOW_TRANSITIONS),
+      slides: z
+        .array(
+          z.object({
+            eyebrow: text(L.ctaLabel),
+            title: text(L.sectionTitle, 1),
+            text: text(L.sectionSubtitle),
+            ctaLabel: text(L.ctaLabel),
+          }),
+        )
+        .min(2)
+        .max(4),
+    })
+    .optional(),
 });
 export type StoreBrief = z.output<typeof storeBriefSchema>;
 
@@ -179,6 +208,47 @@ export function applyStoreBrief(
       }
     }
     if (page.slug === 'home') page.seo = { ...brief.seo };
+  }
+
+  // The brief's highlights become a slideshow right under the store promises (or the hero).
+  if (brief.slideshow) {
+    const home = config.pages.find((p) => p.slug === 'home');
+    if (home) {
+      const { style, tone, transition, slides } = brief.slideshow;
+      const props: Props<'slideshow'> = {
+        title: '',
+        style,
+        height: 'small',
+        transition: style === 'cards' ? 'slide' : transition,
+        perView: 3,
+        fullWidth: false,
+        imageSide: 'left',
+        overlay: 40,
+        tone,
+        autoplay: true,
+        interval: 5,
+        showArrows: true,
+        showDots: true,
+        // Buttons always lead to the store's own products: the AI never chooses a link.
+        slides: slides.map((s) => ({
+          imageUrl: '',
+          eyebrow: s.eyebrow,
+          title: s.title,
+          text: s.text,
+          ctaLabel: s.ctaLabel,
+          ctaLink: s.ctaLabel ? '/products' : '',
+          align: 'center',
+        })),
+      };
+      const after = home.sections.findIndex((s) => s.type === 'features');
+      const at = after >= 0 ? after + 1 : home.sections.findIndex((s) => s.type === 'hero') + 1;
+      home.sections.splice(at, 0, {
+        id: 'home-highlights',
+        type: 'slideshow',
+        visible: true,
+        props,
+      });
+    }
   }
 
   // Urdu stores: an Urdu font, and the template's own labels in Urdu too.
