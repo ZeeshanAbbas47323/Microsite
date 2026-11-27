@@ -9,6 +9,7 @@ import {
 import { Button, Field, Input, Select, Textarea, Toggle } from '@/components/ui';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Group, Segmented } from './panels';
+import { SlideshowSettings } from './SlideshowSettings';
 
 type Props = Record<string, unknown>;
 
@@ -151,6 +152,22 @@ export function SectionSettings({
   const setProp = (key: string, value: unknown) =>
     onChange({ ...section, props: { ...props, [key]: value } } as Section);
   const str = (key: string) => String(props[key] ?? '');
+
+  if (section.type === 'slideshow')
+    return (
+      <>
+        <Group title="Heading">
+          <TextField
+            label="Heading above the slides"
+            value={section.props.title}
+            max={120}
+            hint="Optional. Leave empty for a clean, full-bleed slideshow."
+            onChange={(v) => setProp('title', v)}
+          />
+        </Group>
+        <SlideshowSettings storeId={storeId} section={section} onChange={onChange} />
+      </>
+    );
 
   const content: React.ReactNode[] = [];
   const buttons: React.ReactNode[] = [];

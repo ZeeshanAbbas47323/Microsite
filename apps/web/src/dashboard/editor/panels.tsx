@@ -61,11 +61,14 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
+  labels,
 }: {
   label: string;
   value: T;
   options: readonly T[];
   onChange: (v: T) => void;
+  /** Display names; defaults to the option itself. */
+  labels?: Partial<Record<T, string>>;
 }) {
   return (
     <fieldset>
@@ -77,9 +80,9 @@ export function Segmented<T extends string>({
             type="button"
             aria-pressed={value === o}
             onClick={() => onChange(o)}
-            className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium capitalize ${value === o ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+            className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium ${labels ? '' : 'capitalize'} ${value === o ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
           >
-            {o}
+            {labels?.[o] ?? o}
           </button>
         ))}
       </div>

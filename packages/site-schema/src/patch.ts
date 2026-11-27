@@ -273,6 +273,21 @@ const VALUE_RULES: readonly ValueRule[] = [
     scope: 'sectionContent',
     description: `plain text, max ${max} chars (${what})`,
   })),
+  // Slideshow slide texts (existing slides only; images and links stay with the merchant)
+  ...(
+    [
+      ['eyebrow', TEXT_LIMITS.ctaLabel, 'small line above a slide title'],
+      ['title', TEXT_LIMITS.sectionTitle, 'slide title'],
+      ['text', TEXT_LIMITS.sectionSubtitle, 'slide text'],
+      ['ctaLabel', TEXT_LIMITS.ctaLabel, 'slide button text'],
+    ] as const
+  ).map(([key, max, what]): ValueRule => ({
+    pattern: ['pages', '#', 'sections', '#', 'props', 'slides', '#', key],
+    schema: plainText(max, { multiline: key === 'text' }),
+    textMaxLength: max,
+    scope: 'sectionContent',
+    description: `plain text, max ${max} chars (${what})`,
+  })),
   {
     pattern: ['pages', '#', 'sections', '#', 'props', 'items', '#', 'icon'],
     schema: z.enum(FEATURE_ICONS),

@@ -38,6 +38,7 @@ export const SECTION_TYPES = [
   'banner',
   'features',
   'categoryGrid',
+  'slideshow',
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
@@ -59,7 +60,21 @@ export const SECTION_INFO: Record<SectionType, { label: string; description: str
   testimonials: { label: 'Testimonials', description: 'Quotes from real customers.' },
   faq: { label: 'FAQ', description: 'Questions and answers that open on tap.' },
   contactInfo: { label: 'Contact details', description: 'Phone, WhatsApp, email and address.' },
+  slideshow: {
+    label: 'Slideshow',
+    description: 'Sliding images and text, with or without buttons.',
+  },
 };
+
+/** Slideshow (carousel) options. */
+export const MAX_SLIDES = 10;
+/** overlay: text over a full-bleed image; split: image beside text; cards: several cards in view. */
+export const SLIDESHOW_STYLES = ['overlay', 'split', 'cards'] as const;
+export const SLIDESHOW_HEIGHTS = ['small', 'medium', 'large', 'screen'] as const;
+export const SLIDESHOW_TRANSITIONS = ['slide', 'fade'] as const;
+export const SLIDESHOW_INTERVALS = [3, 5, 7, 10] as const;
+export const SLIDESHOW_TONES = ['dark', 'light', 'primary', 'secondary'] as const;
+export const SLIDE_ALIGNS = ['start', 'center', 'end'] as const;
 
 /** Content page templates stored in the config. They count towards the 2 to 5 page limit. */
 export const CONTENT_PAGE_TEMPLATES = ['home', 'products', 'about', 'contact', 'custom'] as const;

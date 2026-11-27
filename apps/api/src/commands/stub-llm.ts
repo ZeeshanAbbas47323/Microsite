@@ -177,6 +177,7 @@ const COLORS: [RegExp, string][] = [
 ];
 
 const SECTION_WORDS: [RegExp, string][] = [
+  [/carou?sel|slider|slideshow|slides/, 'slideshow'],
   [/testimonial|reviews?/, 'testimonials'],
   [/\bfeatures?\b|khoobiyan/, 'features'],
   [/categor/, 'categoryGrid'],

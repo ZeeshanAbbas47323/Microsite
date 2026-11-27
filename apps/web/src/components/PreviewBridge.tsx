@@ -279,8 +279,12 @@ export function PreviewBridge() {
     const onClick = (e: MouseEvent) => {
       const section = sectionOf(e.target);
       if (!section || e.metaKey || e.ctrlKey) return;
-      e.preventDefault();
-      e.stopPropagation();
+      // Slideshow arrows, dots and pause keep working in the preview (they also select it).
+      const control = e.target instanceof Element && e.target.closest('[data-ms-ctrl]') !== null;
+      if (!control) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       // Clicks inside the text being edited only move the caret.
       if (editing && e.target instanceof Node && editing.el.contains(e.target)) return;
       selected = section.dataset.msSection ?? null;

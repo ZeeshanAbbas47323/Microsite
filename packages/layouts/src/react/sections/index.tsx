@@ -4,6 +4,7 @@ import { imageAttrs, SmartLink, textAttrs, whatsappHref } from '../links';
 import { ProductList } from '../ProductCard';
 import type { RenderContext, Section } from '../types';
 import { variantFor } from '../variants';
+import { Slideshow } from './Slideshow';
 
 type Of<T extends Section['type']> = Extract<Section, { type: T }>;
 interface Props<T extends Section['type']> {
@@ -715,6 +716,8 @@ function renderSection(ctx: RenderContext, section: Section, first: boolean) {
       return <Features key={section.id} ctx={ctx} section={section} first={first} />;
     case 'categoryGrid':
       return <CategoryGrid key={section.id} ctx={ctx} section={section} first={first} />;
+    case 'slideshow':
+      return <Slideshow key={section.id} ctx={ctx} section={section} first={first} />;
     default:
       return null;
   }

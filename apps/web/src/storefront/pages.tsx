@@ -13,6 +13,7 @@ import { notFound } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { AccountApp } from '@/components/account/AccountApp';
 import { AddToCart } from '@/components/cart/AddToCart';
+import { Carousels } from '@/components/Carousels';
 import { CartView } from '@/components/cart/CartView';
 import { CheckoutForm } from '@/components/cart/CheckoutForm';
 import { OrderConfirmation } from '@/components/cart/OrderConfirmation';
@@ -166,6 +167,7 @@ async function Shell({
       banner={<PreviewBanner mode={mode} />}
     >
       {children(ctx)}
+      <Carousels />
       {mode.preview ? (
         <>
           <PreviewScrollKeeper />

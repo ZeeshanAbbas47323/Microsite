@@ -1046,8 +1046,11 @@ export function ThemeEditor() {
               setStringAt(id, path, value);
             }}
             onImage={(id, path, purpose) => {
-              // Only image fields: a section's imageUrl, or the logo from the header.
-              const allowed = id === HEADER_ID ? path === 'business.logoUrl' : path === 'imageUrl';
+              // Only image fields: a section's or a slide's imageUrl, or the header logo.
+              const allowed =
+                id === HEADER_ID
+                  ? path === 'business.logoUrl'
+                  : /^(?:slides\.\d+\.)?imageUrl$/.test(path);
               if (!allowed) return;
               imageTarget.current = { id, path, purpose };
               const input = imageInput.current;

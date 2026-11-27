@@ -1,4 +1,5 @@
 import {
+  createSection,
   FALLBACK_LAYOUT_DEFAULTS,
   generateSiteConfig,
   onboardingInputSchema,
@@ -333,5 +334,87 @@ describe('in-place text editing markers', () => {
     );
     expect(html).not.toContain('data-ms-text');
     expect(html).not.toContain('data-ms-image');
+  });
+});
+
+describe('slideshow', () => {
+  const base = createSection('slideshow', []);
+  if (base.type !== 'slideshow') throw new Error('wrong type');
+  const show = (props: Partial<typeof base.props>, c = ctx()) =>
+    renderToStaticMarkup(
+      <Sections ctx={c} sections={[{ ...base, props: { ...base.props, ...props } }]} />,
+    );
+  const slide = {
+    imageUrl: '',
+    eyebrow: '',
+    title: '',
+    text: '',
+    ctaLabel: '',
+    ctaLink: '',
+    align: 'center' as const,
+  };
+  const slides = [
+    {
+      ...slide,
+      imageUrl: 'https://img.test/1.png',
+      eyebrow: 'New',
+      title: 'Eid <sale>',
+      ctaLabel: 'Shop now',
+      ctaLink: '/products',
+    },
+    { ...slide, imageUrl: 'https://img.test/2.png' },
+    { ...slide, title: 'Made with care', text: 'Handmade', ctaLink: '/products' },
+  ];
+
+  it.each(['overlay', 'split', 'cards'] as const)('renders the %s style', (style) => {
+    for (const layoutId of ['bold-01', 'classic-01', 'minimal-01', 'boutique-01', 'market-01']) {
+      const html = show({ style, slides }, ctx({ config: { ...config, layoutId } }));
+      expect(html).toContain('aria-roledescription="carousel"');
+      expect(html.match(/aria-roledescription="slide"/g)).toHaveLength(3);
+      expect(html).toContain('Eid &lt;sale&gt;');
+      expect(html).toContain('src="https://img.test/2.png"');
+      // A link without button text makes the whole slide a link.
+      expect(html).toContain('class="absolute inset-0 z-10"');
+    }
+  });
+
+  it('passes its options to the carousel script', () => {
+    const html = show({ autoplay: true, interval: 7, transition: 'fade' });
+    expect(html).toContain('data-autoplay="7"');
+    expect(html).toContain('data-transition="fade"');
+    expect(html).toContain('Pause slideshow');
+    expect(html.match(/data-ms-dot=/g)).toHaveLength(3);
+
+    const still = show({ autoplay: false, showDots: false, showArrows: false });
+    expect(still).toContain('data-autoplay="0"');
+    expect(still).not.toContain('data-ms-dot="');
+    expect(still).not.toContain('Previous slide');
+    // Cards always slide (fading several cards at once makes no sense).
+    expect(show({ style: 'cards', transition: 'fade' })).toContain('data-transition="slide"');
+  });
+
+  it('shows one slide without controls', () => {
+    const html = show({ slides: slides.slice(0, 1) });
+    expect(html).not.toContain('Next slide');
+    expect(html).not.toContain('<style>');
+  });
+
+  it('marks slide texts and images for editing in the editor', () => {
+    const section = { ...base, props: { ...base.props, slides, title: 'Picks' } };
+    const html = renderToStaticMarkup(
+      <Sections ctx={ctx({ editable: true })} sections={[section]} />,
+    );
+    const marked = [...html.matchAll(/data-ms-(?:text|image)="([^"]+)"/g)].map((m) => m[1] ?? '');
+    expect(marked).toEqual(
+      expect.arrayContaining(['title', 'slides.0.title', 'slides.0.imageUrl', 'slides.2.text']),
+    );
+    for (const path of marked) {
+      const value = path
+        .split('.')
+        .reduce<unknown>((node, key) => (node as Record<string, unknown>)[key], section.props);
+      expect(typeof value, path).toBe('string');
+    }
+    // In the editor clicks select, so the whole-slide link is left out.
+    expect(html).not.toContain('class="absolute inset-0 z-10"');
   });
 });

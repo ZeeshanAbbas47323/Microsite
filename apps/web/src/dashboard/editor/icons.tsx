@@ -82,6 +82,7 @@ export const SECTION_PATHS: Record<SectionType, string> = {
   hero: 'M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6',
   features: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z',
   categoryGrid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  slideshow: 'M6 6h12v10H6zM2 8v6M22 8v6M9 20h.01M12 20h.01M15 20h.01',
   productGrid: 'M6 7h12l-1 13H7zM9 7a3 3 0 0 1 6 0',
   imageText: 'M3 5h8v14H3zM14 8h7M14 12h7M14 16h5',
   richText: 'M4 6h16M4 10h16M4 14h10M4 18h12',

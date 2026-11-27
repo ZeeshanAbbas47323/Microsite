@@ -1,5 +1,15 @@
 import { z } from 'zod';
-import { FEATURE_ICONS, TEXT_LIMITS as L } from './constants';
+import {
+  FEATURE_ICONS,
+  MAX_SLIDES,
+  SLIDE_ALIGNS,
+  SLIDESHOW_HEIGHTS,
+  SLIDESHOW_INTERVALS,
+  SLIDESHOW_STYLES,
+  SLIDESHOW_TONES,
+  SLIDESHOW_TRANSITIONS,
+  TEXT_LIMITS as L,
+} from './constants';
 import {
   imageUrlSchema,
   linkSchema,
@@ -113,6 +123,51 @@ export const bannerPropsSchema = z.strictObject({
   tone: z.enum(['primary', 'secondary', 'neutral']),
 });
 
+/**
+ * One slide. Every part is optional so a slide can be image only, text only, image + text, with or
+ * without a button; it just has to show something. A link without button text makes the whole
+ * slide clickable.
+ */
+export const slideSchema = z
+  .strictObject({
+    imageUrl: optionalString(imageUrlSchema).default(''),
+    eyebrow: plainText(L.ctaLabel).default(''),
+    title: plainText(L.sectionTitle).default(''),
+    text: plainText(L.sectionSubtitle, { multiline: true }).default(''),
+    ctaLabel: plainText(L.ctaLabel).default(''),
+    ctaLink: optionalString(linkSchema).default(''),
+    align: z.enum(SLIDE_ALIGNS).default('center'),
+  })
+  .refine((s) => Boolean(s.imageUrl || s.title || s.text || s.eyebrow), {
+    error: 'A slide needs an image or some text',
+    path: ['title'],
+  });
+
+/** A carousel: sliding or fading slides, autoplay, arrows and dots, in three looks. */
+export const slideshowPropsSchema = z.strictObject({
+  /** Optional heading above the slides. */
+  title: plainText(L.sectionTitle).default(''),
+  style: z.enum(SLIDESHOW_STYLES).default('overlay'),
+  height: z.enum(SLIDESHOW_HEIGHTS).default('medium'),
+  transition: z.enum(SLIDESHOW_TRANSITIONS).default('slide'),
+  /** Cards visible at once on wide screens (cards style). */
+  perView: z.number().int().min(1).max(4).default(3),
+  /** Edge to edge, or inside the page width with rounded corners. */
+  fullWidth: z.boolean().default(true),
+  /** Split style: which side the image sits on. */
+  imageSide: z.enum(['left', 'right']).default('left'),
+  /** Darkening over images so text stays readable (percent). */
+  overlay: z.number().int().min(0).max(80).default(40),
+  /** Background (and text colour) of slides without an image. */
+  tone: z.enum(SLIDESHOW_TONES).default('dark'),
+  autoplay: z.boolean().default(true),
+  /** Seconds per slide while playing. */
+  interval: z.literal(SLIDESHOW_INTERVALS).default(5),
+  showArrows: z.boolean().default(true),
+  showDots: z.boolean().default(true),
+  slides: z.array(slideSchema).min(1).max(MAX_SLIDES),
+});
+
 const sectionBase = {
   id: sectionIdSchema,
   visible: z.boolean(),
@@ -170,6 +225,12 @@ export const categoryGridSectionSchema = z.strictObject({
   props: categoryGridPropsSchema,
 });
 
+export const slideshowSectionSchema = z.strictObject({
+  ...sectionBase,
+  type: z.literal('slideshow'),
+  props: slideshowPropsSchema,
+});
+
 export const sectionSchema = z.discriminatedUnion('type', [
   heroSectionSchema,
   productGridSectionSchema,
@@ -181,8 +242,10 @@ export const sectionSchema = z.discriminatedUnion('type', [
   bannerSectionSchema,
   featuresSectionSchema,
   categoryGridSectionSchema,
+  slideshowSectionSchema,
 ]);
 
 export type Section = z.infer<typeof sectionSchema>;
 export type SectionOfType<T extends Section['type']> = Extract<Section, { type: T }>;
 export type SectionProps<T extends Section['type']> = SectionOfType<T>['props'];
+export type Slide = z.infer<typeof slideSchema>;
