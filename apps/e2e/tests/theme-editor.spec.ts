@@ -78,4 +78,17 @@ test('theme editor: select, edit, preview, undo; accessible', async ({ page }) =
   await page.getByRole('button', { name: 'Undo' }).click();
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText('Unsaved changes')).toBeHidden();
+
+  // Double-click a text in the preview to type over it; the sidebar field follows along.
+  const live = page.frameLocator('iframe[title="Store preview"]:not([aria-hidden])');
+  await live.getByRole('heading', { level: 1 }).dblclick();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('Fresh arrivals');
+  await expect(page.getByLabel('Heading', { exact: true })).toHaveValue('Fresh arrivals');
+  await page.keyboard.press('Enter');
+  await expect(live.getByRole('heading', { level: 1, name: 'Fresh arrivals' })).toBeVisible({
+    timeout: 20_000,
+  });
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByText('Unsaved changes')).toBeHidden();
 });

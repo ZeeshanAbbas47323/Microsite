@@ -1,6 +1,6 @@
-import { SECTION_INFO } from '@microstore/site-schema';
+import { SECTION_INFO, TEXT_LIMITS as L } from '@microstore/site-schema';
 import { Icon } from '../icons';
-import { SmartLink, whatsappHref } from '../links';
+import { SmartLink, textAttrs, whatsappHref } from '../links';
 import { ProductList } from '../ProductCard';
 import type { RenderContext, Section } from '../types';
 import { variantFor } from '../variants';
@@ -17,6 +17,8 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
   const v = variantFor(ctx.config.layoutId);
   const { title, subtitle, imageUrl, ctaLabel, ctaLink, eyebrow } = section.props;
   const colored = v.hero === 'overlay' || v.hero === 'compact';
+  const heroTitle = textAttrs(ctx, 'title', L.sectionTitle, { required: true });
+  const heroSub = textAttrs(ctx, 'subtitle', L.sectionSubtitle);
   // On colored heroes the button is inverted so it never blends into the background.
   const ctaClass = colored
     ? v.button.replace(
@@ -34,18 +36,21 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
       <div className="flex flex-wrap gap-3">
         {ctaLabel && ctaLink ? (
           <SmartLink ctx={ctx} href={ctaLink} className={ctaClass}>
-            {ctaLabel}
+            <span {...textAttrs(ctx, 'ctaLabel', L.ctaLabel)}>{ctaLabel}</span>
           </SmartLink>
         ) : null}
         {secondaryLabel && secondaryLink ? (
           <SmartLink ctx={ctx} href={secondaryLink} className={secondaryClass}>
-            {secondaryLabel}
+            <span {...textAttrs(ctx, 'secondaryCtaLabel', L.ctaLabel)}>{secondaryLabel}</span>
           </SmartLink>
         ) : null}
       </div>
     ) : null;
   const eyebrowEl = eyebrow ? (
-    <p className={colored ? 'text-xs font-bold uppercase tracking-[0.2em]' : v.eyebrow}>
+    <p
+      className={colored ? 'text-xs font-bold uppercase tracking-[0.2em]' : v.eyebrow}
+      {...textAttrs(ctx, 'eyebrow', L.ctaLabel)}
+    >
       {eyebrow}
     </p>
   ) : null;
@@ -76,8 +81,14 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           className={`${v.container} flex min-h-[60vh] flex-col justify-center gap-6 py-20 ${imageUrl ? 'text-white' : ''}`}
         >
           {eyebrowEl}
-          <h1 className={`${v.heroTitle} max-w-3xl`}>{title}</h1>
-          {subtitle ? <p className="max-w-xl text-lg opacity-90">{subtitle}</p> : null}
+          <h1 className={`${v.heroTitle} max-w-3xl`} {...heroTitle}>
+            {title}
+          </h1>
+          {subtitle ? (
+            <p className="max-w-xl text-lg opacity-90" {...heroSub}>
+              {subtitle}
+            </p>
+          ) : null}
           {ctas}
         </div>
       </section>
@@ -89,8 +100,14 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
       <section className={v.section}>
         <div className={`${v.container} flex flex-col items-center gap-6 text-center`}>
           {eyebrowEl}
-          <h1 className={`${v.heroTitle} max-w-4xl`}>{title}</h1>
-          {subtitle ? <p className="max-w-2xl text-lg text-[var(--ms-muted)]">{subtitle}</p> : null}
+          <h1 className={`${v.heroTitle} max-w-4xl`} {...heroTitle}>
+            {title}
+          </h1>
+          {subtitle ? (
+            <p className="max-w-2xl text-lg text-[var(--ms-muted)]" {...heroSub}>
+              {subtitle}
+            </p>
+          ) : null}
           {ctas}
         </div>
         {imageUrl ? (
@@ -134,9 +151,13 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           <div className={`flex flex-col gap-5 ${imageUrl ? '' : 'items-center'}`}>
             <span className="h-px w-16 bg-[var(--ms-primary)]" aria-hidden="true" />
             {eyebrowEl}
-            <h1 className={v.heroTitle}>{title}</h1>
+            <h1 className={v.heroTitle} {...heroTitle}>
+              {title}
+            </h1>
             {subtitle ? (
-              <p className="max-w-xl text-lg italic text-[var(--ms-muted)]">{subtitle}</p>
+              <p className="max-w-xl text-lg italic text-[var(--ms-muted)]" {...heroSub}>
+                {subtitle}
+              </p>
             ) : null}
             {ctas}
           </div>
@@ -153,8 +174,14 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
         >
           <div className="flex flex-col gap-3">
             {eyebrowEl}
-            <h1 className={v.heroTitle}>{title}</h1>
-            {subtitle ? <p className="max-w-xl text-base sm:text-lg">{subtitle}</p> : null}
+            <h1 className={v.heroTitle} {...heroTitle}>
+              {title}
+            </h1>
+            {subtitle ? (
+              <p className="max-w-xl text-base sm:text-lg" {...heroSub}>
+                {subtitle}
+              </p>
+            ) : null}
             {ctas ? <div className="pt-1">{ctas}</div> : null}
           </div>
           {imageUrl ? (
@@ -180,8 +207,14 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
       >
         <div className={`flex flex-col gap-5 ${imageUrl ? '' : 'items-center'}`}>
           {eyebrowEl}
-          <h1 className={v.heroTitle}>{title}</h1>
-          {subtitle ? <p className="max-w-xl text-lg text-[var(--ms-muted)]">{subtitle}</p> : null}
+          <h1 className={v.heroTitle} {...heroTitle}>
+            {title}
+          </h1>
+          {subtitle ? (
+            <p className="max-w-xl text-lg text-[var(--ms-muted)]" {...heroSub}>
+              {subtitle}
+            </p>
+          ) : null}
           {ctas}
         </div>
         {imageUrl ? (
@@ -209,7 +242,13 @@ function ProductGrid({ ctx, section, first }: Props<'productGrid'>) {
       <div className={`${v.container} flex flex-col gap-8`}>
         {title || source !== 'all' ? (
           <div className="flex items-end justify-between gap-4">
-            {title ? <h2 className={v.heading}>{title}</h2> : <span />}
+            {title ? (
+              <h2 className={v.heading} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+                {title}
+              </h2>
+            ) : (
+              <span />
+            )}
             {source !== 'all' ? (
               <ctx.Link
                 href={ctx.href('/products')}
@@ -237,9 +276,17 @@ function RichText({ ctx, section }: Props<'richText'>) {
   return (
     <section className={v.section}>
       <div className={`${v.container} max-w-3xl space-y-5`}>
-        {section.props.title ? <h2 className={v.heading}>{section.props.title}</h2> : null}
+        {section.props.title ? (
+          <h2 className={v.heading} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+            {section.props.title}
+          </h2>
+        ) : null}
         {section.props.paragraphs.map((p, i) => (
-          <p key={i} className="whitespace-pre-line text-lg leading-relaxed text-[var(--ms-muted)]">
+          <p
+            key={i}
+            className="whitespace-pre-line text-lg leading-relaxed text-[var(--ms-muted)]"
+            {...textAttrs(ctx, `paragraphs.${i}`, L.body, { multiline: true })}
+          >
             {p}
           </p>
         ))}
@@ -255,13 +302,20 @@ function ImageText({ ctx, section }: Props<'imageText'>) {
     <section className={v.section}>
       <div className={`${v.container} grid items-center gap-10 md:grid-cols-2`}>
         <div className={imagePosition === 'left' ? 'md:order-2' : ''}>
-          {title ? <h2 className={`${v.heading} mb-4`}>{title}</h2> : null}
-          <p className="whitespace-pre-line text-lg leading-relaxed text-[var(--ms-muted)]">
+          {title ? (
+            <h2 className={`${v.heading} mb-4`} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+              {title}
+            </h2>
+          ) : null}
+          <p
+            className="whitespace-pre-line text-lg leading-relaxed text-[var(--ms-muted)]"
+            {...textAttrs(ctx, 'body', L.body, { multiline: true })}
+          >
             {body}
           </p>
           {ctaLabel && ctaLink ? (
             <SmartLink ctx={ctx} href={ctaLink} className={`${v.buttonSecondary} mt-6`}>
-              {ctaLabel}
+              <span {...textAttrs(ctx, 'ctaLabel', L.ctaLabel)}>{ctaLabel}</span>
             </SmartLink>
           ) : null}
         </div>
@@ -317,9 +371,18 @@ function ContactInfo({ ctx, section }: Props<'contactInfo'>) {
     <section className={v.section}>
       <div className={`${v.container} space-y-8`}>
         <div className="space-y-2">
-          {section.props.title ? <h2 className={v.heading}>{section.props.title}</h2> : null}
+          {section.props.title ? (
+            <h2 className={v.heading} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+              {section.props.title}
+            </h2>
+          ) : null}
           {section.props.subtitle ? (
-            <p className="text-[var(--ms-muted)]">{section.props.subtitle}</p>
+            <p
+              className="text-[var(--ms-muted)]"
+              {...textAttrs(ctx, 'subtitle', L.sectionSubtitle)}
+            >
+              {section.props.subtitle}
+            </p>
           ) : null}
         </div>
         <dl className="grid gap-4 sm:grid-cols-2">
@@ -374,12 +437,20 @@ function Faq({ ctx, section }: Props<'faq'>) {
   return (
     <section className={v.section}>
       <div className={`${v.container} max-w-3xl space-y-6`}>
-        {section.props.title ? <h2 className={v.heading}>{section.props.title}</h2> : null}
+        {section.props.title ? (
+          <h2 className={v.heading} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+            {section.props.title}
+          </h2>
+        ) : null}
         <div className="divide-y divide-[var(--ms-border)] rounded-[var(--ms-radius)] border border-[var(--ms-border)]">
           {section.props.items.map((item, i) => (
             <details key={i} className="group p-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold [&::-webkit-details-marker]:hidden">
-                {item.question}
+                <span
+                  {...textAttrs(ctx, `items.${i}.question`, L.sectionSubtitle, { required: true })}
+                >
+                  {item.question}
+                </span>
                 <span
                   className="text-xl leading-none transition group-open:rotate-45"
                   aria-hidden="true"
@@ -387,7 +458,15 @@ function Faq({ ctx, section }: Props<'faq'>) {
                   +
                 </span>
               </summary>
-              <p className="mt-3 whitespace-pre-line text-[var(--ms-muted)]">{item.answer}</p>
+              <p
+                className="mt-3 whitespace-pre-line text-[var(--ms-muted)]"
+                {...textAttrs(ctx, `items.${i}.answer`, L.shortBody, {
+                  multiline: true,
+                  required: true,
+                })}
+              >
+                {item.answer}
+              </p>
             </details>
           ))}
         </div>
@@ -402,15 +481,34 @@ function Testimonials({ ctx, section }: Props<'testimonials'>) {
   return (
     <section className={`${v.section} bg-[var(--ms-surface)]`}>
       <div className={`${v.container} space-y-8`}>
-        {section.props.title ? <h2 className={v.heading}>{section.props.title}</h2> : null}
+        {section.props.title ? (
+          <h2 className={v.heading} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+            {section.props.title}
+          </h2>
+        ) : null}
         <ul className="grid gap-5 md:grid-cols-3">
           {section.props.items.map((t, i) => (
             <li key={i}>
               <figure className="h-full rounded-[var(--ms-radius)] bg-[var(--ms-bg)] p-6 ring-1 ring-[var(--ms-border)]">
-                <blockquote className="text-lg leading-relaxed">“{t.quote}”</blockquote>
+                <blockquote className="text-lg leading-relaxed">
+                  “
+                  <span {...textAttrs(ctx, `items.${i}.quote`, L.shortBody, { required: true })}>
+                    {t.quote}
+                  </span>
+                  ”
+                </blockquote>
                 <figcaption className="mt-4 text-sm">
-                  <span className="font-semibold">{t.author}</span>
-                  {t.role ? <span className="text-[var(--ms-muted)]">, {t.role}</span> : null}
+                  <span
+                    className="font-semibold"
+                    {...textAttrs(ctx, `items.${i}.author`, L.author, { required: true })}
+                  >
+                    {t.author}
+                  </span>
+                  {t.role ? (
+                    <span className="text-[var(--ms-muted)]">
+                      , <span {...textAttrs(ctx, `items.${i}.role`, L.author)}>{t.role}</span>
+                    </span>
+                  ) : null}
                 </figcaption>
               </figure>
             </li>
@@ -435,14 +533,19 @@ function Banner({ ctx, section }: Props<'banner'>) {
       <div
         className={`${v.container} flex flex-col items-center justify-between gap-4 py-8 text-center sm:flex-row sm:text-start`}
       >
-        <p className="text-lg font-semibold">{title}</p>
+        <p
+          className="text-lg font-semibold"
+          {...textAttrs(ctx, 'title', L.sectionTitle, { required: true })}
+        >
+          {title}
+        </p>
         {ctaLabel && ctaLink ? (
           <SmartLink
             ctx={ctx}
             href={ctaLink}
             className="inline-flex items-center rounded-[var(--ms-btn-radius)] border-2 border-current px-5 py-2.5 text-sm font-semibold transition hover:bg-black/10"
           >
-            {ctaLabel}
+            <span {...textAttrs(ctx, 'ctaLabel', L.ctaLabel)}>{ctaLabel}</span>
           </SmartLink>
         ) : null}
       </div>
@@ -463,7 +566,11 @@ function Features({ ctx, section }: Props<'features'>) {
       }
     >
       <div className={`${v.container} space-y-8`}>
-        {title ? <h2 className={`${v.heading} text-center`}>{title}</h2> : null}
+        {title ? (
+          <h2 className={`${v.heading} text-center`} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+            {title}
+          </h2>
+        ) : null}
         <ul className={`grid gap-6 sm:grid-cols-2 ${cols}`}>
           {items.map((item, i) => (
             <li key={i} className="flex items-start gap-4">
@@ -471,8 +578,20 @@ function Features({ ctx, section }: Props<'features'>) {
                 <Icon name={item.icon} className="h-5 w-5" />
               </span>
               <div>
-                <h3 className="font-semibold">{item.title}</h3>
-                {item.text ? <p className="text-sm text-[var(--ms-muted)]">{item.text}</p> : null}
+                <h3
+                  className="font-semibold"
+                  {...textAttrs(ctx, `items.${i}.title`, L.ctaLabel, { required: true })}
+                >
+                  {item.title}
+                </h3>
+                {item.text ? (
+                  <p
+                    className="text-sm text-[var(--ms-muted)]"
+                    {...textAttrs(ctx, `items.${i}.text`, L.sectionSubtitle)}
+                  >
+                    {item.text}
+                  </p>
+                ) : null}
               </div>
             </li>
           ))}
@@ -493,8 +612,19 @@ function CategoryGrid({ ctx, section }: Props<'categoryGrid'>) {
       <div className={`${v.container} space-y-8`}>
         {title || subtitle ? (
           <div className="space-y-2">
-            {title ? <h2 className={v.heading}>{title}</h2> : null}
-            {subtitle ? <p className="text-[var(--ms-muted)]">{subtitle}</p> : null}
+            {title ? (
+              <h2 className={v.heading} {...textAttrs(ctx, 'title', L.sectionTitle)}>
+                {title}
+              </h2>
+            ) : null}
+            {subtitle ? (
+              <p
+                className="text-[var(--ms-muted)]"
+                {...textAttrs(ctx, 'subtitle', L.sectionSubtitle)}
+              >
+                {subtitle}
+              </p>
+            ) : null}
           </div>
         ) : null}
         <ul className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">

@@ -25,6 +25,7 @@ export function PreviewFrame({
   hoverId,
   onSelect,
   onNavigate,
+  onText,
   revealSignal = 0,
 }: {
   src: string | null;
@@ -35,17 +36,28 @@ export function PreviewFrame({
   onSelect: (id: string) => void;
   /** The preview moved to another page (a link was followed inside it). */
   onNavigate: (path: string) => void;
+  /** Text was typed in place in the preview (double-click editing). */
+  onText?: (id: string, path: string, value: string) => void;
   /** Bump to play the build-up animation on the next version that loads. */
   revealSignal?: number;
 }) {
   const [slots, setSlots] = useState<[Slot | null, Slot | null]>([null, null]);
   const [active, setActive] = useState<0 | 1>(0);
+  const visibleSrc = useRef<string | null>(null);
+  useEffect(() => {
+    visibleSrc.current = slots[active]?.src ?? null;
+  }, [slots, active]);
   const [loading, setLoading] = useState(false);
   const frames = useRef<[HTMLIFrameElement | null, HTMLIFrameElement | null]>([null, null]);
   const counter = useRef(0);
   const origin = src ? new URL(src).origin : null;
-  const latest = useRef({ selectedId, hoverId, active, onSelect, onNavigate });
-  latest.current = { selectedId, hoverId, active, onSelect, onNavigate };
+  const latest = useRef({ selectedId, hoverId, active, onSelect, onNavigate, onText });
+  latest.current = { selectedId, hoverId, active, onSelect, onNavigate, onText };
+  // While text is being typed in the preview, keep that page: reloading it would drop the caret.
+  // The newest version loads as soon as the editing ends.
+  const [heldSrc, setHeldSrc] = useState<string | null>(null);
+  const shownSrc = heldSrc ?? src;
+  const editing = useRef(false);
   const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingReveal = useRef(false);
   useEffect(() => {
@@ -54,6 +66,8 @@ export function PreviewFrame({
 
   // Swap a loaded frame in once it has painted (its bridge says "ready"), not on bare `load`.
   const reveal = useCallback((index: 0 | 1) => {
+    // A version that finished loading mid-edit is not swapped in; a newer one follows the edit.
+    if (editing.current) return;
     if (fallback.current) clearTimeout(fallback.current);
     fallback.current = null;
     setLoading(false);
@@ -68,6 +82,7 @@ export function PreviewFrame({
 
   // A new src goes into the hidden slot; the first one goes straight into the visible slot.
   useEffect(() => {
+    const src = shownSrc;
     if (!src) return;
     setSlots((current) => {
       const visible = current[latest.current.active];
@@ -79,7 +94,7 @@ export function PreviewFrame({
       return next;
     });
     setLoading(true);
-  }, [src]);
+  }, [shownSrc]);
 
   const send = useCallback(
     (index: 0 | 1, message: Record<string, unknown>) => {
@@ -104,8 +119,12 @@ export function PreviewFrame({
       if (e.origin !== origin || e.data?.source !== PREVIEW_MESSAGE_SOURCE) return;
       const index = frames.current.findIndex((f) => f?.contentWindow === e.source);
       if (index < 0) return;
-      const data = e.data as { type: string; id?: string; path?: string };
+      const data = e.data as { type: string; id?: string; path?: string; value?: unknown };
       if (data.type === 'ready') {
+        if (index === latest.current.active) {
+          editing.current = false;
+          setHeldSrc(null);
+        }
         // Restore the selection outline without jumping away from the kept scroll position.
         send(index as 0 | 1, { type: 'select', id: latest.current.selectedId, scroll: false });
         if (index === latest.current.active) {
@@ -118,8 +137,18 @@ export function PreviewFrame({
           }
           reveal(index as 0 | 1);
         }
-      } else if (data.type === 'select' && index === latest.current.active && data.id) {
+      } else if (index !== latest.current.active) {
+        return;
+      } else if (data.type === 'select' && data.id) {
         latest.current.onSelect(data.id);
+      } else if (data.type === 'edit-start') {
+        editing.current = true;
+        setHeldSrc((held) => held ?? visibleSrc.current);
+      } else if (data.type === 'edit-end') {
+        editing.current = false;
+        setHeldSrc(null);
+      } else if (data.type === 'text' && data.id && data.path && typeof data.value === 'string') {
+        latest.current.onText?.(data.id, data.path, data.value);
       }
     }
     window.addEventListener('message', onMessage);

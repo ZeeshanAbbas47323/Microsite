@@ -48,6 +48,30 @@ const HISTORY_LIMIT = 60;
 /** Edits closer together than this (typing) become one undo step. */
 const COALESCE_MS = 700;
 
+/**
+ * Writes text typed in the preview at a dot path (`items.2.question`). Only an existing string
+ * can be replaced, so a message from the preview can never add keys or change other kinds of data.
+ */
+function setTextAt(root: unknown, path: string, value: string): boolean {
+  const keys = path.split('.');
+  let node: unknown = root;
+  for (const key of keys.slice(0, -1)) {
+    if (node === null || typeof node !== 'object' || !Object.hasOwn(node, key)) return false;
+    node = (node as Record<string, unknown>)[key];
+  }
+  const last = keys.at(-1) ?? '';
+  if (node === null || typeof node !== 'object' || !Object.hasOwn(node, last)) return false;
+  const record = node as Record<string, unknown>;
+  if (typeof record[last] !== 'string') return false;
+  record[last] = value;
+  return true;
+}
+
+const CONFIG_TEXT_ROOTS: Record<string, string> = {
+  [FOOTER_ID]: 'footer.',
+  [ANNOUNCEMENT_ID]: 'announcement.',
+};
+
 function pagePathOf(page: Page) {
   return page.slug === 'home' ? '/' : `/${page.slug}`;
 }
@@ -974,6 +998,23 @@ export function ThemeEditor() {
               );
             }}
             onNavigate={onPreviewNavigate}
+            onText={(id, path, value) => {
+              const current = configRef.current;
+              if (!current) return;
+              const root = CONFIG_TEXT_ROOTS[id];
+              if (root !== undefined) {
+                // Header/footer/announcement texts are addressed from the config root.
+                if (!path.startsWith(root)) return;
+                const next = structuredClone(current);
+                if (!setTextAt(next, path, value)) return;
+                if (JSON.stringify(next) !== JSON.stringify(current)) update(() => next);
+                return;
+              }
+              const next = structuredClone(current);
+              const section = next.pages.flatMap((p) => p.sections).find((s) => s.id === id);
+              if (!section || !setTextAt(section.props, path, value)) return;
+              if (JSON.stringify(next) !== JSON.stringify(current)) update(() => next);
+            }}
             revealSignal={revealSignal}
           />
 

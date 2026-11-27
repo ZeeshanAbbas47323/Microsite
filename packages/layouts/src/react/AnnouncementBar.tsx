@@ -1,4 +1,5 @@
-import { ANNOUNCEMENT_ID, editableAttrs, SmartLink } from './links';
+import { TEXT_LIMITS as L } from '@microstore/site-schema';
+import { ANNOUNCEMENT_ID, editableAttrs, SmartLink, textAttrs } from './links';
 import type { RenderContext } from './types';
 
 /**
@@ -24,6 +25,11 @@ export function AnnouncementBar({ ctx }: { ctx: RenderContext }) {
   if (!bar.enabled || messages.length === 0) return null;
   const n = messages.length;
   const rotating = n > 1;
+  // Paths index the saved list (blank messages are skipped when rendering).
+  const edit = (m: (typeof messages)[number]) =>
+    textAttrs(ctx, `announcement.messages.${bar.messages.indexOf(m)}.text`, L.announcement, {
+      required: true,
+    });
 
   return (
     <div
@@ -53,10 +59,12 @@ export function AnnouncementBar({ ctx }: { ctx: RenderContext }) {
                 href={m.link}
                 className="truncate underline-offset-4 hover:underline"
               >
-                {m.text}
+                <span {...edit(m)}>{m.text}</span>
               </SmartLink>
             ) : (
-              <span className="truncate">{m.text}</span>
+              <span className="truncate" {...edit(m)}>
+                {m.text}
+              </span>
             )}
           </li>
         ))}

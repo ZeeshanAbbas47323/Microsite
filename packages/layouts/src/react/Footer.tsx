@@ -1,4 +1,5 @@
-import { editableAttrs, FOOTER_ID, pagePath, whatsappHref } from './links';
+import { TEXT_LIMITS as L } from '@microstore/site-schema';
+import { editableAttrs, FOOTER_ID, pagePath, textAttrs, whatsappHref } from './links';
 import type { RenderContext } from './types';
 import { variantFor } from './variants';
 
@@ -56,10 +57,15 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
         {...editableAttrs(ctx, FOOTER_ID, 'Footer')}
       >
         {footer.about ? (
-          <p className="mx-auto mb-3 max-w-xl whitespace-pre-line">{footer.about}</p>
+          <p
+            className="mx-auto mb-3 max-w-xl whitespace-pre-line"
+            {...textAttrs(ctx, 'footer.about', L.footerAbout, { multiline: true })}
+          >
+            {footer.about}
+          </p>
         ) : null}
         <div className={textAlign ? `${v.container} ${textAlign}` : ''}>
-          <p>{footer.text}</p>
+          <p {...textAttrs(ctx, 'footer.text', L.footerText)}>{footer.text}</p>
           <p className="mt-2">{track}</p>
         </div>
       </footer>
@@ -79,7 +85,14 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
           <div className="space-y-3">
             <p className="text-lg font-bold">{business.name}</p>
             {about ? (
-              <p className="max-w-xs whitespace-pre-line text-sm text-[var(--ms-muted)]">{about}</p>
+              <p
+                className="max-w-xs whitespace-pre-line text-sm text-[var(--ms-muted)]"
+                {...(footer.about
+                  ? textAttrs(ctx, 'footer.about', L.footerAbout, { multiline: true })
+                  : {})}
+              >
+                {about}
+              </p>
             ) : null}
             <SocialLinks ctx={ctx} />
           </div>
@@ -145,6 +158,7 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
         <div className="border-t border-[var(--ms-border)]">
           <p
             className={`${v.container} py-5 text-xs text-[var(--ms-muted)] ${textAlign ?? 'text-center sm:text-start'}`}
+            {...textAttrs(ctx, 'footer.text', L.footerText)}
           >
             {footer.text}
           </p>
@@ -161,7 +175,10 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
       {footer.about ? (
         <div className={`${v.container} border-b border-[var(--ms-border)] py-8`}>
           <p className="font-semibold">{business.name}</p>
-          <p className="mt-1 max-w-2xl whitespace-pre-line text-sm text-[var(--ms-muted)]">
+          <p
+            className="mt-1 max-w-2xl whitespace-pre-line text-sm text-[var(--ms-muted)]"
+            {...textAttrs(ctx, 'footer.about', L.footerAbout, { multiline: true })}
+          >
             {footer.about}
           </p>
         </div>
@@ -169,7 +186,7 @@ export function Footer({ ctx }: { ctx: RenderContext }) {
       <div
         className={`${v.container} flex flex-col items-center gap-4 py-8 text-sm text-[var(--ms-muted)] sm:flex-row ${align ? `sm:gap-8 ${ALIGN_ROW[align]}` : 'justify-between'}`}
       >
-        <p>{footer.text}</p>
+        <p {...textAttrs(ctx, 'footer.text', L.footerText)}>{footer.text}</p>
         {track}
         <SocialLinks ctx={ctx} />
       </div>

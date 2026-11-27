@@ -6,7 +6,8 @@ import { useEffect } from 'react';
 /**
  * Draft preview inside the theme editor (dashboard iframe). Draws hover/selection outlines on
  * sections (`data-ms-section`), tells the editor which section was clicked, and scrolls to the
- * section the editor selects. Messages are exchanged only with the dashboard's origin.
+ * section the editor selects. Double-clicking a marked text (`data-ms-text`) edits it in place and
+ * streams the new value to the editor. Messages are exchanged only with the dashboard's origin.
  */
 export const PREVIEW_MESSAGE_SOURCE = 'microstore-preview';
 export const EDITOR_MESSAGE_SOURCE = 'microstore-editor';
@@ -126,12 +127,134 @@ export function PreviewBridge() {
       hovered = null;
       redraw();
     };
+    // -- Inline text editing: double-click a marked text (`data-ms-text`) to type over it. --
+    const style = document.createElement('style');
+    style.textContent = `[data-ms-text]{cursor:text}[data-ms-text]:hover{outline:1px dashed ${ACCENT}80;outline-offset:2px;border-radius:2px}[data-ms-editing]{outline:2px solid ${ACCENT}!important;outline-offset:3px;border-radius:2px;cursor:text}`;
+    document.head.appendChild(style);
+
+    let editing: { el: HTMLElement; id: string; path: string; original: string } | null = null;
+    const textOf = (el: HTMLElement) =>
+      el.hasAttribute('data-ms-multiline')
+        ? el.innerText.replace(/\n{3,}/g, '\n\n')
+        : (el.textContent ?? '').replace(/\s+/g, ' ');
+
+    const finishEdit = (revert: boolean) => {
+      if (!editing) return;
+      const { el, id, path, original } = editing;
+      editing = null;
+      let value = textOf(el).trim();
+      if (revert || (value === '' && el.hasAttribute('data-ms-required'))) {
+        value = original;
+        el.textContent = original;
+      }
+      el.removeAttribute('contenteditable');
+      el.removeAttribute('data-ms-editing');
+      window.getSelection()?.removeAllRanges();
+      post({ type: 'text', id, path, value });
+      post({ type: 'edit-end' });
+    };
+
+    const startEdit = (el: HTMLElement, section: HTMLElement) => {
+      const id = section.dataset.msSection;
+      const path = el.dataset.msText;
+      if (!id || !path) return;
+      if (editing?.el === el) return;
+      finishEdit(false);
+      editing = { el, id, path, original: textOf(el).trim() };
+      el.setAttribute('data-ms-editing', '');
+      try {
+        el.contentEditable = 'plaintext-only';
+      } catch {
+        el.contentEditable = 'true'; // Firefox before plaintext-only
+      }
+      el.spellcheck = true;
+      el.focus();
+      // Caret where the person double-clicked: keep the word the browser selected.
+      if (!el.contains(window.getSelection()?.anchorNode ?? null)) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
+      }
+      selected = id;
+      redraw();
+      post({ type: 'select', id });
+      post({ type: 'edit-start', id, path });
+    };
+
+    const onDblClick = (e: MouseEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      const el = target?.closest<HTMLElement>('[data-ms-text]');
+      const section = el ? sectionOf(el) : null;
+      if (!el || !section) return;
+      e.preventDefault();
+      e.stopPropagation();
+      startEdit(el, section);
+    };
+
+    const onInput = (e: Event) => {
+      if (!editing || e.target !== editing.el) return;
+      const { el, id, path } = editing;
+      const max = Number(el.dataset.msMax) || 0;
+      let value = textOf(el);
+      if (max && value.length > max) {
+        value = value.slice(0, max);
+        el.textContent = value;
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
+      }
+      post({ type: 'text', id, path, value: value.trim() });
+      schedule();
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!editing) return;
+      e.stopPropagation();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        finishEdit(true);
+      } else if (
+        e.key === 'Enter' &&
+        !(e.shiftKey && editing.el.hasAttribute('data-ms-multiline'))
+      ) {
+        e.preventDefault();
+        finishEdit(false);
+      } else if (e.key === ' ' && editing.el.closest('summary')) {
+        // A space inside <summary> would toggle the FAQ instead of typing.
+        e.preventDefault();
+        document.execCommand('insertText', false, ' ');
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (editing && e.key === ' ' && editing.el.closest('summary')) e.preventDefault();
+    };
+
+    const onFocusOut = (e: FocusEvent) => {
+      if (editing && e.target === editing.el) finishEdit(false);
+    };
+
+    const onPaste = (e: ClipboardEvent) => {
+      if (!editing || !editing.el.contains(e.target as Node)) return;
+      e.preventDefault();
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      document.execCommand(
+        'insertText',
+        false,
+        editing.el.hasAttribute('data-ms-multiline') ? text : text.replace(/\s+/g, ' '),
+      );
+    };
+
     // In the editor a click on a section selects it instead of following its links.
     const onClick = (e: MouseEvent) => {
       const section = sectionOf(e.target);
       if (!section || e.metaKey || e.ctrlKey) return;
       e.preventDefault();
       e.stopPropagation();
+      // Clicks inside the text being edited only move the caret.
+      if (editing && e.target instanceof Node && editing.el.contains(e.target)) return;
       selected = section.dataset.msSection ?? null;
       redraw();
       post({ type: 'select', id: selected });
@@ -139,6 +262,10 @@ export function PreviewBridge() {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== origin || e.data?.source !== EDITOR_MESSAGE_SOURCE) return;
       const { type, id, scroll } = e.data as { type: string; id: string | null; scroll?: boolean };
+      if (type === 'finish-edit') {
+        finishEdit(false);
+        return;
+      }
       if (type === 'reveal') {
         playReveal();
         return;
@@ -162,6 +289,12 @@ export function PreviewBridge() {
     document.addEventListener('mousemove', onMove, { passive: true });
     document.addEventListener('mouseleave', onLeave);
     document.addEventListener('click', onClick, true);
+    document.addEventListener('dblclick', onDblClick, true);
+    document.addEventListener('input', onInput, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('keyup', onKeyUp, true);
+    document.addEventListener('focusout', onFocusOut, true);
+    document.addEventListener('paste', onPaste, true);
     window.addEventListener('message', onMessage);
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
@@ -182,6 +315,14 @@ export function PreviewBridge() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseleave', onLeave);
       document.removeEventListener('click', onClick, true);
+      document.removeEventListener('dblclick', onDblClick, true);
+      document.removeEventListener('input', onInput, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('keyup', onKeyUp, true);
+      document.removeEventListener('focusout', onFocusOut, true);
+      document.removeEventListener('paste', onPaste, true);
+      finishEdit(false);
+      style.remove();
       window.removeEventListener('message', onMessage);
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);

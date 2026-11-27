@@ -45,3 +45,23 @@ export const ANNOUNCEMENT_ID = '__announcement';
 export function editableAttrs(ctx: RenderContext, id: string, label: string) {
   return ctx.editable ? { 'data-ms-section': id, 'data-ms-label': label } : {};
 }
+
+/**
+ * Marks a piece of text as editable in place (double-click in the theme editor preview).
+ * `path` is a dot path into the enclosing section's props (e.g. `items.2.question`), or into the
+ * site config for the header, footer and announcement bar (e.g. `footer.text`).
+ */
+export function textAttrs(
+  ctx: RenderContext,
+  path: string,
+  max: number,
+  opts: { multiline?: boolean; required?: boolean } = {},
+) {
+  if (!ctx.editable) return {};
+  return {
+    'data-ms-text': path,
+    'data-ms-max': String(max),
+    ...(opts.multiline ? { 'data-ms-multiline': '' } : {}),
+    ...(opts.required ? { 'data-ms-required': '' } : {}),
+  };
+}

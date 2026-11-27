@@ -255,3 +255,55 @@ describe('announcement bar', () => {
     expect(html).toContain('prefers-reduced-motion');
   });
 });
+
+describe('in-place text editing markers', () => {
+  const paths = (html: string) =>
+    [...html.matchAll(/data-ms-text="([^"]+)"/g)].map((m) => m[1] ?? '');
+  const at = (root: unknown, path: string) =>
+    path
+      .split('.')
+      .reduce<unknown>((node, key) => (node as Record<string, unknown> | undefined)?.[key], root);
+
+  it('points every marked text at the string it shows', () => {
+    const c = ctx({ editable: true });
+    let count = 0;
+    for (const page of config.pages) {
+      for (const section of page.sections) {
+        const html = renderToStaticMarkup(<Sections ctx={c} sections={[section]} />);
+        for (const path of paths(html)) {
+          expect(typeof at(section.props, path), `${section.type} ${path}`).toBe('string');
+          count += 1;
+        }
+      }
+    }
+    const announced = {
+      ...config,
+      announcement: {
+        ...config.announcement,
+        enabled: true,
+        messages: [{ text: 'Free delivery', link: '/products' }],
+      },
+      footer: { ...config.footer, about: 'About us' },
+    };
+    const shell = renderToStaticMarkup(
+      <SiteShell ctx={ctx({ editable: true, config: announced })}>
+        <p>Body</p>
+      </SiteShell>,
+    );
+    expect(paths(shell)).toEqual(
+      expect.arrayContaining(['announcement.messages.0.text', 'footer.text', 'footer.about']),
+    );
+    for (const path of paths(shell)) expect(typeof at(announced, path)).toBe('string');
+    expect(count).toBeGreaterThan(10);
+  });
+
+  it('adds no markers outside the editor', () => {
+    const sections = config.pages.flatMap((p) => p.sections);
+    const html = renderToStaticMarkup(
+      <SiteShell ctx={ctx()}>
+        <Sections ctx={ctx()} sections={sections} />
+      </SiteShell>,
+    );
+    expect(html).not.toContain('data-ms-text');
+  });
+});
