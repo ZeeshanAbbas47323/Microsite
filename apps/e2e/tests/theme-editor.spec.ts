@@ -91,4 +91,25 @@ test('theme editor: select, edit, preview, undo; accessible', async ({ page }) =
   });
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText('Unsaved changes')).toBeHidden();
+
+  // Double-clicking an image (here the empty image of the About block) opens the file picker.
+  const chooser = page.waitForEvent('filechooser');
+  await live.locator('[data-ms-section="home-about"] [data-ms-image]').dblclick();
+  await (
+    await chooser
+  ).setFiles({
+    name: 'shop.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  });
+  await expect(page.getByText('Unsaved changes')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('button', { name: 'Replace' })).toBeVisible();
+  await expect(
+    page
+      .frameLocator('iframe[title="Store preview"]:not([aria-hidden])')
+      .locator('[data-ms-section="home-about"] img[data-ms-image]'),
+  ).toBeVisible({ timeout: 20_000 });
 });

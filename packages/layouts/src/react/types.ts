@@ -60,6 +60,8 @@ export interface ImageProps {
   sizes?: string;
   priority?: boolean;
   className?: string;
+  /** Editor markers (`data-ms-image`), passed through to the <img>. */
+  [data: `data-${string}`]: string | undefined;
 }
 
 /**

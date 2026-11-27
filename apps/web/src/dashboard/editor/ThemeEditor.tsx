@@ -24,7 +24,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Badge, Button, Input, Notice } from '@/components/ui';
-import { api, ApiError } from '../api';
+import { api, ApiError, uploadImage } from '../api';
 import { CommandBox } from '../CommandBox';
 import { useT } from '../i18n';
 import { useDashboard } from '../session';
@@ -66,6 +66,9 @@ function setTextAt(root: unknown, path: string, value: string): boolean {
   record[last] = value;
   return true;
 }
+
+const IMAGE_ACCEPT =
+  'image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,.heic,.heif,.avif,.webp,.jpg,.jpeg,.png,.gif';
 
 const CONFIG_TEXT_ROOTS: Record<string, string> = {
   [FOOTER_ID]: 'footer.',
@@ -366,6 +369,44 @@ export function ThemeEditor() {
       })),
     [update, pageIndex],
   );
+
+  /**
+   * Replaces a string the preview asked to change: a section prop (by section id), or a header,
+   * footer or announcement field addressed from the config root.
+   */
+  const setStringAt = useCallback(
+    (id: string, path: string, value: string) => {
+      const current = configRef.current;
+      if (!current) return;
+      const next = structuredClone(current);
+      const fixed = id === HEADER_ID || id in CONFIG_TEXT_ROOTS;
+      const target = fixed
+        ? next
+        : next.pages.flatMap((p) => p.sections).find((s) => s.id === id)?.props;
+      if (!target || !setTextAt(target, path, value)) return;
+      if (JSON.stringify(next) !== JSON.stringify(current)) update(() => next);
+    },
+    [update],
+  );
+
+  // Double-clicking an image in the preview opens this picker, then uploads the chosen file.
+  const imageInput = useRef<HTMLInputElement>(null);
+  const imageTarget = useRef<{ id: string; path: string; purpose: 'image' | 'logo' } | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  async function onImagePicked(file: File | undefined) {
+    const target = imageTarget.current;
+    if (imageInput.current) imageInput.current.value = '';
+    if (!file || !target || !storeId) return;
+    setImageBusy(true);
+    try {
+      const asset = await uploadImage(storeId, file, target.purpose);
+      setStringAt(target.id, target.path, asset.url);
+    } catch (e) {
+      setToast({ tone: 'error', text: e instanceof Error ? e.message : t('Upload failed') });
+    } finally {
+      setImageBusy(false);
+    }
+  }
 
   const selectedSection =
     selection?.kind === 'section'
@@ -999,24 +1040,40 @@ export function ThemeEditor() {
             }}
             onNavigate={onPreviewNavigate}
             onText={(id, path, value) => {
-              const current = configRef.current;
-              if (!current) return;
+              // The header has no inline texts; the others only edit their own part of the config.
               const root = CONFIG_TEXT_ROOTS[id];
-              if (root !== undefined) {
-                // Header/footer/announcement texts are addressed from the config root.
-                if (!path.startsWith(root)) return;
-                const next = structuredClone(current);
-                if (!setTextAt(next, path, value)) return;
-                if (JSON.stringify(next) !== JSON.stringify(current)) update(() => next);
-                return;
-              }
-              const next = structuredClone(current);
-              const section = next.pages.flatMap((p) => p.sections).find((s) => s.id === id);
-              if (!section || !setTextAt(section.props, path, value)) return;
-              if (JSON.stringify(next) !== JSON.stringify(current)) update(() => next);
+              if (id === HEADER_ID || (root !== undefined && !path.startsWith(root))) return;
+              setStringAt(id, path, value);
+            }}
+            onImage={(id, path, purpose) => {
+              // Only image fields: a section's imageUrl, or the logo from the header.
+              const allowed = id === HEADER_ID ? path === 'business.logoUrl' : path === 'imageUrl';
+              if (!allowed) return;
+              imageTarget.current = { id, path, purpose };
+              const input = imageInput.current;
+              if (!input) return;
+              input.accept = IMAGE_ACCEPT + (purpose === 'logo' ? ',image/svg+xml,.svg' : '');
+              input.click();
             }}
             revealSignal={revealSignal}
           />
+          <input
+            ref={imageInput}
+            type="file"
+            accept={IMAGE_ACCEPT}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(e) => void onImagePicked(e.target.files?.[0])}
+          />
+          {imageBusy ? (
+            <span
+              role="status"
+              className="absolute start-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-neutral-900/80 px-3 py-1 text-xs font-medium text-white"
+            >
+              {t('Uploading image…')}
+            </span>
+          ) : null}
 
           {drawer ? (
             <div className="absolute inset-y-0 end-0 z-30 flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl">

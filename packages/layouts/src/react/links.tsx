@@ -65,3 +65,12 @@ export function textAttrs(
     ...(opts.required ? { 'data-ms-required': '' } : {}),
   };
 }
+
+/**
+ * Marks an image as replaceable by double-clicking it in the theme editor preview. `path` works
+ * like {@link textAttrs}; `purpose` picks the upload rules (logos also accept SVG).
+ */
+export function imageAttrs(ctx: RenderContext, path: string, purpose: 'image' | 'logo' = 'image') {
+  if (!ctx.editable) return {};
+  return { 'data-ms-image': path, 'data-ms-image-purpose': purpose };
+}

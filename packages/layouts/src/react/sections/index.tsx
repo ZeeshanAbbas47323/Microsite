@@ -1,6 +1,6 @@
 import { SECTION_INFO, TEXT_LIMITS as L } from '@microstore/site-schema';
 import { Icon } from '../icons';
-import { SmartLink, textAttrs, whatsappHref } from '../links';
+import { imageAttrs, SmartLink, textAttrs, whatsappHref } from '../links';
 import { ProductList } from '../ProductCard';
 import type { RenderContext, Section } from '../types';
 import { variantFor } from '../variants';
@@ -62,6 +62,7 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           <>
             <ctx.Image
               src={imageUrl}
+              {...imageAttrs(ctx, 'imageUrl')}
               alt=""
               width={1600}
               height={900}
@@ -114,6 +115,7 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           <div className={`${v.container} mt-12`}>
             <ctx.Image
               src={imageUrl}
+              {...imageAttrs(ctx, 'imageUrl')}
               alt=""
               width={1600}
               height={686}
@@ -139,6 +141,7 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
             <div className="rounded-[var(--ms-radius)] bg-[var(--ms-bg)] p-3 shadow-sm ring-1 ring-[var(--ms-border)]">
               <ctx.Image
                 src={imageUrl}
+                {...imageAttrs(ctx, 'imageUrl')}
                 alt=""
                 width={800}
                 height={1000}
@@ -187,6 +190,7 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
           {imageUrl ? (
             <ctx.Image
               src={imageUrl}
+              {...imageAttrs(ctx, 'imageUrl')}
               alt=""
               width={480}
               height={480}
@@ -220,6 +224,7 @@ function Hero({ ctx, section, first }: Props<'hero'>) {
         {imageUrl ? (
           <ctx.Image
             src={imageUrl}
+            {...imageAttrs(ctx, 'imageUrl')}
             alt=""
             width={900}
             height={700}
@@ -322,6 +327,7 @@ function ImageText({ ctx, section }: Props<'imageText'>) {
         {imageUrl ? (
           <ctx.Image
             src={imageUrl}
+            {...imageAttrs(ctx, 'imageUrl')}
             alt=""
             width={800}
             height={600}
@@ -332,6 +338,7 @@ function ImageText({ ctx, section }: Props<'imageText'>) {
           <div
             className="aspect-[4/3] w-full rounded-[var(--ms-radius)] bg-[linear-gradient(135deg,var(--ms-primary),var(--ms-secondary))] opacity-80"
             aria-hidden="true"
+            {...imageAttrs(ctx, 'imageUrl')}
           />
         )}
       </div>

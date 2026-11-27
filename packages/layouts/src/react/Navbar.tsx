@@ -1,4 +1,4 @@
-import { editableAttrs, HEADER_ID, pagePath } from './links';
+import { editableAttrs, HEADER_ID, imageAttrs, pagePath } from './links';
 import type { RenderContext } from './types';
 
 function Logo({ ctx }: { ctx: RenderContext }) {
@@ -12,6 +12,7 @@ function Logo({ ctx }: { ctx: RenderContext }) {
       {business.logoUrl ? (
         <ctx.Image
           src={business.logoUrl}
+          {...imageAttrs(ctx, 'business.logoUrl', 'logo')}
           alt=""
           width={40}
           height={40}

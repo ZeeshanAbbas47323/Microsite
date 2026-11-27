@@ -83,7 +83,13 @@ function ctx(overrides: Partial<RenderContext> = {}): RenderContext {
         {children}
       </a>
     ),
-    Image: ({ src, alt }) => <img src={src} alt={alt} />,
+    Image: ({ src, alt, ...rest }) => (
+      <img
+        src={src}
+        alt={alt}
+        {...Object.fromEntries(Object.entries(rest).filter(([k]) => k.startsWith('data-')))}
+      />
+    ),
     sectionProducts: { 'home-featured': [product] },
     sectionCategories: {
       'home-categories': [
@@ -297,6 +303,27 @@ describe('in-place text editing markers', () => {
     expect(count).toBeGreaterThan(10);
   });
 
+  it('marks section images and the logo as replaceable', () => {
+    const withImages: SiteConfig = {
+      ...config,
+      business: { ...config.business, logoUrl: 'https://img.test/logo.png' },
+    };
+    const c = ctx({ editable: true, config: withImages });
+    const hero = config.pages.flatMap((p) => p.sections).find((s) => s.type === 'hero');
+    expect(hero).toBeDefined();
+    if (!hero || hero.type !== 'hero') return;
+    const html = renderToStaticMarkup(
+      <SiteShell ctx={c}>
+        <Sections
+          ctx={c}
+          sections={[{ ...hero, props: { ...hero.props, imageUrl: 'https://img.test/a.png' } }]}
+        />
+      </SiteShell>,
+    );
+    expect(html).toContain('data-ms-image="imageUrl"');
+    expect(html).toContain('data-ms-image="business.logoUrl" data-ms-image-purpose="logo"');
+  });
+
   it('adds no markers outside the editor', () => {
     const sections = config.pages.flatMap((p) => p.sections);
     const html = renderToStaticMarkup(
@@ -305,5 +332,6 @@ describe('in-place text editing markers', () => {
       </SiteShell>,
     );
     expect(html).not.toContain('data-ms-text');
+    expect(html).not.toContain('data-ms-image');
   });
 });

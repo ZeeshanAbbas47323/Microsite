@@ -23,7 +23,7 @@ function NextLink({ href, className, children, ...rest }: LinkProps) {
   );
 }
 
-function NextImage({ src, alt, width, height, sizes, priority, className }: ImageProps) {
+function NextImage({ src, alt, width, height, sizes, priority, className, ...data }: ImageProps) {
   // Bundled placeholders are local; remote images go through the optimizer (AVIF/WebP, FR-4.4).
   return (
     <Image
@@ -34,6 +34,8 @@ function NextImage({ src, alt, width, height, sizes, priority, className }: Imag
       sizes={sizes}
       priority={priority}
       className={className}
+      // Theme editor markers (data-ms-image) only; ImageProps allows nothing else.
+      {...data}
     />
   );
 }

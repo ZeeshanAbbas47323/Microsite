@@ -163,6 +163,8 @@ const UR: Record<string, string> = {
   Redo: 'دوبارہ کریں',
   'AI assistant': 'AI اسسٹنٹ',
   'Version history': 'ورژن ہسٹری',
+  'Uploading image…': 'تصویر اپ لوڈ ہو رہی ہے…',
+  'Upload failed': 'اپ لوڈ نہیں ہو سکا',
   'Add page': 'صفحہ شامل کریں',
   'Add a page': 'صفحہ شامل کریں',
   'Preview size': 'پری ویو کا سائز',

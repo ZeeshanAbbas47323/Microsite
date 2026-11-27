@@ -129,7 +129,7 @@ export function PreviewBridge() {
     };
     // -- Inline text editing: double-click a marked text (`data-ms-text`) to type over it. --
     const style = document.createElement('style');
-    style.textContent = `[data-ms-text]{cursor:text}[data-ms-text]:hover{outline:1px dashed ${ACCENT}80;outline-offset:2px;border-radius:2px}[data-ms-editing]{outline:2px solid ${ACCENT}!important;outline-offset:3px;border-radius:2px;cursor:text}`;
+    style.textContent = `[data-ms-text]{cursor:text}[data-ms-text]:hover{outline:1px dashed ${ACCENT}80;outline-offset:2px;border-radius:2px}[data-ms-image]{cursor:pointer}img[data-ms-image]:hover,div[data-ms-image]:hover{outline:2px dashed ${ACCENT};outline-offset:-2px}[data-ms-editing]{outline:2px solid ${ACCENT}!important;outline-offset:3px;border-radius:2px;cursor:text}`;
     document.head.appendChild(style);
 
     let editing: { el: HTMLElement; id: string; path: string; original: string } | null = null;
@@ -182,14 +182,42 @@ export function PreviewBridge() {
       post({ type: 'edit-start', id, path });
     };
 
+    // An image under the pointer, even one sitting behind the text (overlay heroes).
+    const imageAt = (e: MouseEvent) =>
+      document
+        .elementsFromPoint(e.clientX, e.clientY)
+        .find(
+          (node): node is HTMLElement => node instanceof HTMLElement && 'msImage' in node.dataset,
+        );
+
     const onDblClick = (e: MouseEvent) => {
       const target = e.target instanceof Element ? e.target : null;
       const el = target?.closest<HTMLElement>('[data-ms-text]');
       const section = el ? sectionOf(el) : null;
-      if (!el || !section) return;
+      if (el && section) {
+        e.preventDefault();
+        e.stopPropagation();
+        startEdit(el, section);
+        return;
+      }
+      // Double-clicking an image asks the editor to replace it (it opens the file picker).
+      const image = imageAt(e);
+      const imageSection = image ? sectionOf(image) : null;
+      const id = imageSection?.dataset.msSection;
+      if (!image || !id || !image.dataset.msImage) return;
       e.preventDefault();
       e.stopPropagation();
-      startEdit(el, section);
+      finishEdit(false);
+      window.getSelection()?.removeAllRanges();
+      selected = id;
+      redraw();
+      post({ type: 'select', id });
+      post({
+        type: 'image',
+        id,
+        path: image.dataset.msImage,
+        purpose: image.dataset.msImagePurpose === 'logo' ? 'logo' : 'image',
+      });
     };
 
     const onInput = (e: Event) => {

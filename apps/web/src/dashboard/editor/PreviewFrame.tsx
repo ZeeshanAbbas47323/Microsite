@@ -26,6 +26,7 @@ export function PreviewFrame({
   onSelect,
   onNavigate,
   onText,
+  onImage,
   revealSignal = 0,
 }: {
   src: string | null;
@@ -38,6 +39,8 @@ export function PreviewFrame({
   onNavigate: (path: string) => void;
   /** Text was typed in place in the preview (double-click editing). */
   onText?: (id: string, path: string, value: string) => void;
+  /** An image in the preview was double-clicked: replace it. */
+  onImage?: (id: string, path: string, purpose: 'image' | 'logo') => void;
   /** Bump to play the build-up animation on the next version that loads. */
   revealSignal?: number;
 }) {
@@ -51,8 +54,8 @@ export function PreviewFrame({
   const frames = useRef<[HTMLIFrameElement | null, HTMLIFrameElement | null]>([null, null]);
   const counter = useRef(0);
   const origin = src ? new URL(src).origin : null;
-  const latest = useRef({ selectedId, hoverId, active, onSelect, onNavigate, onText });
-  latest.current = { selectedId, hoverId, active, onSelect, onNavigate, onText };
+  const latest = useRef({ selectedId, hoverId, active, onSelect, onNavigate, onText, onImage });
+  latest.current = { selectedId, hoverId, active, onSelect, onNavigate, onText, onImage };
   // While text is being typed in the preview, keep that page: reloading it would drop the caret.
   // The newest version loads as soon as the editing ends.
   const [heldSrc, setHeldSrc] = useState<string | null>(null);
@@ -119,7 +122,13 @@ export function PreviewFrame({
       if (e.origin !== origin || e.data?.source !== PREVIEW_MESSAGE_SOURCE) return;
       const index = frames.current.findIndex((f) => f?.contentWindow === e.source);
       if (index < 0) return;
-      const data = e.data as { type: string; id?: string; path?: string; value?: unknown };
+      const data = e.data as {
+        type: string;
+        id?: string;
+        path?: string;
+        value?: unknown;
+        purpose?: unknown;
+      };
       if (data.type === 'ready') {
         if (index === latest.current.active) {
           editing.current = false;
@@ -149,6 +158,8 @@ export function PreviewFrame({
         setHeldSrc(null);
       } else if (data.type === 'text' && data.id && data.path && typeof data.value === 'string') {
         latest.current.onText?.(data.id, data.path, data.value);
+      } else if (data.type === 'image' && data.id && data.path) {
+        latest.current.onImage?.(data.id, data.path, data.purpose === 'logo' ? 'logo' : 'image');
       }
     }
     window.addEventListener('message', onMessage);
